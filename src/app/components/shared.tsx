@@ -331,11 +331,11 @@ const _a = (type: string, field: string, val = '', cfg: Record<string, unknown> 
 export const SEED_RULES: Rule[] = [
   /* ── UC-A · Motor Pricing ─────────────────────── */
   {
-    id: 'r-mbpl', name: 'motor_base_premium_lookup_rule', category: 'Pricing',
+    id: 'r-mbpl', name: 'Motor Base Premium Lookup', category: 'Pricing',
     tags: ['motor', 'premium', 'lookup'], createdAt: '2024-10-05T08:00:00', createdBy: 'alice@insure.com',
     versions: [
       mkVer(1, 'ACTIVE',
-        'Triggers base premium lookup. Fires when policy.vehicleType is present, uses composite vehicleType|region key to query motor_base_premium_table, writes result to pricing.basePremium.',
+        'Looks up base premium from motor_base_premium_table using vehicleType and region, writes result to pricing.basePremium.',
         'Initial version', '2025-01-01T00:00:00',
         mkBlockRule({ match: 'and', conditions: [_c('policy.vehicleType', 'IS_NOT_NULL')] }, [
           _a('LOOKUP', 'pricing.basePremium', 'motor_base_premium_table', { compositeKey: 'policy.vehicleType|policy.region' }),
@@ -343,11 +343,11 @@ export const SEED_RULES: Rule[] = [
     ],
   },
   {
-    id: 'r-mncbl', name: 'motor_ncb_lookup_rule', category: 'Pricing',
+    id: 'r-mncbl', name: 'Motor NCB Rate Lookup', category: 'Pricing',
     tags: ['motor', 'ncb', 'lookup'], createdAt: '2024-10-05T08:00:00', createdBy: 'alice@insure.com',
     versions: [
       mkVer(1, 'ACTIVE',
-        'Fetches NCB discount rate from motor_ncb_rate_table using policy.claimFreeYears as key. Writes pricing.ncbDiscountPct for the Apply NCB Discount expression node.',
+        'Fetches NCB discount rate using claimFreeYears and writes pricing.ncbDiscountPct.',
         'Initial version', '2025-01-01T00:00:00',
         mkBlockRule({ match: 'and', conditions: [_c('policy.claimFreeYears', 'IS_NOT_NULL')] }, [
           _a('LOOKUP', 'pricing.ncbDiscountPct', 'motor_ncb_rate_table', { key: 'policy.claimFreeYears' }),
@@ -355,11 +355,11 @@ export const SEED_RULES: Rule[] = [
     ],
   },
   {
-    id: 'r-mydl', name: 'motor_young_driver_loading', category: 'Pricing',
+    id: 'r-mydl', name: 'Motor Young Driver Surcharge', category: 'Pricing',
     tags: ['motor', 'loading', 'young-driver'], createdAt: '2024-10-05T08:00:00', createdBy: 'alice@insure.com',
     versions: [
       mkVer(1, 'ACTIVE',
-        'Applies 15% surcharge to pricing.basePremium when driver.age < 25 and base premium is set. Records YOUNG_DRIVER_SURCHARGE_15PCT in loadingReasons for audit.',
+        'Applies 15% surcharge to base premium for drivers under 25. Logs YOUNG_DRIVER_SURCHARGE_15PCT to loadingReasons.',
         'Initial version', '2025-01-01T00:00:00',
         mkBlockRule({ match: 'and', conditions: [_c('driver.age', 'LESS_THAN', '25'), _c('pricing.basePremium', 'IS_NOT_NULL')] }, [
           _a('APPLY_PERCENTAGE', 'pricing.basePremium', '15', { mode: 'surcharge' }),
@@ -371,18 +371,18 @@ export const SEED_RULES: Rule[] = [
 
   /* ── UC-B · Maternity Waiting Period ─────────── */
   {
-    id: 'r-hmwp', name: 'health_maternity_waiting_period_check', category: 'Compliance',
+    id: 'r-hmwp', name: 'Maternity Waiting Period Check', category: 'Compliance',
     tags: ['health', 'maternity', 'eligibility', 'blocker'], createdAt: '2024-11-01T08:00:00', createdBy: 'carol@insure.com',
     versions: [
       mkVer(1, 'INACTIVE',
-        'Initial check: blocks maternity claims where continuousCoverageMonths < 24. Missing lapse flag check — superseded by v2.',
+        'Blocks maternity claims with < 24 months continuous coverage. Missing lapse check — superseded by v2.',
         'Initial version', '2025-02-01T00:00:00',
         mkBlockRule({ match: 'and', conditions: [_c('claim.benefitCode', 'EQUALS', 'MATERNITY'), _c('policy.continuousCoverageMonths', 'LESS_THAN', '24')] }, [
           _a('ASSIGN', 'claim.eligible', 'false'),
           _a('ADD_TO_LIST', 'claim.rejectionReasons', 'MATERNITY_WAITING_PERIOD_NOT_SERVED'),
         ])),
       mkVer(2, 'ACTIVE',
-        'Blocker-severity. Blocks maternity claims where continuous coverage < 24 months OR policy lapse in last 24 months. Validates treatment date within active policy window via DATE_BETWEEN fact references. Regulator-grade audit, 2190-day retention.',
+        'Blocks maternity claims with < 24 months continuous coverage or a lapse in the last 24 months. Validates treatment date falls within the active policy window.',
         'Added lapse OR sub-group and DATE_BETWEEN treatment date validation per regulator requirement', '2025-06-01T00:00:00',
         mkBlockRule({ match: 'and', conditions: [
           _c('claim.benefitCode', 'EQUALS', 'MATERNITY'),
@@ -397,11 +397,11 @@ export const SEED_RULES: Rule[] = [
     ],
   },
   {
-    id: 'r-hmwr', name: 'health_maternity_waiting_reset_on_lapse', category: 'Compliance',
+    id: 'r-hmwr', name: 'Maternity Coverage Reset on Lapse', category: 'Compliance',
     tags: ['health', 'maternity', 'lapse', 'reset'], createdAt: '2024-11-01T08:00:00', createdBy: 'carol@insure.com',
     versions: [
       mkVer(1, 'ACTIVE',
-        'Detects policy reinstatement after lapse gap > 30 days and resets continuous coverage counter to zero. Must run before maternity eligibility check to ensure accurate coverage clock.',
+        'Resets continuous coverage to zero when policy lapse gap exceeds 30 days. Must run before the maternity waiting period check.',
         'Initial version', '2025-02-01T00:00:00',
         mkBlockRule({ match: 'and', conditions: [_c('policy.lapseGapDays', 'GREATER_THAN', '30'), _c('policy.reinstatementDate', 'IS_NOT_NULL')] }, [
           _a('ASSIGN', 'policy.hasLapseInLast24Months', 'true'),
@@ -413,24 +413,24 @@ export const SEED_RULES: Rule[] = [
 
   /* ── UC-C · Critical Illness Rider ───────────── */
   {
-    id: 'r-ciree', name: 'ci_rider_eligibility_with_exceptions', category: 'Underwriting',
+    id: 'r-ciree', name: 'CI Rider Eligibility Check', category: 'Underwriting',
     tags: ['ci-rider', 'eligibility', 'bmi', 'diabetic'], createdAt: '2024-12-01T08:00:00', createdBy: 'alice@insure.com',
     versions: [
       mkVer(1, 'INACTIVE',
-        'Initial CI rider eligibility: age 18–60, no pre-existing conditions, BMI < 32 only. No exception branches.',
+        'Basic CI rider eligibility: age 18–60, no pre-existing conditions, BMI < 32. No exception handling.',
         'Initial version', '2025-01-01T00:00:00',
         mkBlockRule({ match: 'and', conditions: [_c('applicant.age', 'BETWEEN', '18', '60'), _c('applicant.preExistingConditions', 'IS_NULL'), _c('applicant.bmi', 'LESS_THAN', '32')] }, [
           _a('ASSIGN', 'rider.ciEligible', 'true'),
         ])),
       mkVer(2, 'ACTIVE',
-        'Multi-layer eligibility with four AND/OR nesting levels. Adds borderline BMI exception (32–35 with underwriting score > 85) and diabetic exception (controlled HbA1c < 7, no complications). Decline-severity.',
+        'CI rider eligibility with BMI exception (32–35, UW score > 85) and diabetic exception (HbA1c < 7, no complications).',
         'Added borderline BMI and diabetic OR exception branches', '2025-04-01T00:00:00',
         mkBlockRule({ match: 'and', conditions: [_c('applicant.age', 'BETWEEN', '18', '60'), _c('applicant.preExistingConditions', 'IS_NULL'), _c('applicant.bmi', 'LESS_THAN', '32')] }, [
           _a('ASSIGN', 'rider.ciEligible', 'true'),
           _a('ADD_MESSAGE', '', '', { template: 'CI rider approved. Age: {{applicant.age}}, BMI: {{applicant.bmi}}.' }),
         ]), '2025-04-11T09:30:00'),
       mkVer(3, 'PEER_REVIEW',
-        'Proposed: relax HbA1c threshold from < 7 to < 7.5 for well-controlled diabetics, per medical advisory board recommendation.',
+        'Proposed: raise HbA1c threshold to < 7.5 for well-controlled diabetics per medical advisory board.',
         'Relax HbA1c threshold to < 7.5 per clinical review', '2025-11-01T00:00:00',
         mkBlockRule({ match: 'and', conditions: [_c('applicant.age', 'BETWEEN', '18', '60'), _c('applicant.hba1c', 'LESS_THAN', '7.5')] }, [
           _a('ASSIGN', 'rider.ciEligible', 'true'),
@@ -438,11 +438,11 @@ export const SEED_RULES: Rule[] = [
     ],
   },
   {
-    id: 'r-cisl', name: 'ci_rider_smoker_loading', category: 'Underwriting',
+    id: 'r-cisl', name: 'CI Rider Smoker Loading', category: 'Underwriting',
     tags: ['ci-rider', 'loading', 'smoker'], createdAt: '2024-12-01T08:00:00', createdBy: 'alice@insure.com',
     versions: [
       mkVer(1, 'ACTIVE',
-        'Applies 25% premium surcharge and doubles waiting period for CURRENT_SMOKER or RECENT_QUITTER who are approved for the CI rider. Runs after eligibility is confirmed.',
+        'Applies 25% surcharge and doubles waiting period for current smokers or recent quitters approved for the CI rider.',
         'Initial version', '2025-04-01T00:00:00',
         mkBlockRule({ match: 'and', conditions: [_c('applicant.smokingStatus', 'IN', 'CURRENT_SMOKER,RECENT_QUITTER'), _c('rider.ciEligible', 'EQUALS', 'true')] }, [
           _a('APPLY_PERCENTAGE', 'rider.ciBasePremium', '25', { mode: 'surcharge' }),
@@ -451,7 +451,7 @@ export const SEED_RULES: Rule[] = [
           _a('ADD_MESSAGE', '', '', { template: '25% smoker loading applied. Waiting period doubled. Status: {{applicant.smokingStatus}}.' }),
         ]), '2025-04-18T15:45:00'),
       mkVer(2, 'DRAFT',
-        'Proposed: split loading — CURRENT_SMOKER 30%, RECENT_QUITTER 15% — per updated actuarial tables.',
+        'Proposed: differential loading — 30% for current smokers, 15% for recent quitters.',
         'Differential loading rate by smoking recency', '2025-12-01T00:00:00',
         mkBlockRule({ match: 'and', conditions: [_c('applicant.smokingStatus', 'IN', 'CURRENT_SMOKER,RECENT_QUITTER'), _c('rider.ciEligible', 'EQUALS', 'true')] }, [
           _a('APPLY_PERCENTAGE', 'rider.ciBasePremium', '30', { mode: 'surcharge' }),
@@ -461,11 +461,11 @@ export const SEED_RULES: Rule[] = [
 
   /* ── UC-D · Claims Fraud Detection ───────────── */
   {
-    id: 'r-cfsa', name: 'claims_fraud_score_aggregator', category: 'Claims',
+    id: 'r-cfsa', name: 'Fraud Score Aggregator', category: 'Claims',
     tags: ['fraud', 'aggregation', 'scoring'], createdAt: '2025-01-10T08:00:00', createdBy: 'bob@insure.com',
     versions: [
       mkVer(1, 'ACTIVE',
-        'Mandatory aggregation step. Runs SUM_LIST over fraud.detections extracting points field into fraud.totalScore. Without this rule, totalScore stays null and escalation rule never fires. Must run after fraud signal table.',
+        'Sums fraud detection points from fraud.detections into fraud.totalScore. Must run after the fraud signal table.',
         'Initial version', '2025-03-01T00:00:00',
         mkBlockRule({ match: 'and', conditions: [_c('fraud.detections', 'IS_NOT_NULL')] }, [
           _a('SUM_LIST', 'fraud.totalScore', 'fraud.detections', { itemField: 'points' }),
@@ -474,17 +474,17 @@ export const SEED_RULES: Rule[] = [
     ],
   },
   {
-    id: 'r-cfe', name: 'claims_fraud_escalation', category: 'Claims',
+    id: 'r-cfe', name: 'Fraud Score Escalation', category: 'Claims',
     tags: ['fraud', 'escalation', 'review'], createdAt: '2025-01-10T08:00:00', createdBy: 'bob@insure.com',
     versions: [
       mkVer(1, 'DEPRECATED',
-        'Original threshold of 40 points caused excessive false positives. Deprecated after threshold recalibration.',
+        'Threshold of 40 points caused too many false positives — deprecated after recalibration.',
         'Initial version — threshold 40', '2025-03-01T00:00:00',
         mkBlockRule({ match: 'and', conditions: [_c('fraud.totalScore', 'GREATER_THAN_OR_EQUAL', '40')] }, [
           _a('ASSIGN', 'claim.decisionLane', 'REVIEW'),
         ])),
       mkVer(2, 'ACTIVE',
-        'Final step in fraud detection chain. Escalates claim to REVIEW when cumulative fraud score ≥ 50. Creates FRAUD_INVESTIGATION task carrying claim ID, score, and signals list.',
+        'Escalates claim to REVIEW and creates a FRAUD_INVESTIGATION task when fraud score ≥ 50.',
         'Raised threshold to 50 based on false-positive analysis', '2025-06-01T00:00:00',
         mkBlockRule({ match: 'and', conditions: [_c('fraud.totalScore', 'GREATER_THAN_OR_EQUAL', '50')] }, [
           _a('ASSIGN', 'claim.decisionLane', 'REVIEW'),
@@ -496,11 +496,11 @@ export const SEED_RULES: Rule[] = [
 
   /* ── UC-E · Renewal Loyalty ───────────────────── */
   {
-    id: 'r-racc', name: 'renewal_aggregate_claim_count', category: 'Operations',
+    id: 'r-racc', name: 'Renewal Claim Count Aggregation', category: 'Operations',
     tags: ['renewal', 'aggregation', 'claims'], createdAt: '2025-02-01T08:00:00', createdBy: 'alice@insure.com',
     versions: [
       mkVer(1, 'ACTIVE',
-        'Aggregates total claim count across previous three policy years using SUM_LIST over policy.claimHistory (itemField: countInPeriod). Fires only on ANNUAL_RENEWAL trigger. Result feeds upgrade and loading rules downstream.',
+        'Sums claims over the last 3 years from policy.claimHistory on ANNUAL_RENEWAL. Result feeds downstream upgrade and loading rules.',
         'Initial version', '2025-04-01T00:00:00',
         mkBlockRule({ match: 'and', conditions: [_c('renewal.triggerType', 'EQUALS', 'ANNUAL_RENEWAL'), _c('policy.claimHistory', 'IS_NOT_NULL')] }, [
           _a('SUM_LIST', 'renewal.claimCountLast3Years', 'policy.claimHistory', { itemField: 'countInPeriod' }),
@@ -509,11 +509,11 @@ export const SEED_RULES: Rule[] = [
     ],
   },
   {
-    id: 'r-rauzc', name: 'renewal_auto_upgrade_zero_claim', category: 'Operations',
+    id: 'r-rauzc', name: 'Renewal Zero-Claim Auto-Upgrade', category: 'Operations',
     tags: ['renewal', 'upgrade', 'ncb', 'loyalty'], createdAt: '2025-02-01T08:00:00', createdBy: 'alice@insure.com',
     versions: [
       mkVer(1, 'ACTIVE',
-        'Upgrades policy tier to next level and awards maximum 50% NCB when claimCountLast3Years = 0 and grace period has not expired. Uses renewal_tier_progression_table for next tier lookup.',
+        'Upgrades policy tier and awards 50% NCB when claimCountLast3Years = 0 and grace period is active.',
         'Initial version', '2025-04-01T00:00:00',
         mkBlockRule({ match: 'and', conditions: [_c('renewal.claimCountLast3Years', 'EQUALS', '0'), _c('renewal.gracePeriodExpired', 'EQUALS', 'false')] }, [
           _a('LOOKUP', 'renewal.nextTier', 'renewal_tier_progression_table', { key: 'policy.currentTier' }),
@@ -523,11 +523,11 @@ export const SEED_RULES: Rule[] = [
     ],
   },
   {
-    id: 'r-rlhc', name: 'renewal_loading_high_claim', category: 'Operations',
+    id: 'r-rlhc', name: 'Renewal High-Claim Premium Loading', category: 'Operations',
     tags: ['renewal', 'loading', 'high-claim'], createdAt: '2025-02-01T08:00:00', createdBy: 'alice@insure.com',
     versions: [
       mkVer(1, 'ACTIVE',
-        'Applies 20% premium loading and restricts provider network when claimCountLast3Years > 2. Runs in parallel with zero-claim upgrade rule in renewal flow.',
+        'Applies 20% premium loading and restricts provider network when claims in last 3 years exceed 2.',
         'Initial version', '2025-04-01T00:00:00',
         mkBlockRule({ match: 'and', conditions: [_c('renewal.claimCountLast3Years', 'GREATER_THAN', '2')] }, [
           _a('APPLY_PERCENTAGE', 'renewal.basePremium', '20', { mode: 'loading' }),
@@ -536,7 +536,7 @@ export const SEED_RULES: Rule[] = [
           _a('ADD_MESSAGE', '', '', { template: '20% loading applied. Claims last 3 years: {{renewal.claimCountLast3Years}}.' }),
         ]), '2025-04-14T13:30:00'),
       mkVer(2, 'BUSINESS_REVIEW',
-        'Proposed: increase loading to 25% and add mandatory telephonic underwriting for members with > 4 claims per actuarial committee recommendation.',
+        'Proposed: increase loading to 25% and require telephonic underwriting for members with > 4 claims.',
         'Increased loading 20% → 25% and added telephonic UW trigger', '2025-12-01T00:00:00',
         mkBlockRule({ match: 'and', conditions: [_c('renewal.claimCountLast3Years', 'GREATER_THAN', '2')] }, [
           _a('APPLY_PERCENTAGE', 'renewal.basePremium', '25', { mode: 'loading' }),
@@ -546,11 +546,11 @@ export const SEED_RULES: Rule[] = [
 
   /* ── UC-F · Claims STP ────────────────────────── */
   {
-    id: 'r-cpeg', name: 'claims_policy_eligibility_gate', category: 'Claims',
+    id: 'r-cpeg', name: 'Claims Policy Eligibility Gate', category: 'Claims',
     tags: ['stp', 'eligibility', 'gate', 'hard-stop'], createdAt: '2025-03-01T08:00:00', createdBy: 'bob@insure.com',
     versions: [
       mkVer(1, 'ACTIVE',
-        'Hard eligibility gate — first rule node (STP node 3), onError: stop. Verifies policy is ACTIVE, benefit code is present, and treatment date falls within policy window via DATE_BETWEEN fact references. Decline-severity.',
+        'Hard-stop gate. Verifies policy is ACTIVE, benefit code is present, and treatment date is within the policy window.',
         'Initial version', '2025-05-01T00:00:00',
         mkBlockRule({ match: 'and', conditions: [
           _c('policy.status', 'EQUALS', 'ACTIVE'),
@@ -563,11 +563,11 @@ export const SEED_RULES: Rule[] = [
     ],
   },
   {
-    id: 'r-cpnc', name: 'claims_provider_network_check', category: 'Claims',
+    id: 'r-cpnc', name: 'Claims Provider Network Classification', category: 'Claims',
     tags: ['stp', 'provider', 'network'], createdAt: '2025-03-01T08:00:00', createdBy: 'bob@insure.com',
     versions: [
       mkVer(1, 'ACTIVE',
-        'Looks up provider network tier using claim.providerId as key in provider_network_tier_table. Runs in parallel with fraud signal table (STP nodes 5 & 6). Result (IN_NETWORK / OUT_OF_NETWORK / GAP) drives the final STP gate.',
+        'Classifies provider as IN_NETWORK, OUT_OF_NETWORK, or GAP using claim.providerId. Result drives the STP decision gate.',
         'Initial version', '2025-05-01T00:00:00',
         mkBlockRule({ match: 'and', conditions: [_c('claim.providerId', 'IS_NOT_NULL')] }, [
           _a('LOOKUP', 'provider.networkTier', 'provider_network_tier_table', { key: 'claim.providerId' }),
@@ -576,17 +576,17 @@ export const SEED_RULES: Rule[] = [
     ],
   },
   {
-    id: 'r-csdg', name: 'claims_stp_decision_gate', category: 'Claims',
+    id: 'r-csdg', name: 'Claims STP Decision Gate', category: 'Claims',
     tags: ['stp', 'auto-approve', 'gate'], createdAt: '2025-03-01T08:00:00', createdBy: 'bob@insure.com',
     versions: [
       mkVer(1, 'INACTIVE',
-        'Initial STP gate: auto-approved when fraud score = 0 and provider IN_NETWORK. Missing deductible check caused zero-deductible edge case bypass — superseded by v2.',
+        'Auto-approves when fraud score = 0 and provider is IN_NETWORK. Missing deductible check — superseded by v2.',
         'Initial version — missing deductible check', '2025-05-01T00:00:00',
         mkBlockRule({ match: 'and', conditions: [_c('fraud.totalScore', 'EQUALS', '0'), _c('provider.networkTier', 'EQUALS', 'IN_NETWORK')] }, [
           _a('ASSIGN', 'adjudication.stpPassed', 'true'),
         ])),
       mkVer(2, 'ACTIVE',
-        'Final gate in STP pipeline (node 11). Auto-approves only when fraud.totalScore = 0, provider is IN_NETWORK, and claim.deductibleRemaining ≥ 0. Any failure routes to non-STP lane for human review.',
+        'Auto-approves claims when fraud score = 0, provider is IN_NETWORK, and deductible remaining ≥ 0. Failures route to manual review.',
         'Added deductibleRemaining ≥ 0 check to close zero-deductible bypass', '2025-08-01T00:00:00',
         mkBlockRule({ match: 'and', conditions: [
           _c('fraud.totalScore', 'EQUALS', '0'),
@@ -604,11 +604,11 @@ export const SEED_RULES: Rule[] = [
 export const SEED_TABLES: Table[] = [
   /* ── UC-A · Motor Pricing ── */
   {
-    id: 't-mpc', name: 'motor_premium_cap_table', category: 'Pricing',
+    id: 't-mpc', name: 'Motor Premium Cap', category: 'Pricing',
     tags: ['motor', 'cap', 'regulatory'], createdAt: '2024-10-10T08:00:00',
     versions: [{
       id: uid(), version: 1, status: 'ACTIVE',
-      description: 'Priority-ordered table enforcing regulatory caps on motor premium discounts (max 60%) and loadings (max 100%). Null cell = wildcard. First matching row by priority wins.',
+      description: 'Enforces regulatory caps on motor discounts (max 60%) and loadings (max 100%). Uses priority-order hit policy.',
       changeSummary: 'Initial version', effectiveFrom: '2025-01-01T00:00:00', effectiveUntil: null,
       table: {
         hitPolicy: 'priority_order',
@@ -631,12 +631,12 @@ export const SEED_TABLES: Table[] = [
   },
   /* ── UC-D · Claims Fraud ── */
   {
-    id: 't-cfst', name: 'claims_fraud_signal_table', category: 'Claims',
+    id: 't-cfst', name: 'Claims Fraud Signal Detection', category: 'Claims',
     tags: ['fraud', 'detection', 'collect-all'], createdAt: '2025-01-15T08:00:00',
     versions: [
       {
         id: uid(), version: 1, status: 'INACTIVE',
-        description: 'Initial fraud signal table with 3 signals. DOCUMENT_MISMATCH signal missing — added in v2.',
+        description: '3 fraud signals. DOCUMENT_MISMATCH signal missing — added in v2.',
         changeSummary: 'Initial version — 3 signals', effectiveFrom: '2025-03-01T00:00:00', effectiveUntil: null,
         table: {
           hitPolicy: 'collect_all',
@@ -658,7 +658,7 @@ export const SEED_TABLES: Table[] = [
       },
       {
         id: uid(), version: 2, status: 'ACTIVE',
-        description: 'collect_all table — all matching rows fire simultaneously. Each match appends {signal, points} to fraud.detections. Added DOCUMENT_MISMATCH (35 pts). Null cell = wildcard.',
+        description: 'Collects all matching fraud signals into fraud.detections. Includes DOCUMENT_MISMATCH (35 pts). Null = wildcard.',
         changeSummary: 'Added DOCUMENT_MISMATCH signal (35 pts) from claims audit findings', effectiveFrom: '2025-07-01T00:00:00', effectiveUntil: null,
         table: {
           hitPolicy: 'collect_all',
@@ -684,12 +684,12 @@ export const SEED_TABLES: Table[] = [
   },
   /* ── UC-F · Claims STP ── */
   {
-    id: 't-clibc', name: 'claims_line_item_benefit_cap_table', category: 'Claims',
+    id: 't-clibc', name: 'Claims Line Item Benefit Cap', category: 'Claims',
     tags: ['stp', 'benefit-cap', 'line-item'], createdAt: '2025-03-05T08:00:00',
     versions: [
       {
         id: uid(), version: 1, status: 'ACTIVE',
-        description: 'first_match table applied per line item inside STP loop node (node 9). Caps ROOM_RENT ₹10k, SURGERY ₹50k, PHARMACY ₹15k. Wildcard row passes uncapped amounts.',
+        description: 'Caps line item amounts: ROOM_RENT ₹10k, SURGERY ₹50k, PHARMACY ₹15k. Unmatched items pass through uncapped.',
         changeSummary: 'Initial version', effectiveFrom: '2025-05-01T00:00:00', effectiveUntil: null,
         table: {
           hitPolicy: 'first_match',
@@ -711,7 +711,7 @@ export const SEED_TABLES: Table[] = [
       },
       {
         id: uid(), version: 2, status: 'COMPLIANCE_REVIEW',
-        description: 'Proposed cap revision per IRDAI 2026 circular: SURGERY cap ₹50k → ₹75k, new ICU cap ₹20k.',
+        description: 'Proposed per IRDAI 2026: SURGERY cap raised to ₹75k, new ICU cap of ₹20k.',
         changeSummary: 'Revised caps per IRDAI 2026 circular — surgery ₹75k, add ICU ₹20k', effectiveFrom: '2026-01-01T00:00:00', effectiveUntil: null,
         table: {
           hitPolicy: 'first_match',
@@ -739,21 +739,21 @@ export const SEED_TABLES: Table[] = [
 export const SEED_FLOWS: Flow[] = [
   /* ── UC-A · Motor Pricing ── */
   {
-    id: 'f-mpof', name: 'motor_pricing_orchestration_flow', category: 'Pricing',
+    id: 'f-mpof', name: 'Motor Pricing Orchestration', category: 'Pricing',
     tags: ['motor', 'pricing', 'orchestration'], stopOnError: false, createdAt: '2024-10-20T08:00:00',
     versions: [{
       id: uid(), version: 1, status: 'ACTIVE',
-      description: 'Seven-node strictly sequential flow defining the legal execution order for motor premium calculation. Ensures NCB discount is applied before young driver loading, and the cap table sees final amounts.',
+      description: 'Sequential flow for motor premium calculation: base lookup → NCB discount → young driver surcharge → cap enforcement.',
       changeSummary: 'Initial version', effectiveFrom: '2025-01-01T00:00:00', effectiveUntil: null,
       flow: {
         mergeStrategy: 'last_writer_wins',
         nodes: [
           { id: 1, type: 'start', name: 'Pricing Start' },
-          { id: 2, type: 'rule', name: 'Base Premium Lookup', config: { ruleRef: 'motor_base_premium_lookup_rule' } },
-          { id: 3, type: 'rule', name: 'NCB Discount Lookup', config: { ruleRef: 'motor_ncb_lookup_rule' } },
+          { id: 2, type: 'rule', name: 'Base Premium Lookup', config: { ruleRef: 'Motor Base Premium Lookup' } },
+          { id: 3, type: 'rule', name: 'NCB Discount Lookup', config: { ruleRef: 'Motor NCB Rate Lookup' } },
           { id: 4, type: 'expression', name: 'Apply NCB Discount' },
-          { id: 5, type: 'rule', name: 'Young Driver Loading', config: { ruleRef: 'motor_young_driver_loading' } },
-          { id: 6, type: 'table', name: 'Premium Cap', config: { tableRef: 'motor_premium_cap_table' } },
+          { id: 5, type: 'rule', name: 'Young Driver Loading', config: { ruleRef: 'Motor Young Driver Surcharge' } },
+          { id: 6, type: 'table', name: 'Premium Cap', config: { tableRef: 'Motor Premium Cap' } },
           { id: 7, type: 'end', name: 'Pricing Complete' },
         ],
         edges: [
@@ -765,20 +765,20 @@ export const SEED_FLOWS: Flow[] = [
   },
   /* ── UC-E · Renewal Loyalty ── */
   {
-    id: 'f-rdf', name: 'renewal_decision_flow', category: 'Operations',
+    id: 'f-rdf', name: 'Renewal Loyalty Decision', category: 'Operations',
     tags: ['renewal', 'loyalty', 'parallel'], stopOnError: true, createdAt: '2025-02-05T08:00:00',
     versions: [
       {
         id: uid(), version: 1, status: 'ACTIVE',
-        description: 'Five-node flow with parallel fork after claim count aggregation. Zero-claim upgrade and high-claim loading run simultaneously on separate branches, each guarded by a when condition.',
+        description: 'Aggregates claim count, then forks in parallel: zero-claim upgrade and high-claim loading run simultaneously.',
         changeSummary: 'Initial version', effectiveFrom: '2025-04-01T00:00:00', effectiveUntil: null,
         flow: {
           mergeStrategy: 'last_writer_wins',
           nodes: [
             { id: 1, type: 'start', name: 'Renewal Start' },
-            { id: 2, type: 'rule', name: 'Aggregate Claim Count', config: { ruleRef: 'renewal_aggregate_claim_count' } },
-            { id: 3, type: 'rule', name: 'Zero-Claim Auto-Upgrade', config: { ruleRef: 'renewal_auto_upgrade_zero_claim' } },
-            { id: 4, type: 'rule', name: 'High-Claim Loading', config: { ruleRef: 'renewal_loading_high_claim' } },
+            { id: 2, type: 'rule', name: 'Aggregate Claim Count', config: { ruleRef: 'Renewal Claim Count Aggregation' } },
+            { id: 3, type: 'rule', name: 'Zero-Claim Auto-Upgrade', config: { ruleRef: 'Renewal Zero-Claim Auto-Upgrade' } },
+            { id: 4, type: 'rule', name: 'High-Claim Loading', config: { ruleRef: 'Renewal High-Claim Premium Loading' } },
             { id: 5, type: 'end', name: 'Renewal Complete' },
           ],
           edges: [
@@ -789,16 +789,16 @@ export const SEED_FLOWS: Flow[] = [
       },
       {
         id: uid(), version: 2, status: 'DRAFT',
-        description: 'Proposed: add grace period alert node and MID_TERM trigger support.',
+        description: 'Proposed: add grace period alert node and MID_TERM trigger path.',
         changeSummary: 'Add MID_TERM trigger path and grace period alert node', effectiveFrom: '2026-01-01T00:00:00', effectiveUntil: null,
         flow: {
           mergeStrategy: 'last_writer_wins',
           nodes: [
             { id: 1, type: 'start', name: 'Renewal Start' },
             { id: 2, type: 'rule', name: 'Grace Period Alert' },
-            { id: 3, type: 'rule', name: 'Aggregate Claim Count', config: { ruleRef: 'renewal_aggregate_claim_count' } },
-            { id: 4, type: 'rule', name: 'Zero-Claim Auto-Upgrade', config: { ruleRef: 'renewal_auto_upgrade_zero_claim' } },
-            { id: 5, type: 'rule', name: 'High-Claim Loading', config: { ruleRef: 'renewal_loading_high_claim' } },
+            { id: 3, type: 'rule', name: 'Aggregate Claim Count', config: { ruleRef: 'Renewal Claim Count Aggregation' } },
+            { id: 4, type: 'rule', name: 'Zero-Claim Auto-Upgrade', config: { ruleRef: 'Renewal Zero-Claim Auto-Upgrade' } },
+            { id: 5, type: 'rule', name: 'High-Claim Loading', config: { ruleRef: 'Renewal High-Claim Premium Loading' } },
             { id: 6, type: 'end', name: 'Renewal Complete' },
           ],
           edges: [
@@ -812,26 +812,26 @@ export const SEED_FLOWS: Flow[] = [
   },
   /* ── UC-F · Claims STP (main + 3 subflows) ── */
   {
-    id: 'f-csaf', name: 'claims_stp_adjudication_flow', category: 'Claims',
+    id: 'f-csaf', name: 'Claims STP Adjudication', category: 'Claims',
     tags: ['stp', 'adjudication', 'auto-approve', 'parallel'], stopOnError: false, createdAt: '2025-03-10T08:00:00',
     versions: [{
       id: uid(), version: 1, status: 'ACTIVE',
-      description: 'Twelve-node pipeline covering every flow node type. Mid-flow parallel fork (fraud + network, wait_all join), conditional fraud escalation, subflow fork by claim type, per-item benefit cap loop, and final STP gate. Designed for < 2s auto-approval of clean in-network claims.',
+      description: 'End-to-end STP pipeline: eligibility gate → parallel fraud + network check → claim type subflow → benefit cap loop → auto-approve gate.',
       changeSummary: 'Initial version', effectiveFrom: '2025-05-01T00:00:00', effectiveUntil: null,
       flow: {
         mergeStrategy: 'fail_on_conflict',
         nodes: [
           { id: 1, type: 'start', name: 'Claim Received' },
           { id: 2, type: 'transform', name: 'Normalize Payload' },
-          { id: 3, type: 'rule', name: 'Policy Eligibility Gate', config: { ruleRef: 'claims_policy_eligibility_gate' } },
+          { id: 3, type: 'rule', name: 'Policy Eligibility Gate', config: { ruleRef: 'Claims Policy Eligibility Gate' } },
           { id: 4, type: 'expression', name: 'Compute Deductible' },
-          { id: 5, type: 'table', name: 'Fraud Signal Check', config: { tableRef: 'claims_fraud_signal_table' } },
-          { id: 6, type: 'rule', name: 'Provider Network Classification', config: { ruleRef: 'claims_provider_network_check' } },
-          { id: 7, type: 'rule', name: 'Fraud Score Threshold', config: { ruleRef: 'claims_fraud_escalation' } },
+          { id: 5, type: 'table', name: 'Fraud Signal Check', config: { tableRef: 'Claims Fraud Signal Detection' } },
+          { id: 6, type: 'rule', name: 'Provider Network Classification', config: { ruleRef: 'Claims Provider Network Classification' } },
+          { id: 7, type: 'rule', name: 'Fraud Score Threshold', config: { ruleRef: 'Fraud Score Escalation' } },
           { id: 8, type: 'subflow', name: 'Claim Type Router' },
           { id: 9, type: 'loop', name: 'Per-Item Benefit Cap' },
           { id: 10, type: 'expression', name: 'Compute Final Payable' },
-          { id: 11, type: 'rule', name: 'STP Auto-Approve Gate', config: { ruleRef: 'claims_stp_decision_gate' } },
+          { id: 11, type: 'rule', name: 'STP Auto-Approve Gate', config: { ruleRef: 'Claims STP Decision Gate' } },
           { id: 12, type: 'end', name: 'Adjudication Complete' },
         ],
         edges: [
@@ -844,18 +844,18 @@ export const SEED_FLOWS: Flow[] = [
     }],
   },
   {
-    id: 'f-chsf', name: 'claims_hospitalization_subflow', category: 'Claims',
+    id: 'f-chsf', name: 'Claims Hospitalization Processing', category: 'Claims',
     tags: ['stp', 'hospitalization', 'subflow'], stopOnError: true, createdAt: '2025-03-12T08:00:00',
     versions: [
       {
         id: uid(), version: 1, status: 'INACTIVE',
-        description: 'Initial hospitalization subflow. Missing DRG validation node — caused incorrect room-rent categorisation for ICU admissions.',
+        description: 'Basic hospitalization subflow. Missing DRG validation — caused incorrect ICU room-rent categorisation.',
         changeSummary: 'Initial version — DRG validation absent', effectiveFrom: '2025-05-01T00:00:00', effectiveUntil: null,
         flow: {
           mergeStrategy: 'last_writer_wins',
           nodes: [
             { id: 1, type: 'start', name: 'Hosp Entry' },
-            { id: 2, type: 'rule', name: 'Room Rent Cap Check', config: { tableRef: 'claims_line_item_benefit_cap_table' } },
+            { id: 2, type: 'rule', name: 'Room Rent Cap Check', config: { tableRef: 'Claims Line Item Benefit Cap' } },
             { id: 3, type: 'expression', name: 'Compute Inpatient Payable' },
             { id: 4, type: 'end', name: 'Hosp Exit' },
           ],
@@ -864,14 +864,14 @@ export const SEED_FLOWS: Flow[] = [
       },
       {
         id: uid(), version: 2, status: 'ACTIVE',
-        description: 'Hospitalization subflow called from claims_stp_adjudication_flow node 8 when claim.type = HOSPITALIZATION. Handles DRG classification, room-rent and surgery cap validation, ICU surcharge, and inpatient payable computation.',
+        description: 'Handles inpatient claims: DRG classification, room-rent and surgery cap, ICU surcharge, and inpatient payable computation.',
         changeSummary: 'Added DRG classification node and ICU surcharge expression', effectiveFrom: '2025-08-15T00:00:00', effectiveUntil: null,
         flow: {
           mergeStrategy: 'last_writer_wins',
           nodes: [
             { id: 1, type: 'start', name: 'Hosp Entry' },
             { id: 2, type: 'expression', name: 'DRG Classification' },
-            { id: 3, type: 'table', name: 'Room Rent & Surgery Cap', config: { tableRef: 'claims_line_item_benefit_cap_table' } },
+            { id: 3, type: 'table', name: 'Room Rent & Surgery Cap', config: { tableRef: 'Claims Line Item Benefit Cap' } },
             { id: 4, type: 'expression', name: 'ICU Surcharge Check' },
             { id: 5, type: 'expression', name: 'Compute Inpatient Payable' },
             { id: 6, type: 'end', name: 'Hosp Exit' },
@@ -885,18 +885,18 @@ export const SEED_FLOWS: Flow[] = [
     ],
   },
   {
-    id: 'f-cosf', name: 'claims_outpatient_subflow', category: 'Claims',
+    id: 'f-cosf', name: 'Claims Outpatient Processing', category: 'Claims',
     tags: ['stp', 'outpatient', 'subflow'], stopOnError: false, createdAt: '2025-03-12T08:00:00',
     versions: [{
       id: uid(), version: 1, status: 'ACTIVE',
-      description: 'Outpatient subflow called from claims_stp_adjudication_flow node 8 when claim.type = OUTPATIENT. Validates consultation fees, diagnostic co-pay, and pharmacy benefit cap before computing the outpatient payable amount.',
+      description: 'Handles outpatient claims: consultation fee validation, pharmacy cap, diagnostic co-pay, and OP payable computation.',
       changeSummary: 'Initial version', effectiveFrom: '2025-05-01T00:00:00', effectiveUntil: null,
       flow: {
         mergeStrategy: 'last_writer_wins',
         nodes: [
           { id: 1, type: 'start', name: 'OP Entry' },
           { id: 2, type: 'rule', name: 'Consult Fee Validation' },
-          { id: 3, type: 'table', name: 'Pharmacy Benefit Cap', config: { tableRef: 'claims_line_item_benefit_cap_table' } },
+          { id: 3, type: 'table', name: 'Pharmacy Benefit Cap', config: { tableRef: 'Claims Line Item Benefit Cap' } },
           { id: 4, type: 'expression', name: 'Apply Diagnostic Co-Pay' },
           { id: 5, type: 'expression', name: 'Compute OP Payable' },
           { id: 6, type: 'end', name: 'OP Exit' },
@@ -909,18 +909,18 @@ export const SEED_FLOWS: Flow[] = [
     }],
   },
   {
-    id: 'f-cdsf', name: 'claims_default_processing_subflow', category: 'Claims',
+    id: 'f-cdsf', name: 'Claims Default Processing', category: 'Claims',
     tags: ['stp', 'default', 'subflow', 'fallback'], stopOnError: false, createdAt: '2025-03-12T08:00:00',
     versions: [
       {
         id: uid(), version: 1, status: 'ACTIVE',
-        description: 'Default fallback subflow invoked from claims_stp_adjudication_flow node 8 for claim types that do not match HOSPITALIZATION or OUTPATIENT. Applies generic benefit caps, routes to manual review queue if claim amount exceeds threshold.',
+        description: 'Fallback subflow for non-hospitalization, non-outpatient claims. Applies generic benefit caps and routes high-value claims to manual review.',
         changeSummary: 'Initial version', effectiveFrom: '2025-05-01T00:00:00', effectiveUntil: null,
         flow: {
           mergeStrategy: 'last_writer_wins',
           nodes: [
             { id: 1, type: 'start', name: 'Default Entry' },
-            { id: 2, type: 'table', name: 'Generic Benefit Cap', config: { tableRef: 'claims_line_item_benefit_cap_table' } },
+            { id: 2, type: 'table', name: 'Generic Benefit Cap', config: { tableRef: 'Claims Line Item Benefit Cap' } },
             { id: 3, type: 'expression', name: 'Compute Generic Payable' },
             { id: 4, type: 'rule', name: 'High-Value Referral Check' },
             { id: 5, type: 'end', name: 'Default Exit' },
@@ -933,14 +933,14 @@ export const SEED_FLOWS: Flow[] = [
       },
       {
         id: uid(), version: 2, status: 'PEER_REVIEW',
-        description: 'Proposed: add dental and vision claim type branches to the default subflow to reduce manual queue volume for routine non-inpatient claims.',
+        description: 'Proposed: add dental and vision fast-track branches to reduce manual queue volume.',
         changeSummary: 'Add dental and vision fast-track branches', effectiveFrom: '2026-02-01T00:00:00', effectiveUntil: null,
         flow: {
           mergeStrategy: 'last_writer_wins',
           nodes: [
             { id: 1, type: 'start', name: 'Default Entry' },
             { id: 2, type: 'rule', name: 'Claim Type Branch' },
-            { id: 3, type: 'table', name: 'Generic Benefit Cap', config: { tableRef: 'claims_line_item_benefit_cap_table' } },
+            { id: 3, type: 'table', name: 'Generic Benefit Cap', config: { tableRef: 'Claims Line Item Benefit Cap' } },
             { id: 4, type: 'expression', name: 'Compute Generic Payable' },
             { id: 5, type: 'rule', name: 'High-Value Referral Check' },
             { id: 6, type: 'end', name: 'Default Exit' },
