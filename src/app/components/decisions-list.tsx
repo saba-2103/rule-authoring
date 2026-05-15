@@ -1,8 +1,104 @@
 import React, { useState, useMemo } from 'react';
 import {
-  cn, fmt, activeVer, Btn, Inp, Sel, StatusBadge, IC,
+  cn, fmt, activeVer, Btn, Inp, Sel, StatusBadge, IC, Modal,
   Rule, Table, Flow, STATUS_META,
 } from './shared';
+
+/* ── NEW DECISION MODAL ──────────────────────────── */
+type DecisionType = 'rule' | 'table' | 'flow';
+
+const DECISION_OPTIONS: { type: DecisionType; label: string; desc: string; available: boolean; icon: React.ReactNode }[] = [
+  {
+    type: 'rule',
+    label: 'Rule',
+    desc: 'Define conditional logic with if/then blocks to drive automated decisions.',
+    available: true,
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" />
+      </svg>
+    ),
+  },
+  {
+    type: 'table',
+    label: 'Decision Table',
+    desc: 'Map input combinations to outputs using a structured lookup table.',
+    available: false,
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18M3 15h18M9 3v18" />
+      </svg>
+    ),
+  },
+  {
+    type: 'flow',
+    label: 'Decision Flow',
+    desc: 'Orchestrate multiple rules and tables in a sequential decision pipeline.',
+    available: false,
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <circle cx="12" cy="5" r="2" /><circle cx="5" cy="19" r="2" /><circle cx="19" cy="19" r="2" />
+        <path d="M12 7v4M10 13l-3 4M14 13l3 4" />
+      </svg>
+    ),
+  },
+];
+
+const NewDecisionModal: React.FC<{ open: boolean; onClose: () => void; onCreateRule: () => void }> = ({ open, onClose, onCreateRule }) => {
+  const [selected, setSelected] = useState<DecisionType>('rule');
+
+  const handleCreate = () => {
+    if (selected === 'rule') { onClose(); onCreateRule(); }
+  };
+
+  return (
+    <Modal open={open} onClose={onClose} title="New Decision" subtitle="Choose the type of decision to create." width="max-w-md">
+      <div className="p-5 flex flex-col gap-3">
+        {DECISION_OPTIONS.map(opt => (
+          <label
+            key={opt.type}
+            className={cn(
+              'flex items-start gap-4 p-4 rounded-xl border-2 transition-all',
+              !opt.available && 'opacity-40 cursor-not-allowed',
+              opt.available && 'cursor-pointer',
+              selected === opt.type && opt.available
+                ? 'border-blue-500 bg-blue-50'
+                : 'border-gray-200 hover:border-gray-300 bg-white',
+            )}
+          >
+            <input
+              type="radio"
+              name="decision-type"
+              value={opt.type}
+              checked={selected === opt.type}
+              disabled={!opt.available}
+              onChange={() => opt.available && setSelected(opt.type)}
+              className="mt-0.5 accent-blue-600"
+            />
+            <div className={cn('shrink-0 mt-0.5', selected === opt.type && opt.available ? 'text-blue-600' : 'text-gray-400')}>
+              {opt.icon}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-gray-800">{opt.label}</span>
+                {!opt.available && (
+                  <span className="text-[10px] font-medium bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded">Coming soon</span>
+                )}
+              </div>
+              <p className="text-xs text-gray-500 mt-0.5">{opt.desc}</p>
+            </div>
+          </label>
+        ))}
+      </div>
+      <div className="px-5 pb-5 flex justify-end gap-2">
+        <Btn variant="secondary" onClick={onClose}>Cancel</Btn>
+        <Btn onClick={handleCreate} disabled={!DECISION_OPTIONS.find(o => o.type === selected)?.available}>
+          Create {DECISION_OPTIONS.find(o => o.type === selected)?.label}
+        </Btn>
+      </div>
+    </Modal>
+  );
+};
 
 /* ── UNIFIED ITEM ────────────────────────────────── */
 type Kind = 'rule' | 'table' | 'flow';
@@ -155,24 +251,21 @@ const SortTh: React.FC<{ col: SortCol; label: string; sort: SortState; onSort: (
 };
 
 /* ── VERSION SUB-ROWS ────────────────────────────── */
-const VersionSubRows: React.FC<{ item: UnifiedItem }> = ({ item }) => {
+const VersionSubRows: React.FC<{ item: UnifiedItem; onViewRule: (rule: Rule, version: number) => void }> = ({ item, onViewRule }) => {
   const versions = (item.raw as Rule | Table | Flow).versions;
   const sorted = [...versions].sort((a, b) => b.version - a.version);
   return (
     <>
       {sorted.map(v => (
-        <tr key={v.version} className="bg-blue-50/30 border-l-2 border-l-blue-300">
-          <td className="px-4 py-2 pl-10">
-            <div className="flex items-center gap-2">
+        <tr key={v.version}
+          className="bg-blue-50/30 border-l-2 border-l-blue-300 hover:bg-blue-100/40 cursor-pointer transition-colors"
+          onClick={() => item.kind === 'rule' && onViewRule(item.raw as Rule, v.version)}>
+          <td className="px-4 py-2 pl-10" colSpan={4}>
+            <div className="flex items-center gap-2 min-w-0">
               <VerBadge version={v.version} />
-              {v.changeSummary && <span className="text-xs text-gray-400 truncate max-w-[200px]">{v.changeSummary}</span>}
+              {v.changeSummary && <span className="text-xs text-gray-700 font-medium truncate">{v.changeSummary}</span>}
             </div>
           </td>
-          <td className="px-4 py-2" />
-          <td className="px-4 py-2 text-xs text-gray-400 truncate max-w-[220px]">
-            {v.description || <span className="italic text-gray-300">—</span>}
-          </td>
-          <td className="px-4 py-2"><VerBadge version={v.version} /></td>
           <td className="px-4 py-2"><StatusBadge status={v.status} /></td>
           <td className="px-4 py-2 text-xs text-gray-400">
             {fmt((v as { effectiveFrom?: string }).effectiveFrom)}
@@ -231,7 +324,7 @@ interface UnifiedTableProps {
   onSort: (col: SortCol) => void;
   expanded: Set<string>;
   onToggle: (id: string) => void;
-  onViewRule: (rule: Rule) => void;
+  onViewRule: (rule: Rule, version?: number) => void;
   onEditRule: (rule: Rule) => void;
   onDeleteRule: (rule: Rule) => void;
   onViewTable: (tbl: Table) => void;
@@ -250,6 +343,8 @@ const UnifiedTable: React.FC<UnifiedTableProps> = ({
     else onViewFlow(item.raw as Flow);
   };
 
+  const handleViewRuleVersion = (rule: Rule, version: number) => onViewRule(rule, version);
+
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
       <table className="w-full text-sm">
@@ -258,7 +353,7 @@ const UnifiedTable: React.FC<UnifiedTableProps> = ({
             <SortTh col="name" label="Name" sort={sort} onSort={onSort} />
             <SortTh col="kind" label="Kind" sort={sort} onSort={onSort} />
             <SortTh col="category" label="Category" sort={sort} onSort={onSort} />
-            <SortTh col="latestVer" label="Latest Version" sort={sort} onSort={onSort} />
+            <SortTh col="latestVer" label="Versions" sort={sort} onSort={onSort} />
             <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
             <SortTh col="updatedAt" label="Last Updated" sort={sort} onSort={onSort} />
             <th className="px-4 py-2.5 w-[110px]" />
@@ -291,9 +386,9 @@ const UnifiedTable: React.FC<UnifiedTableProps> = ({
                   <td className="px-4 py-3 text-sm text-gray-600">
                     {item.category || <span className="text-gray-300">—</span>}
                   </td>
-                  {/* Latest Version */}
+                  {/* Versions count */}
                   <td className="px-4 py-3">
-                    {item.latestVer ? <VerBadge version={item.latestVer.version} /> : <span className="text-gray-300">—</span>}
+                    <span className="text-sm text-gray-700 font-medium">{item.versionsCount}</span>
                   </td>
                   {/* Status chips */}
                   <td className="px-4 py-3"><StatusChips counts={item.statusCounts} /></td>
@@ -321,7 +416,7 @@ const UnifiedTable: React.FC<UnifiedTableProps> = ({
                     </div>
                   </td>
                 </tr>
-                {isExpanded && <VersionSubRows item={item} />}
+                {isExpanded && <VersionSubRows item={item} onViewRule={handleViewRuleVersion} />}
               </React.Fragment>
             );
           })}
@@ -346,7 +441,7 @@ interface DecisionsPageProps {
   rules: Rule[];
   tables: Table[];
   flows: Flow[];
-  onViewRule: (rule: Rule) => void;
+  onViewRule: (rule: Rule, version?: number) => void;
   onCreateRule: () => void;
   onEditRule: (rule: Rule) => void;
   onDeleteRule: (rule: Rule) => void;
@@ -357,6 +452,7 @@ interface DecisionsPageProps {
 export const DecisionsPage: React.FC<DecisionsPageProps> = ({
   rules, tables, flows, onViewRule, onCreateRule, onEditRule, onDeleteRule, onViewTable, onViewFlow,
 }) => {
+  const [newDecisionOpen, setNewDecisionOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('all');
   const [search, setSearch] = useState('');
   const [statusF, setStatusF] = useState('');
@@ -410,6 +506,7 @@ export const DecisionsPage: React.FC<DecisionsPageProps> = ({
 
   return (
     <div className="flex flex-col h-full">
+      <NewDecisionModal open={newDecisionOpen} onClose={() => setNewDecisionOpen(false)} onCreateRule={onCreateRule} />
       {/* header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between mb-4">
@@ -417,7 +514,7 @@ export const DecisionsPage: React.FC<DecisionsPageProps> = ({
             <h1 className="text-lg font-semibold text-gray-900">Decisions</h1>
             <p className="text-sm text-gray-500">Rules, decision tables, and flows in this space</p>
           </div>
-          <Btn onClick={onCreateRule}><IC.Plus size={14} />New Rule</Btn>
+          <Btn onClick={() => setNewDecisionOpen(true)}><IC.Plus size={14} />New Decision</Btn>
         </div>
         <div className="flex gap-0 -mb-4">
           {TABS.map(t => (

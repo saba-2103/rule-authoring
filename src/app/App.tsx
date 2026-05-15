@@ -31,6 +31,7 @@ export default function App() {
   const [flows] = useState<Flow[]>(SEED_FLOWS);
   const [page, setPage] = useState<Page>('decisions');
   const [selectedRule, setSelectedRule] = useState<Rule | null>(null);
+  const [selectedVersion, setSelectedVersion] = useState<number | undefined>(undefined);
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
   const [selectedFlow, setSelectedFlow] = useState<Flow | null>(null);
   const [editMetaOpen, setEditMetaOpen] = useState(false);
@@ -57,9 +58,9 @@ export default function App() {
   };
 
   /* ── RULE HANDLERS ─────────────────────────────── */
-  const handleViewRule = (rule: Rule) => { setSelectedRule(rule); setPage('rule-detail'); };
+  const handleViewRule = (rule: Rule, version?: number) => { setSelectedRule(rule); setSelectedVersion(version); setPage('rule-detail'); };
   const handleCreateRule = () => setPage('rule-create');
-  const handleEditRule = (rule: Rule) => { setSelectedRule(rule); setPage('rule-detail'); };
+  const handleEditRule = (rule: Rule) => { setSelectedRule(rule); setSelectedVersion(undefined); setPage('rule-detail'); };
   const handleDeleteRuleRequest = (rule: Rule) => setDeleteRule(rule);
   const handleViewTable = (tbl: Table) => { setSelectedTable(tbl); setPage('table-detail'); };
   const handleViewFlow = (flow: Flow) => { setSelectedFlow(flow); setPage('flow-detail'); };
@@ -207,6 +208,7 @@ export default function App() {
             onUpdate={handleUpdateRule}
             onNewVersion={r => { setSelectedRule(r); setPage('rule-new-version'); }}
             onEditMeta={() => setEditMetaOpen(true)}
+            initialVersion={selectedVersion}
           />
         )}
 

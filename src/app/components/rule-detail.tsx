@@ -510,10 +510,14 @@ interface RuleDetailPageProps {
   onUpdate: (rule: Rule) => void;
   onNewVersion: (rule: Rule) => void;
   onEditMeta: () => void;
+  initialVersion?: number;
 }
 
-export const RuleDetailPage: React.FC<RuleDetailPageProps> = ({ rule, onBack, onUpdate, onNewVersion, onEditMeta }) => {
-  const [selVer, setSelVer] = useState<RuleVersion | null>(() => activeVer(rule) || rule.versions[0] || null);
+export const RuleDetailPage: React.FC<RuleDetailPageProps> = ({ rule, onBack, onUpdate, onNewVersion, onEditMeta, initialVersion }) => {
+  const [selVer, setSelVer] = useState<RuleVersion | null>(() => {
+    if (initialVersion != null) return rule.versions.find(v => v.version === initialVersion) ?? null;
+    return activeVer(rule) || rule.versions[0] || null;
+  });
   const [confirmDel, setConfirmDel] = useState<RuleVersion | null>(null);
   const [editVerOpen, setEditVerOpen] = useState(false);
 
@@ -590,8 +594,10 @@ export const RuleDetailPage: React.FC<RuleDetailPageProps> = ({ rule, onBack, on
       <div className="flex flex-1 overflow-hidden">
         {/* Versions panel */}
         <div className="w-56 border-r border-gray-200 bg-white flex flex-col shrink-0">
-          <div className="px-4 py-3 border-b border-gray-200 bg-white shrink-0">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Versions ({rule.versions.length})</p>
+          <div className="flex border-b border-gray-200 bg-white shrink-0">
+            <div className="flex-1 py-2.5 px-4 text-xs font-semibold tracking-wide text-blue-600 border-b-2 border-blue-600 bg-white">
+              Versions ({rule.versions.length})
+            </div>
           </div>
           <div className="overflow-y-auto flex-1 py-2" style={{ scrollbarWidth: 'thin' }}>
             {[...rule.versions].sort((a, b) => b.version - a.version).map(v => (
@@ -624,7 +630,9 @@ export const RuleDetailPage: React.FC<RuleDetailPageProps> = ({ rule, onBack, on
                   <div>
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       <span className="text-base font-semibold text-gray-900">Version {ver.version}</span>
-                      <VersionBadge status={ver.status} />
+                      {['ACTIVE', 'INACTIVE', 'DEPRECATED'].includes(ver.status)
+                        ? <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200">Approved</span>
+                        : <VersionBadge status={ver.status} />}
                     </div>
                     <p className="text-sm font-medium text-gray-700">{ver.changeSummary || `Version ${ver.version}`}</p>
                   </div>
@@ -633,7 +641,17 @@ export const RuleDetailPage: React.FC<RuleDetailPageProps> = ({ rule, onBack, on
                       <Btn size="sm" variant="secondary" onClick={() => handleStatusChange(ver, 'ACTIVE')}>
                         Submit for Review
                       </Btn>
-                    ) : IS_PENDING(ver.status) ? null : (
+                    ) : IS_PENDING(ver.status) ? (
+                      (() => {
+                        const m = STATUS_META[ver.status];
+                        return (
+                          <span className={cn('inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold', m.bg, m.text)}>
+                            <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', m.dot)} />
+                            {m.label}
+                          </span>
+                        );
+                      })()
+                    ) : (
                       <StatusDropdown
                         current={ver.status}
                         onChange={s => handleStatusChange(ver, s)}
