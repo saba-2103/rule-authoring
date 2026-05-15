@@ -1,0 +1,1241 @@
+import React, { useEffect } from 'react';
+
+/* ── HELPERS ─────────────────────────────────────── */
+export const cn = (...c: (string | boolean | undefined | null)[]) => c.filter(Boolean).join(' ');
+export const uid = () => Math.random().toString(36).slice(2, 9);
+export const fmt = (iso?: string | null) =>
+  iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+export const activeVer = <T extends { status: string; version: number }>(doc: { versions: T[] }): T | null =>
+  doc.versions.find(v => v.status === 'ACTIVE') || doc.versions[doc.versions.length - 1] || null;
+
+/* ── TYPES ───────────────────────────────────────── */
+export interface Condition {
+  id: string;
+  field: string;
+  operator: string;
+  value: string;
+  secondValue: string;
+}
+
+export interface WhenClause {
+  match: 'and' | 'or';
+  conditions: Condition[];
+}
+
+export interface RuleAction {
+  id: string;
+  type: string;
+  field: string;
+  value: string;
+  config: Record<string, unknown>;
+}
+
+export type BlockType = 'IF' | 'ELSE_IF' | 'ELSE';
+
+export interface ConditionalBlock {
+  id: string;
+  type: BlockType;
+  when: WhenClause;
+  actions: RuleAction[];
+  nested: BlockGroup[];
+}
+
+export interface BlockGroup {
+  id: string;
+  blocks: ConditionalBlock[];
+}
+
+export interface RuleContent {
+  topGroups: BlockGroup[];
+}
+
+export interface DerivedSchema {
+  facts: { factType: string; fields: { name: string; dataType: string }[] }[];
+}
+
+export interface RuleVersion {
+  id: string;
+  version: number;
+  status: string;
+  description: string;
+  changeSummary: string;
+  effectiveFrom: string;
+  effectiveUntil: string | null;
+  activatedAt: string | null;
+  activatedBy: string | null;
+  rule: RuleContent;
+}
+
+export interface Rule {
+  id: string;
+  name: string;
+  category: string;
+  tags: string[];
+  createdAt: string;
+  createdBy: string;
+  versions: RuleVersion[];
+}
+
+export interface TableVersion {
+  id: string;
+  version: number;
+  status: string;
+  description: string;
+  changeSummary: string;
+  effectiveFrom: string;
+  effectiveUntil: string | null;
+  table: {
+    hitPolicy: string;
+    inputs: { field: string; operator: string; dataType: string; label: string }[];
+    outputs: { field: string; dataType: string; label: string }[];
+    rows: { id: number; isEnabled: boolean; inputs: (string | number)[]; outputs: (string | number)[] }[];
+  };
+}
+
+export interface Table {
+  id: string;
+  name: string;
+  category: string;
+  tags: string[];
+  createdAt: string;
+  versions: TableVersion[];
+}
+
+export interface FlowVersion {
+  id: string;
+  version: number;
+  status: string;
+  description: string;
+  changeSummary: string;
+  effectiveFrom: string;
+  effectiveUntil: string | null;
+  flow: {
+    mergeStrategy: string;
+    nodes: { id: number; type: string; name: string; config?: { ruleRef?: string; tableRef?: string } }[];
+    edges: { id: number; source: number; target: number }[];
+  };
+}
+
+export interface Flow {
+  id: string;
+  name: string;
+  category: string;
+  tags: string[];
+  stopOnError: boolean;
+  createdAt: string;
+  versions: FlowVersion[];
+}
+
+export interface SpaceMember {
+  userId: string;
+  email: string;
+  role: string;
+  joinedAt: string;
+}
+
+export interface Space {
+  id: string;
+  name: string;
+  description: string;
+  createdAt: string;
+  members: SpaceMember[];
+}
+
+/* ── CONSTANTS ───────────────────────────────────── */
+export const FACT_FIELDS = [
+  { label: 'ApplicantInfo.age', value: 'ApplicantInfo.age', dataType: 'number' },
+  { label: 'ApplicantInfo.annualIncome', value: 'ApplicantInfo.annualIncome', dataType: 'number' },
+  { label: 'ApplicantInfo.productCode', value: 'ApplicantInfo.productCode', dataType: 'string' },
+  { label: 'ApplicantInfo.dateOfBirth', value: 'ApplicantInfo.dateOfBirth', dataType: 'date' },
+  { label: 'ApplicantInfo.eligible', value: 'ApplicantInfo.eligible', dataType: 'boolean' },
+  { label: 'ApplicantInfo.premiumRate', value: 'ApplicantInfo.premiumRate', dataType: 'number' },
+  { label: 'ApplicantInfo.riskScore', value: 'ApplicantInfo.riskScore', dataType: 'number' },
+  { label: 'ApplicantInfo.sumAssured', value: 'ApplicantInfo.sumAssured', dataType: 'number' },
+  { label: 'VehicleInfo.make', value: 'VehicleInfo.make', dataType: 'string' },
+  { label: 'VehicleInfo.year', value: 'VehicleInfo.year', dataType: 'number' },
+  { label: 'VehicleInfo.cubicCapacity', value: 'VehicleInfo.cubicCapacity', dataType: 'number' },
+  { label: 'ClaimInfo.claimCount', value: 'ClaimInfo.claimCount', dataType: 'number' },
+];
+
+export const OPERATORS = [
+  { value: 'EQUALS', label: 'equals', types: ['number', 'string', 'boolean', 'date'] },
+  { value: 'NOT_EQUALS', label: 'does not equal', types: ['number', 'string', 'boolean', 'date'] },
+  { value: 'GREATER_THAN', label: 'is greater than', types: ['number'] },
+  { value: 'GREATER_THAN_OR_EQUAL', label: 'is ≥', types: ['number'] },
+  { value: 'LESS_THAN', label: 'is less than', types: ['number'] },
+  { value: 'LESS_THAN_OR_EQUAL', label: 'is ≤', types: ['number'] },
+  { value: 'BETWEEN', label: 'is between', types: ['number', 'date'] },
+  { value: 'CONTAINS', label: 'contains', types: ['string'] },
+  { value: 'STARTS_WITH', label: 'starts with', types: ['string'] },
+  { value: 'ENDS_WITH', label: 'ends with', types: ['string'] },
+  { value: 'IN', label: 'is one of', types: ['string', 'number'] },
+  { value: 'NOT_IN', label: 'is not one of', types: ['string', 'number'] },
+  { value: 'IS_NULL', label: 'is null', types: ['number', 'string', 'boolean', 'date'] },
+  { value: 'IS_NOT_NULL', label: 'is not null', types: ['number', 'string', 'boolean', 'date'] },
+  { value: 'DATE_BEFORE', label: 'is before', types: ['date'] },
+  { value: 'DATE_AFTER', label: 'is after', types: ['date'] },
+  { value: 'DATE_BETWEEN', label: 'is between (dates)', types: ['date'] },
+  { value: 'MATCHES_PATTERN', label: 'matches pattern', types: ['string'] },
+];
+
+export const ACTION_TYPES = [
+  { value: 'ASSIGN', label: 'ASSIGN — Set field value' },
+  { value: 'COMPUTE', label: 'COMPUTE — Evaluate formula' },
+  { value: 'MULTIPLY', label: 'MULTIPLY — Multiply field' },
+  { value: 'APPLY_PERCENTAGE', label: 'APPLY_PERCENTAGE — Apply %' },
+  { value: 'ADD_MESSAGE', label: 'ADD_MESSAGE — Append message' },
+  { value: 'ADD_TO_LIST', label: 'ADD_TO_LIST — Append to list' },
+  { value: 'SUM_LIST', label: 'SUM_LIST — Sum list field' },
+  { value: 'LOOKUP', label: 'LOOKUP — Fetch from table' },
+  { value: 'CREATE_TASK', label: 'CREATE_TASK — Emit task' },
+  { value: 'LOG', label: 'LOG — Debug log' },
+];
+
+export const STATUS_META: Record<string, { label: string; bg: string; text: string; dot: string }> = {
+  DRAFT: { label: 'Draft', bg: 'bg-slate-100', text: 'text-slate-600', dot: 'bg-slate-400' },
+  PEER_REVIEW: { label: 'Peer Review', bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-400' },
+  BUSINESS_REVIEW: { label: 'Business Review', bg: 'bg-indigo-50', text: 'text-indigo-700', dot: 'bg-indigo-400' },
+  COMPLIANCE_REVIEW: { label: 'Compliance Review', bg: 'bg-violet-50', text: 'text-violet-700', dot: 'bg-violet-400' },
+  APPROVED: { label: 'Approved', bg: 'bg-teal-50', text: 'text-teal-700', dot: 'bg-teal-400' },
+  ACTIVE: { label: 'Active', bg: 'bg-green-50', text: 'text-green-700', dot: 'bg-green-500' },
+  INACTIVE: { label: 'Inactive', bg: 'bg-yellow-50', text: 'text-yellow-700', dot: 'bg-yellow-400' },
+  DEPRECATED: { label: 'Deprecated', bg: 'bg-orange-50', text: 'text-orange-700', dot: 'bg-orange-400' },
+  ARCHIVE: { label: 'Archive', bg: 'bg-red-50', text: 'text-red-400', dot: 'bg-red-300' },
+};
+
+export const CATEGORIES = ['Underwriting', 'Claims', 'Pricing', 'Compliance', 'Operations'];
+export const ROLES = ['ADMIN', 'RULE_AUTHOR', 'RULE_APPROVER', 'RULE_EXECUTOR', 'VIEWER'];
+
+/* ── BLOCK FACTORY HELPERS ───────────────────────── */
+export const mkIfBlock = (): ConditionalBlock => ({
+  id: uid(), type: 'IF',
+  when: { match: 'and', conditions: [] },
+  actions: [], nested: [],
+});
+export const mkElseIfBlock = (): ConditionalBlock => ({
+  id: uid(), type: 'ELSE_IF',
+  when: { match: 'and', conditions: [] },
+  actions: [], nested: [],
+});
+export const mkElseBlock = (): ConditionalBlock => ({
+  id: uid(), type: 'ELSE',
+  when: { match: 'and', conditions: [] },
+  actions: [], nested: [],
+});
+export const mkBlockGroup = (): BlockGroup => ({ id: uid(), blocks: [mkIfBlock()] });
+
+const mkBlockRule = (when: WhenClause, actions: RuleAction[]): RuleContent => ({
+  topGroups: [{ id: uid(), blocks: [{ id: uid(), type: 'IF', when, actions, nested: [] }] }],
+});
+
+/* ── SCHEMA DERIVATION ───────────────────────────── */
+const WRITE_TYPES = ['ASSIGN', 'COMPUTE', 'MULTIPLY', 'APPLY_PERCENTAGE'];
+
+function walkGroupForInput(group: BlockGroup, fields: Map<string, { factType: string; name: string; dataType: string }>) {
+  for (const block of group.blocks) {
+    if (block.type !== 'ELSE') {
+      for (const cond of block.when.conditions) {
+        if (cond.field) {
+          const parts = cond.field.split('.');
+          if (parts.length >= 2) {
+            const meta = FACT_FIELDS.find(f => f.value === cond.field);
+            fields.set(cond.field, { factType: parts[0], name: parts.slice(1).join('.'), dataType: meta?.dataType || 'string' });
+          }
+        }
+      }
+    }
+    for (const ng of block.nested) walkGroupForInput(ng, fields);
+  }
+}
+
+function walkGroupForOutput(group: BlockGroup, fields: Map<string, { factType: string; name: string; dataType: string }>) {
+  for (const block of group.blocks) {
+    for (const action of block.actions) {
+      if (WRITE_TYPES.includes(action.type) && action.field) {
+        const parts = action.field.split('.');
+        if (parts.length >= 2) {
+          const meta = FACT_FIELDS.find(f => f.value === action.field);
+          fields.set(action.field, { factType: parts[0], name: parts.slice(1).join('.'), dataType: meta?.dataType || 'string' });
+        }
+      }
+    }
+    for (const ng of block.nested) walkGroupForOutput(ng, fields);
+  }
+}
+
+function groupByFact(fields: Map<string, { factType: string; name: string; dataType: string }>): DerivedSchema {
+  const byFact = new Map<string, { name: string; dataType: string }[]>();
+  for (const { factType, name, dataType } of fields.values()) {
+    if (!byFact.has(factType)) byFact.set(factType, []);
+    byFact.get(factType)!.push({ name, dataType });
+  }
+  return { facts: Array.from(byFact.entries()).map(([factType, flds]) => ({ factType, fields: flds })) };
+}
+
+export function deriveInputSchema(content: RuleContent): DerivedSchema {
+  const fields = new Map<string, { factType: string; name: string; dataType: string }>();
+  for (const g of content.topGroups) walkGroupForInput(g, fields);
+  return groupByFact(fields);
+}
+
+export function deriveOutputSchema(content: RuleContent): DerivedSchema {
+  const fields = new Map<string, { factType: string; name: string; dataType: string }>();
+  for (const g of content.topGroups) walkGroupForOutput(g, fields);
+  return groupByFact(fields);
+}
+
+/* ── SEED DATA ───────────────────────────────────── */
+export const SEED_SPACES: Space[] = [
+  {
+    id: 'motor-uw', name: 'AXA Motor Insurance', description: 'Motor insurance underwriting and pricing rules',
+    createdAt: '2025-01-01T00:00:00',
+    members: [
+      { userId: 'u1', email: 'alice@insure.com', role: 'ADMIN', joinedAt: '2025-01-01T00:00:00' },
+      { userId: 'u2', email: 'bob@insure.com', role: 'RULE_APPROVER', joinedAt: '2025-01-05T00:00:00' },
+      { userId: 'u3', email: 'carol@insure.com', role: 'RULE_AUTHOR', joinedAt: '2025-02-01T00:00:00' },
+    ],
+  },
+  {
+    id: 'life-uw', name: 'AXA Life Insurance', description: 'Life insurance underwriting, pricing and compliance rules',
+    createdAt: '2025-03-01T00:00:00',
+    members: [
+      { userId: 'u1', email: 'alice@insure.com', role: 'ADMIN', joinedAt: '2025-03-01T00:00:00' },
+      { userId: 'u4', email: 'david@insure.com', role: 'RULE_AUTHOR', joinedAt: '2025-03-10T00:00:00' },
+    ],
+  },
+  {
+    id: 'claims', name: 'Claims Processing', description: 'Claims assessment, settlement and fraud detection rules',
+    createdAt: '2025-02-01T00:00:00',
+    members: [
+      { userId: 'u2', email: 'bob@insure.com', role: 'ADMIN', joinedAt: '2025-02-01T00:00:00' },
+      { userId: 'u5', email: 'eve@insure.com', role: 'RULE_EXECUTOR', joinedAt: '2025-02-15T00:00:00' },
+    ],
+  },
+];
+
+const mkVer = (
+  version: number, status: string, desc: string, summary: string, from: string, rule: RuleContent,
+  activatedAt?: string,
+): RuleVersion => ({
+  id: uid(), version, status, description: desc, changeSummary: summary,
+  effectiveFrom: from, effectiveUntil: null,
+  activatedAt: status === 'ACTIVE' ? (activatedAt || '2025-06-01T09:00:00') : null,
+  activatedBy: status === 'ACTIVE' ? 'alice@insure.com' : null,
+  rule,
+});
+
+// ── local seed helpers (not exported) ──────────────
+const _c = (field: string, op: string, val = '', val2 = ''): Condition => ({ id: uid(), field, operator: op, value: val, secondValue: val2 });
+const _a = (type: string, field: string, val = '', cfg: Record<string, unknown> = {}): RuleAction => ({ id: uid(), type, field, value: val, config: cfg });
+
+export const SEED_RULES: Rule[] = [
+  /* ── UC-A · Motor Pricing ─────────────────────── */
+  {
+    id: 'r-mbpl', name: 'motor_base_premium_lookup_rule', category: 'Pricing',
+    tags: ['motor', 'premium', 'lookup'], createdAt: '2024-10-05T08:00:00', createdBy: 'alice@insure.com',
+    versions: [
+      mkVer(1, 'ACTIVE',
+        'Triggers base premium lookup. Fires when policy.vehicleType is present, uses composite vehicleType|region key to query motor_base_premium_table, writes result to pricing.basePremium.',
+        'Initial version', '2025-01-01T00:00:00',
+        mkBlockRule({ match: 'and', conditions: [_c('policy.vehicleType', 'IS_NOT_NULL')] }, [
+          _a('LOOKUP', 'pricing.basePremium', 'motor_base_premium_table', { compositeKey: 'policy.vehicleType|policy.region' }),
+        ]), '2025-01-14T10:30:00'),
+    ],
+  },
+  {
+    id: 'r-mncbl', name: 'motor_ncb_lookup_rule', category: 'Pricing',
+    tags: ['motor', 'ncb', 'lookup'], createdAt: '2024-10-05T08:00:00', createdBy: 'alice@insure.com',
+    versions: [
+      mkVer(1, 'ACTIVE',
+        'Fetches NCB discount rate from motor_ncb_rate_table using policy.claimFreeYears as key. Writes pricing.ncbDiscountPct for the Apply NCB Discount expression node.',
+        'Initial version', '2025-01-01T00:00:00',
+        mkBlockRule({ match: 'and', conditions: [_c('policy.claimFreeYears', 'IS_NOT_NULL')] }, [
+          _a('LOOKUP', 'pricing.ncbDiscountPct', 'motor_ncb_rate_table', { key: 'policy.claimFreeYears' }),
+        ]), '2025-01-22T11:15:00'),
+    ],
+  },
+  {
+    id: 'r-mydl', name: 'motor_young_driver_loading', category: 'Pricing',
+    tags: ['motor', 'loading', 'young-driver'], createdAt: '2024-10-05T08:00:00', createdBy: 'alice@insure.com',
+    versions: [
+      mkVer(1, 'ACTIVE',
+        'Applies 15% surcharge to pricing.basePremium when driver.age < 25 and base premium is set. Records YOUNG_DRIVER_SURCHARGE_15PCT in loadingReasons for audit.',
+        'Initial version', '2025-01-01T00:00:00',
+        mkBlockRule({ match: 'and', conditions: [_c('driver.age', 'LESS_THAN', '25'), _c('pricing.basePremium', 'IS_NOT_NULL')] }, [
+          _a('APPLY_PERCENTAGE', 'pricing.basePremium', '15', { mode: 'surcharge' }),
+          _a('ADD_TO_LIST', 'pricing.loadingReasons', 'YOUNG_DRIVER_SURCHARGE_15PCT'),
+          _a('ADD_MESSAGE', '', '', { template: 'Young driver surcharge 15% applied. Driver age: {{driver.age}}.' }),
+        ]), '2025-02-03T14:00:00'),
+    ],
+  },
+
+  /* ── UC-B · Maternity Waiting Period ─────────── */
+  {
+    id: 'r-hmwp', name: 'health_maternity_waiting_period_check', category: 'Compliance',
+    tags: ['health', 'maternity', 'eligibility', 'blocker'], createdAt: '2024-11-01T08:00:00', createdBy: 'carol@insure.com',
+    versions: [
+      mkVer(1, 'INACTIVE',
+        'Initial check: blocks maternity claims where continuousCoverageMonths < 24. Missing lapse flag check — superseded by v2.',
+        'Initial version', '2025-02-01T00:00:00',
+        mkBlockRule({ match: 'and', conditions: [_c('claim.benefitCode', 'EQUALS', 'MATERNITY'), _c('policy.continuousCoverageMonths', 'LESS_THAN', '24')] }, [
+          _a('ASSIGN', 'claim.eligible', 'false'),
+          _a('ADD_TO_LIST', 'claim.rejectionReasons', 'MATERNITY_WAITING_PERIOD_NOT_SERVED'),
+        ])),
+      mkVer(2, 'ACTIVE',
+        'Blocker-severity. Blocks maternity claims where continuous coverage < 24 months OR policy lapse in last 24 months. Validates treatment date within active policy window via DATE_BETWEEN fact references. Regulator-grade audit, 2190-day retention.',
+        'Added lapse OR sub-group and DATE_BETWEEN treatment date validation per regulator requirement', '2025-06-01T00:00:00',
+        mkBlockRule({ match: 'and', conditions: [
+          _c('claim.benefitCode', 'EQUALS', 'MATERNITY'),
+          _c('policy.continuousCoverageMonths', 'LESS_THAN', '24'),
+          _c('policy.hasLapseInLast24Months', 'EQUALS', 'true'),
+          _c('claim.treatmentDate', 'DATE_BETWEEN', 'policy.inceptionDate', 'policy.expiryDate'),
+        ]}, [
+          _a('ASSIGN', 'claim.eligible', 'false'),
+          _a('ADD_TO_LIST', 'claim.rejectionReasons', 'MATERNITY_WAITING_PERIOD_NOT_SERVED'),
+          _a('ADD_MESSAGE', '', '', { template: 'Maternity requires 24 months continuous coverage. Current: {{policy.continuousCoverageMonths}}. Lapse: {{policy.hasLapseInLast24Months}}.' }),
+        ]), '2025-06-10T09:00:00'),
+    ],
+  },
+  {
+    id: 'r-hmwr', name: 'health_maternity_waiting_reset_on_lapse', category: 'Compliance',
+    tags: ['health', 'maternity', 'lapse', 'reset'], createdAt: '2024-11-01T08:00:00', createdBy: 'carol@insure.com',
+    versions: [
+      mkVer(1, 'ACTIVE',
+        'Detects policy reinstatement after lapse gap > 30 days and resets continuous coverage counter to zero. Must run before maternity eligibility check to ensure accurate coverage clock.',
+        'Initial version', '2025-02-01T00:00:00',
+        mkBlockRule({ match: 'and', conditions: [_c('policy.lapseGapDays', 'GREATER_THAN', '30'), _c('policy.reinstatementDate', 'IS_NOT_NULL')] }, [
+          _a('ASSIGN', 'policy.hasLapseInLast24Months', 'true'),
+          _a('ASSIGN', 'policy.continuousCoverageMonths', '0'),
+          _a('ADD_MESSAGE', '', '', { template: 'Coverage clock reset. Lapse gap: {{policy.lapseGapDays}} days. Reinstated: {{policy.reinstatementDate}}.' }),
+        ]), '2025-02-15T09:00:00'),
+    ],
+  },
+
+  /* ── UC-C · Critical Illness Rider ───────────── */
+  {
+    id: 'r-ciree', name: 'ci_rider_eligibility_with_exceptions', category: 'Underwriting',
+    tags: ['ci-rider', 'eligibility', 'bmi', 'diabetic'], createdAt: '2024-12-01T08:00:00', createdBy: 'alice@insure.com',
+    versions: [
+      mkVer(1, 'INACTIVE',
+        'Initial CI rider eligibility: age 18–60, no pre-existing conditions, BMI < 32 only. No exception branches.',
+        'Initial version', '2025-01-01T00:00:00',
+        mkBlockRule({ match: 'and', conditions: [_c('applicant.age', 'BETWEEN', '18', '60'), _c('applicant.preExistingConditions', 'IS_NULL'), _c('applicant.bmi', 'LESS_THAN', '32')] }, [
+          _a('ASSIGN', 'rider.ciEligible', 'true'),
+        ])),
+      mkVer(2, 'ACTIVE',
+        'Multi-layer eligibility with four AND/OR nesting levels. Adds borderline BMI exception (32–35 with underwriting score > 85) and diabetic exception (controlled HbA1c < 7, no complications). Decline-severity.',
+        'Added borderline BMI and diabetic OR exception branches', '2025-04-01T00:00:00',
+        mkBlockRule({ match: 'and', conditions: [_c('applicant.age', 'BETWEEN', '18', '60'), _c('applicant.preExistingConditions', 'IS_NULL'), _c('applicant.bmi', 'LESS_THAN', '32')] }, [
+          _a('ASSIGN', 'rider.ciEligible', 'true'),
+          _a('ADD_MESSAGE', '', '', { template: 'CI rider approved. Age: {{applicant.age}}, BMI: {{applicant.bmi}}.' }),
+        ]), '2025-04-11T09:30:00'),
+      mkVer(3, 'PEER_REVIEW',
+        'Proposed: relax HbA1c threshold from < 7 to < 7.5 for well-controlled diabetics, per medical advisory board recommendation.',
+        'Relax HbA1c threshold to < 7.5 per clinical review', '2025-11-01T00:00:00',
+        mkBlockRule({ match: 'and', conditions: [_c('applicant.age', 'BETWEEN', '18', '60'), _c('applicant.hba1c', 'LESS_THAN', '7.5')] }, [
+          _a('ASSIGN', 'rider.ciEligible', 'true'),
+        ])),
+    ],
+  },
+  {
+    id: 'r-cisl', name: 'ci_rider_smoker_loading', category: 'Underwriting',
+    tags: ['ci-rider', 'loading', 'smoker'], createdAt: '2024-12-01T08:00:00', createdBy: 'alice@insure.com',
+    versions: [
+      mkVer(1, 'ACTIVE',
+        'Applies 25% premium surcharge and doubles waiting period for CURRENT_SMOKER or RECENT_QUITTER who are approved for the CI rider. Runs after eligibility is confirmed.',
+        'Initial version', '2025-04-01T00:00:00',
+        mkBlockRule({ match: 'and', conditions: [_c('applicant.smokingStatus', 'IN', 'CURRENT_SMOKER,RECENT_QUITTER'), _c('rider.ciEligible', 'EQUALS', 'true')] }, [
+          _a('APPLY_PERCENTAGE', 'rider.ciBasePremium', '25', { mode: 'surcharge' }),
+          _a('MULTIPLY', 'rider.waitingPeriodMonths', '2'),
+          _a('ADD_TO_LIST', 'rider.loadingReasons', 'SMOKER_LOADING_25PCT'),
+          _a('ADD_MESSAGE', '', '', { template: '25% smoker loading applied. Waiting period doubled. Status: {{applicant.smokingStatus}}.' }),
+        ]), '2025-04-18T15:45:00'),
+      mkVer(2, 'DRAFT',
+        'Proposed: split loading — CURRENT_SMOKER 30%, RECENT_QUITTER 15% — per updated actuarial tables.',
+        'Differential loading rate by smoking recency', '2025-12-01T00:00:00',
+        mkBlockRule({ match: 'and', conditions: [_c('applicant.smokingStatus', 'IN', 'CURRENT_SMOKER,RECENT_QUITTER'), _c('rider.ciEligible', 'EQUALS', 'true')] }, [
+          _a('APPLY_PERCENTAGE', 'rider.ciBasePremium', '30', { mode: 'surcharge' }),
+        ])),
+    ],
+  },
+
+  /* ── UC-D · Claims Fraud Detection ───────────── */
+  {
+    id: 'r-cfsa', name: 'claims_fraud_score_aggregator', category: 'Claims',
+    tags: ['fraud', 'aggregation', 'scoring'], createdAt: '2025-01-10T08:00:00', createdBy: 'bob@insure.com',
+    versions: [
+      mkVer(1, 'ACTIVE',
+        'Mandatory aggregation step. Runs SUM_LIST over fraud.detections extracting points field into fraud.totalScore. Without this rule, totalScore stays null and escalation rule never fires. Must run after fraud signal table.',
+        'Initial version', '2025-03-01T00:00:00',
+        mkBlockRule({ match: 'and', conditions: [_c('fraud.detections', 'IS_NOT_NULL')] }, [
+          _a('SUM_LIST', 'fraud.totalScore', 'fraud.detections', { itemField: 'points' }),
+          _a('LOG', '', '', { message: 'Fraud score computed: {{fraud.totalScore}}' }),
+        ]), '2025-03-19T10:00:00'),
+    ],
+  },
+  {
+    id: 'r-cfe', name: 'claims_fraud_escalation', category: 'Claims',
+    tags: ['fraud', 'escalation', 'review'], createdAt: '2025-01-10T08:00:00', createdBy: 'bob@insure.com',
+    versions: [
+      mkVer(1, 'DEPRECATED',
+        'Original threshold of 40 points caused excessive false positives. Deprecated after threshold recalibration.',
+        'Initial version — threshold 40', '2025-03-01T00:00:00',
+        mkBlockRule({ match: 'and', conditions: [_c('fraud.totalScore', 'GREATER_THAN_OR_EQUAL', '40')] }, [
+          _a('ASSIGN', 'claim.decisionLane', 'REVIEW'),
+        ])),
+      mkVer(2, 'ACTIVE',
+        'Final step in fraud detection chain. Escalates claim to REVIEW when cumulative fraud score ≥ 50. Creates FRAUD_INVESTIGATION task carrying claim ID, score, and signals list.',
+        'Raised threshold to 50 based on false-positive analysis', '2025-06-01T00:00:00',
+        mkBlockRule({ match: 'and', conditions: [_c('fraud.totalScore', 'GREATER_THAN_OR_EQUAL', '50')] }, [
+          _a('ASSIGN', 'claim.decisionLane', 'REVIEW'),
+          _a('CREATE_TASK', '', 'FRAUD_INVESTIGATION', { includeFields: ['claim.id', 'fraud.totalScore', 'fraud.detections'] }),
+          _a('ADD_MESSAGE', '', '', { template: 'Claim escalated. Fraud score: {{fraud.totalScore}}. Signals: {{fraud.detections}}.' }),
+        ]), '2025-06-12T16:20:00'),
+    ],
+  },
+
+  /* ── UC-E · Renewal Loyalty ───────────────────── */
+  {
+    id: 'r-racc', name: 'renewal_aggregate_claim_count', category: 'Operations',
+    tags: ['renewal', 'aggregation', 'claims'], createdAt: '2025-02-01T08:00:00', createdBy: 'alice@insure.com',
+    versions: [
+      mkVer(1, 'ACTIVE',
+        'Aggregates total claim count across previous three policy years using SUM_LIST over policy.claimHistory (itemField: countInPeriod). Fires only on ANNUAL_RENEWAL trigger. Result feeds upgrade and loading rules downstream.',
+        'Initial version', '2025-04-01T00:00:00',
+        mkBlockRule({ match: 'and', conditions: [_c('renewal.triggerType', 'EQUALS', 'ANNUAL_RENEWAL'), _c('policy.claimHistory', 'IS_NOT_NULL')] }, [
+          _a('SUM_LIST', 'renewal.claimCountLast3Years', 'policy.claimHistory', { itemField: 'countInPeriod' }),
+          _a('LOG', '', '', { message: 'Renewal claim count: {{renewal.claimCountLast3Years}}' }),
+        ]), '2025-04-07T09:00:00'),
+    ],
+  },
+  {
+    id: 'r-rauzc', name: 'renewal_auto_upgrade_zero_claim', category: 'Operations',
+    tags: ['renewal', 'upgrade', 'ncb', 'loyalty'], createdAt: '2025-02-01T08:00:00', createdBy: 'alice@insure.com',
+    versions: [
+      mkVer(1, 'ACTIVE',
+        'Upgrades policy tier to next level and awards maximum 50% NCB when claimCountLast3Years = 0 and grace period has not expired. Uses renewal_tier_progression_table for next tier lookup.',
+        'Initial version', '2025-04-01T00:00:00',
+        mkBlockRule({ match: 'and', conditions: [_c('renewal.claimCountLast3Years', 'EQUALS', '0'), _c('renewal.gracePeriodExpired', 'EQUALS', 'false')] }, [
+          _a('LOOKUP', 'renewal.nextTier', 'renewal_tier_progression_table', { key: 'policy.currentTier' }),
+          _a('ASSIGN', 'renewal.ncbDiscountPct', '50'),
+          _a('ADD_MESSAGE', '', '', { template: 'Zero claims in 3 years. Tier upgraded. NCB: 50%.' }),
+        ]), '2025-04-09T11:00:00'),
+    ],
+  },
+  {
+    id: 'r-rlhc', name: 'renewal_loading_high_claim', category: 'Operations',
+    tags: ['renewal', 'loading', 'high-claim'], createdAt: '2025-02-01T08:00:00', createdBy: 'alice@insure.com',
+    versions: [
+      mkVer(1, 'ACTIVE',
+        'Applies 20% premium loading and restricts provider network when claimCountLast3Years > 2. Runs in parallel with zero-claim upgrade rule in renewal flow.',
+        'Initial version', '2025-04-01T00:00:00',
+        mkBlockRule({ match: 'and', conditions: [_c('renewal.claimCountLast3Years', 'GREATER_THAN', '2')] }, [
+          _a('APPLY_PERCENTAGE', 'renewal.basePremium', '20', { mode: 'loading' }),
+          _a('ASSIGN', 'renewal.restrictedNetworkRequired', 'true'),
+          _a('ADD_TO_LIST', 'renewal.reviewFlags', 'HIGH_CLAIM_RENEWAL_REVIEW'),
+          _a('ADD_MESSAGE', '', '', { template: '20% loading applied. Claims last 3 years: {{renewal.claimCountLast3Years}}.' }),
+        ]), '2025-04-14T13:30:00'),
+      mkVer(2, 'BUSINESS_REVIEW',
+        'Proposed: increase loading to 25% and add mandatory telephonic underwriting for members with > 4 claims per actuarial committee recommendation.',
+        'Increased loading 20% → 25% and added telephonic UW trigger', '2025-12-01T00:00:00',
+        mkBlockRule({ match: 'and', conditions: [_c('renewal.claimCountLast3Years', 'GREATER_THAN', '2')] }, [
+          _a('APPLY_PERCENTAGE', 'renewal.basePremium', '25', { mode: 'loading' }),
+        ])),
+    ],
+  },
+
+  /* ── UC-F · Claims STP ────────────────────────── */
+  {
+    id: 'r-cpeg', name: 'claims_policy_eligibility_gate', category: 'Claims',
+    tags: ['stp', 'eligibility', 'gate', 'hard-stop'], createdAt: '2025-03-01T08:00:00', createdBy: 'bob@insure.com',
+    versions: [
+      mkVer(1, 'ACTIVE',
+        'Hard eligibility gate — first rule node (STP node 3), onError: stop. Verifies policy is ACTIVE, benefit code is present, and treatment date falls within policy window via DATE_BETWEEN fact references. Decline-severity.',
+        'Initial version', '2025-05-01T00:00:00',
+        mkBlockRule({ match: 'and', conditions: [
+          _c('policy.status', 'EQUALS', 'ACTIVE'),
+          _c('claim.benefitCode', 'IS_NOT_NULL'),
+          _c('claim.treatmentDate', 'DATE_BETWEEN', 'policy.inceptionDate', 'policy.expiryDate'),
+        ]}, [
+          _a('ASSIGN', 'claim.eligible', 'true'),
+          _a('ADD_MESSAGE', '', '', { template: 'Policy eligibility confirmed for {{claim.benefitCode}}.' }),
+        ]), '2025-05-06T09:00:00'),
+    ],
+  },
+  {
+    id: 'r-cpnc', name: 'claims_provider_network_check', category: 'Claims',
+    tags: ['stp', 'provider', 'network'], createdAt: '2025-03-01T08:00:00', createdBy: 'bob@insure.com',
+    versions: [
+      mkVer(1, 'ACTIVE',
+        'Looks up provider network tier using claim.providerId as key in provider_network_tier_table. Runs in parallel with fraud signal table (STP nodes 5 & 6). Result (IN_NETWORK / OUT_OF_NETWORK / GAP) drives the final STP gate.',
+        'Initial version', '2025-05-01T00:00:00',
+        mkBlockRule({ match: 'and', conditions: [_c('claim.providerId', 'IS_NOT_NULL')] }, [
+          _a('LOOKUP', 'provider.networkTier', 'provider_network_tier_table', { key: 'claim.providerId' }),
+          _a('ADD_MESSAGE', '', '', { template: 'Provider {{claim.providerId}} classified as {{provider.networkTier}}.' }),
+        ]), '2025-05-08T14:45:00'),
+    ],
+  },
+  {
+    id: 'r-csdg', name: 'claims_stp_decision_gate', category: 'Claims',
+    tags: ['stp', 'auto-approve', 'gate'], createdAt: '2025-03-01T08:00:00', createdBy: 'bob@insure.com',
+    versions: [
+      mkVer(1, 'INACTIVE',
+        'Initial STP gate: auto-approved when fraud score = 0 and provider IN_NETWORK. Missing deductible check caused zero-deductible edge case bypass — superseded by v2.',
+        'Initial version — missing deductible check', '2025-05-01T00:00:00',
+        mkBlockRule({ match: 'and', conditions: [_c('fraud.totalScore', 'EQUALS', '0'), _c('provider.networkTier', 'EQUALS', 'IN_NETWORK')] }, [
+          _a('ASSIGN', 'adjudication.stpPassed', 'true'),
+        ])),
+      mkVer(2, 'ACTIVE',
+        'Final gate in STP pipeline (node 11). Auto-approves only when fraud.totalScore = 0, provider is IN_NETWORK, and claim.deductibleRemaining ≥ 0. Any failure routes to non-STP lane for human review.',
+        'Added deductibleRemaining ≥ 0 check to close zero-deductible bypass', '2025-08-01T00:00:00',
+        mkBlockRule({ match: 'and', conditions: [
+          _c('fraud.totalScore', 'EQUALS', '0'),
+          _c('provider.networkTier', 'EQUALS', 'IN_NETWORK'),
+          _c('claim.deductibleRemaining', 'GREATER_THAN_OR_EQUAL', '0'),
+        ]}, [
+          _a('ASSIGN', 'adjudication.stpPassed', 'true'),
+          _a('ASSIGN', 'claim.decisionLane', 'AUTO_APPROVE'),
+          _a('ADD_MESSAGE', '', '', { template: 'Claim auto-approved via STP. Payable: {{claim.payableAmount}}.' }),
+        ]), '2025-08-11T10:15:00'),
+    ],
+  },
+];
+
+export const SEED_TABLES: Table[] = [
+  /* ── UC-A · Motor Pricing ── */
+  {
+    id: 't-mpc', name: 'motor_premium_cap_table', category: 'Pricing',
+    tags: ['motor', 'cap', 'regulatory'], createdAt: '2024-10-10T08:00:00',
+    versions: [{
+      id: uid(), version: 1, status: 'ACTIVE',
+      description: 'Priority-ordered table enforcing regulatory caps on motor premium discounts (max 60%) and loadings (max 100%). Null cell = wildcard. First matching row by priority wins.',
+      changeSummary: 'Initial version', effectiveFrom: '2025-01-01T00:00:00', effectiveUntil: null,
+      table: {
+        hitPolicy: 'priority_order',
+        inputs: [
+          { field: 'pricing.totalDiscountPct', operator: 'GREATER_THAN', dataType: 'number', label: 'Total Discount %' },
+          { field: 'pricing.totalLoadingPct', operator: 'GREATER_THAN', dataType: 'number', label: 'Total Loading %' },
+        ],
+        outputs: [
+          { field: 'pricing.cappedDiscountPct', dataType: 'number', label: 'Capped Discount %' },
+          { field: 'pricing.cappedLoadingPct', dataType: 'number', label: 'Capped Loading %' },
+          { field: 'pricing.capApplied', dataType: 'boolean', label: 'Cap Applied' },
+        ],
+        rows: [
+          { id: 1, isEnabled: true, inputs: ['60', ''], outputs: [60, '', 'true'] },
+          { id: 2, isEnabled: true, inputs: ['', '100'], outputs: ['', 100, 'true'] },
+          { id: 3, isEnabled: true, inputs: ['', ''], outputs: ['', '', 'false'] },
+        ],
+      },
+    }],
+  },
+  /* ── UC-D · Claims Fraud ── */
+  {
+    id: 't-cfst', name: 'claims_fraud_signal_table', category: 'Claims',
+    tags: ['fraud', 'detection', 'collect-all'], createdAt: '2025-01-15T08:00:00',
+    versions: [
+      {
+        id: uid(), version: 1, status: 'INACTIVE',
+        description: 'Initial fraud signal table with 3 signals. DOCUMENT_MISMATCH signal missing — added in v2.',
+        changeSummary: 'Initial version — 3 signals', effectiveFrom: '2025-03-01T00:00:00', effectiveUntil: null,
+        table: {
+          hitPolicy: 'collect_all',
+          inputs: [
+            { field: 'claim.amountRatio', operator: 'GREATER_THAN', dataType: 'number', label: 'Amount Ratio' },
+            { field: 'claim.hospitalRiskTier', operator: 'IN', dataType: 'string', label: 'Hospital Risk Tier' },
+            { field: 'policy.ageMonths', operator: 'LESS_THAN', dataType: 'number', label: 'Policy Age (months)' },
+          ],
+          outputs: [
+            { field: 'fraud.signal', dataType: 'string', label: 'Signal' },
+            { field: 'fraud.points', dataType: 'number', label: 'Points' },
+          ],
+          rows: [
+            { id: 1, isEnabled: true, inputs: ['3', '', ''], outputs: ['HIGH_CLAIM_AMOUNT', 30] },
+            { id: 2, isEnabled: true, inputs: ['', 'HIGH,WATCHLIST', ''], outputs: ['HIGH_RISK_PROVIDER', 25] },
+            { id: 3, isEnabled: true, inputs: ['', '', '6'], outputs: ['EARLY_CLAIM', 20] },
+          ],
+        },
+      },
+      {
+        id: uid(), version: 2, status: 'ACTIVE',
+        description: 'collect_all table — all matching rows fire simultaneously. Each match appends {signal, points} to fraud.detections. Added DOCUMENT_MISMATCH (35 pts). Null cell = wildcard.',
+        changeSummary: 'Added DOCUMENT_MISMATCH signal (35 pts) from claims audit findings', effectiveFrom: '2025-07-01T00:00:00', effectiveUntil: null,
+        table: {
+          hitPolicy: 'collect_all',
+          inputs: [
+            { field: 'claim.amountRatio', operator: 'GREATER_THAN', dataType: 'number', label: 'Amount Ratio' },
+            { field: 'claim.hospitalRiskTier', operator: 'IN', dataType: 'string', label: 'Hospital Risk Tier' },
+            { field: 'policy.ageMonths', operator: 'LESS_THAN', dataType: 'number', label: 'Policy Age (months)' },
+            { field: 'claim.hasDocMismatch', operator: 'EQUALS', dataType: 'boolean', label: 'Doc Mismatch' },
+          ],
+          outputs: [
+            { field: 'fraud.signal', dataType: 'string', label: 'Signal' },
+            { field: 'fraud.points', dataType: 'number', label: 'Points' },
+          ],
+          rows: [
+            { id: 1, isEnabled: true, inputs: ['3', '', '', ''], outputs: ['HIGH_CLAIM_AMOUNT', 30] },
+            { id: 2, isEnabled: true, inputs: ['', 'HIGH,WATCHLIST', '', ''], outputs: ['HIGH_RISK_PROVIDER', 25] },
+            { id: 3, isEnabled: true, inputs: ['', '', '6', ''], outputs: ['EARLY_CLAIM', 20] },
+            { id: 4, isEnabled: true, inputs: ['', '', '', 'true'], outputs: ['DOCUMENT_MISMATCH', 35] },
+          ],
+        },
+      },
+    ],
+  },
+  /* ── UC-F · Claims STP ── */
+  {
+    id: 't-clibc', name: 'claims_line_item_benefit_cap_table', category: 'Claims',
+    tags: ['stp', 'benefit-cap', 'line-item'], createdAt: '2025-03-05T08:00:00',
+    versions: [
+      {
+        id: uid(), version: 1, status: 'ACTIVE',
+        description: 'first_match table applied per line item inside STP loop node (node 9). Caps ROOM_RENT ₹10k, SURGERY ₹50k, PHARMACY ₹15k. Wildcard row passes uncapped amounts.',
+        changeSummary: 'Initial version', effectiveFrom: '2025-05-01T00:00:00', effectiveUntil: null,
+        table: {
+          hitPolicy: 'first_match',
+          inputs: [
+            { field: 'lineItem.code', operator: 'EQUALS', dataType: 'string', label: 'Benefit Code' },
+            { field: 'lineItem.amount', operator: 'GREATER_THAN', dataType: 'number', label: 'Billed Amount' },
+          ],
+          outputs: [
+            { field: 'lineItem.approvedAmount', dataType: 'number', label: 'Approved Amount' },
+            { field: 'lineItem.capApplied', dataType: 'boolean', label: 'Cap Applied' },
+          ],
+          rows: [
+            { id: 1, isEnabled: true, inputs: ['ROOM_RENT', '10000'], outputs: [10000, 'true'] },
+            { id: 2, isEnabled: true, inputs: ['SURGERY', '50000'], outputs: [50000, 'true'] },
+            { id: 3, isEnabled: true, inputs: ['PHARMACY', '15000'], outputs: [15000, 'true'] },
+            { id: 4, isEnabled: true, inputs: ['', ''], outputs: ['lineItem.amount', 'false'] },
+          ],
+        },
+      },
+      {
+        id: uid(), version: 2, status: 'COMPLIANCE_REVIEW',
+        description: 'Proposed cap revision per IRDAI 2026 circular: SURGERY cap ₹50k → ₹75k, new ICU cap ₹20k.',
+        changeSummary: 'Revised caps per IRDAI 2026 circular — surgery ₹75k, add ICU ₹20k', effectiveFrom: '2026-01-01T00:00:00', effectiveUntil: null,
+        table: {
+          hitPolicy: 'first_match',
+          inputs: [
+            { field: 'lineItem.code', operator: 'EQUALS', dataType: 'string', label: 'Benefit Code' },
+            { field: 'lineItem.amount', operator: 'GREATER_THAN', dataType: 'number', label: 'Billed Amount' },
+          ],
+          outputs: [
+            { field: 'lineItem.approvedAmount', dataType: 'number', label: 'Approved Amount' },
+            { field: 'lineItem.capApplied', dataType: 'boolean', label: 'Cap Applied' },
+          ],
+          rows: [
+            { id: 1, isEnabled: true, inputs: ['ROOM_RENT', '10000'], outputs: [10000, 'true'] },
+            { id: 2, isEnabled: true, inputs: ['SURGERY', '75000'], outputs: [75000, 'true'] },
+            { id: 3, isEnabled: true, inputs: ['ICU', '20000'], outputs: [20000, 'true'] },
+            { id: 4, isEnabled: true, inputs: ['PHARMACY', '15000'], outputs: [15000, 'true'] },
+            { id: 5, isEnabled: true, inputs: ['', ''], outputs: ['lineItem.amount', 'false'] },
+          ],
+        },
+      },
+    ],
+  },
+];
+
+export const SEED_FLOWS: Flow[] = [
+  /* ── UC-A · Motor Pricing ── */
+  {
+    id: 'f-mpof', name: 'motor_pricing_orchestration_flow', category: 'Pricing',
+    tags: ['motor', 'pricing', 'orchestration'], stopOnError: false, createdAt: '2024-10-20T08:00:00',
+    versions: [{
+      id: uid(), version: 1, status: 'ACTIVE',
+      description: 'Seven-node strictly sequential flow defining the legal execution order for motor premium calculation. Ensures NCB discount is applied before young driver loading, and the cap table sees final amounts.',
+      changeSummary: 'Initial version', effectiveFrom: '2025-01-01T00:00:00', effectiveUntil: null,
+      flow: {
+        mergeStrategy: 'last_writer_wins',
+        nodes: [
+          { id: 1, type: 'start', name: 'Pricing Start' },
+          { id: 2, type: 'rule', name: 'Base Premium Lookup', config: { ruleRef: 'motor_base_premium_lookup_rule' } },
+          { id: 3, type: 'rule', name: 'NCB Discount Lookup', config: { ruleRef: 'motor_ncb_lookup_rule' } },
+          { id: 4, type: 'expression', name: 'Apply NCB Discount' },
+          { id: 5, type: 'rule', name: 'Young Driver Loading', config: { ruleRef: 'motor_young_driver_loading' } },
+          { id: 6, type: 'table', name: 'Premium Cap', config: { tableRef: 'motor_premium_cap_table' } },
+          { id: 7, type: 'end', name: 'Pricing Complete' },
+        ],
+        edges: [
+          { id: 1, source: 1, target: 2 }, { id: 2, source: 2, target: 3 }, { id: 3, source: 3, target: 4 },
+          { id: 4, source: 4, target: 5 }, { id: 5, source: 5, target: 6 }, { id: 6, source: 6, target: 7 },
+        ],
+      },
+    }],
+  },
+  /* ── UC-E · Renewal Loyalty ── */
+  {
+    id: 'f-rdf', name: 'renewal_decision_flow', category: 'Operations',
+    tags: ['renewal', 'loyalty', 'parallel'], stopOnError: true, createdAt: '2025-02-05T08:00:00',
+    versions: [
+      {
+        id: uid(), version: 1, status: 'ACTIVE',
+        description: 'Five-node flow with parallel fork after claim count aggregation. Zero-claim upgrade and high-claim loading run simultaneously on separate branches, each guarded by a when condition.',
+        changeSummary: 'Initial version', effectiveFrom: '2025-04-01T00:00:00', effectiveUntil: null,
+        flow: {
+          mergeStrategy: 'last_writer_wins',
+          nodes: [
+            { id: 1, type: 'start', name: 'Renewal Start' },
+            { id: 2, type: 'rule', name: 'Aggregate Claim Count', config: { ruleRef: 'renewal_aggregate_claim_count' } },
+            { id: 3, type: 'rule', name: 'Zero-Claim Auto-Upgrade', config: { ruleRef: 'renewal_auto_upgrade_zero_claim' } },
+            { id: 4, type: 'rule', name: 'High-Claim Loading', config: { ruleRef: 'renewal_loading_high_claim' } },
+            { id: 5, type: 'end', name: 'Renewal Complete' },
+          ],
+          edges: [
+            { id: 1, source: 1, target: 2 }, { id: 2, source: 2, target: 3 },
+            { id: 3, source: 2, target: 4 }, { id: 4, source: 3, target: 5 }, { id: 5, source: 4, target: 5 },
+          ],
+        },
+      },
+      {
+        id: uid(), version: 2, status: 'DRAFT',
+        description: 'Proposed: add grace period alert node and MID_TERM trigger support.',
+        changeSummary: 'Add MID_TERM trigger path and grace period alert node', effectiveFrom: '2026-01-01T00:00:00', effectiveUntil: null,
+        flow: {
+          mergeStrategy: 'last_writer_wins',
+          nodes: [
+            { id: 1, type: 'start', name: 'Renewal Start' },
+            { id: 2, type: 'rule', name: 'Grace Period Alert' },
+            { id: 3, type: 'rule', name: 'Aggregate Claim Count', config: { ruleRef: 'renewal_aggregate_claim_count' } },
+            { id: 4, type: 'rule', name: 'Zero-Claim Auto-Upgrade', config: { ruleRef: 'renewal_auto_upgrade_zero_claim' } },
+            { id: 5, type: 'rule', name: 'High-Claim Loading', config: { ruleRef: 'renewal_loading_high_claim' } },
+            { id: 6, type: 'end', name: 'Renewal Complete' },
+          ],
+          edges: [
+            { id: 1, source: 1, target: 2 }, { id: 2, source: 2, target: 3 },
+            { id: 3, source: 3, target: 4 }, { id: 4, source: 3, target: 5 },
+            { id: 5, source: 4, target: 6 }, { id: 6, source: 5, target: 6 },
+          ],
+        },
+      },
+    ],
+  },
+  /* ── UC-F · Claims STP (main + 3 subflows) ── */
+  {
+    id: 'f-csaf', name: 'claims_stp_adjudication_flow', category: 'Claims',
+    tags: ['stp', 'adjudication', 'auto-approve', 'parallel'], stopOnError: false, createdAt: '2025-03-10T08:00:00',
+    versions: [{
+      id: uid(), version: 1, status: 'ACTIVE',
+      description: 'Twelve-node pipeline covering every flow node type. Mid-flow parallel fork (fraud + network, wait_all join), conditional fraud escalation, subflow fork by claim type, per-item benefit cap loop, and final STP gate. Designed for < 2s auto-approval of clean in-network claims.',
+      changeSummary: 'Initial version', effectiveFrom: '2025-05-01T00:00:00', effectiveUntil: null,
+      flow: {
+        mergeStrategy: 'fail_on_conflict',
+        nodes: [
+          { id: 1, type: 'start', name: 'Claim Received' },
+          { id: 2, type: 'transform', name: 'Normalize Payload' },
+          { id: 3, type: 'rule', name: 'Policy Eligibility Gate', config: { ruleRef: 'claims_policy_eligibility_gate' } },
+          { id: 4, type: 'expression', name: 'Compute Deductible' },
+          { id: 5, type: 'table', name: 'Fraud Signal Check', config: { tableRef: 'claims_fraud_signal_table' } },
+          { id: 6, type: 'rule', name: 'Provider Network Classification', config: { ruleRef: 'claims_provider_network_check' } },
+          { id: 7, type: 'rule', name: 'Fraud Score Threshold', config: { ruleRef: 'claims_fraud_escalation' } },
+          { id: 8, type: 'subflow', name: 'Claim Type Router' },
+          { id: 9, type: 'loop', name: 'Per-Item Benefit Cap' },
+          { id: 10, type: 'expression', name: 'Compute Final Payable' },
+          { id: 11, type: 'rule', name: 'STP Auto-Approve Gate', config: { ruleRef: 'claims_stp_decision_gate' } },
+          { id: 12, type: 'end', name: 'Adjudication Complete' },
+        ],
+        edges: [
+          { id: 1, source: 1, target: 2 }, { id: 2, source: 2, target: 3 }, { id: 3, source: 3, target: 4 },
+          { id: 4, source: 4, target: 5 }, { id: 5, source: 4, target: 6 }, { id: 6, source: 5, target: 7 },
+          { id: 7, source: 6, target: 7 }, { id: 8, source: 7, target: 8 }, { id: 9, source: 8, target: 9 },
+          { id: 10, source: 9, target: 10 }, { id: 11, source: 10, target: 11 }, { id: 12, source: 11, target: 12 },
+        ],
+      },
+    }],
+  },
+  {
+    id: 'f-chsf', name: 'claims_hospitalization_subflow', category: 'Claims',
+    tags: ['stp', 'hospitalization', 'subflow'], stopOnError: true, createdAt: '2025-03-12T08:00:00',
+    versions: [
+      {
+        id: uid(), version: 1, status: 'INACTIVE',
+        description: 'Initial hospitalization subflow. Missing DRG validation node — caused incorrect room-rent categorisation for ICU admissions.',
+        changeSummary: 'Initial version — DRG validation absent', effectiveFrom: '2025-05-01T00:00:00', effectiveUntil: null,
+        flow: {
+          mergeStrategy: 'last_writer_wins',
+          nodes: [
+            { id: 1, type: 'start', name: 'Hosp Entry' },
+            { id: 2, type: 'rule', name: 'Room Rent Cap Check', config: { tableRef: 'claims_line_item_benefit_cap_table' } },
+            { id: 3, type: 'expression', name: 'Compute Inpatient Payable' },
+            { id: 4, type: 'end', name: 'Hosp Exit' },
+          ],
+          edges: [{ id: 1, source: 1, target: 2 }, { id: 2, source: 2, target: 3 }, { id: 3, source: 3, target: 4 }],
+        },
+      },
+      {
+        id: uid(), version: 2, status: 'ACTIVE',
+        description: 'Hospitalization subflow called from claims_stp_adjudication_flow node 8 when claim.type = HOSPITALIZATION. Handles DRG classification, room-rent and surgery cap validation, ICU surcharge, and inpatient payable computation.',
+        changeSummary: 'Added DRG classification node and ICU surcharge expression', effectiveFrom: '2025-08-15T00:00:00', effectiveUntil: null,
+        flow: {
+          mergeStrategy: 'last_writer_wins',
+          nodes: [
+            { id: 1, type: 'start', name: 'Hosp Entry' },
+            { id: 2, type: 'expression', name: 'DRG Classification' },
+            { id: 3, type: 'table', name: 'Room Rent & Surgery Cap', config: { tableRef: 'claims_line_item_benefit_cap_table' } },
+            { id: 4, type: 'expression', name: 'ICU Surcharge Check' },
+            { id: 5, type: 'expression', name: 'Compute Inpatient Payable' },
+            { id: 6, type: 'end', name: 'Hosp Exit' },
+          ],
+          edges: [
+            { id: 1, source: 1, target: 2 }, { id: 2, source: 2, target: 3 },
+            { id: 3, source: 3, target: 4 }, { id: 4, source: 4, target: 5 }, { id: 5, source: 5, target: 6 },
+          ],
+        },
+      },
+    ],
+  },
+  {
+    id: 'f-cosf', name: 'claims_outpatient_subflow', category: 'Claims',
+    tags: ['stp', 'outpatient', 'subflow'], stopOnError: false, createdAt: '2025-03-12T08:00:00',
+    versions: [{
+      id: uid(), version: 1, status: 'ACTIVE',
+      description: 'Outpatient subflow called from claims_stp_adjudication_flow node 8 when claim.type = OUTPATIENT. Validates consultation fees, diagnostic co-pay, and pharmacy benefit cap before computing the outpatient payable amount.',
+      changeSummary: 'Initial version', effectiveFrom: '2025-05-01T00:00:00', effectiveUntil: null,
+      flow: {
+        mergeStrategy: 'last_writer_wins',
+        nodes: [
+          { id: 1, type: 'start', name: 'OP Entry' },
+          { id: 2, type: 'rule', name: 'Consult Fee Validation' },
+          { id: 3, type: 'table', name: 'Pharmacy Benefit Cap', config: { tableRef: 'claims_line_item_benefit_cap_table' } },
+          { id: 4, type: 'expression', name: 'Apply Diagnostic Co-Pay' },
+          { id: 5, type: 'expression', name: 'Compute OP Payable' },
+          { id: 6, type: 'end', name: 'OP Exit' },
+        ],
+        edges: [
+          { id: 1, source: 1, target: 2 }, { id: 2, source: 2, target: 3 },
+          { id: 3, source: 3, target: 4 }, { id: 4, source: 4, target: 5 }, { id: 5, source: 5, target: 6 },
+        ],
+      },
+    }],
+  },
+  {
+    id: 'f-cdsf', name: 'claims_default_processing_subflow', category: 'Claims',
+    tags: ['stp', 'default', 'subflow', 'fallback'], stopOnError: false, createdAt: '2025-03-12T08:00:00',
+    versions: [
+      {
+        id: uid(), version: 1, status: 'ACTIVE',
+        description: 'Default fallback subflow invoked from claims_stp_adjudication_flow node 8 for claim types that do not match HOSPITALIZATION or OUTPATIENT. Applies generic benefit caps, routes to manual review queue if claim amount exceeds threshold.',
+        changeSummary: 'Initial version', effectiveFrom: '2025-05-01T00:00:00', effectiveUntil: null,
+        flow: {
+          mergeStrategy: 'last_writer_wins',
+          nodes: [
+            { id: 1, type: 'start', name: 'Default Entry' },
+            { id: 2, type: 'table', name: 'Generic Benefit Cap', config: { tableRef: 'claims_line_item_benefit_cap_table' } },
+            { id: 3, type: 'expression', name: 'Compute Generic Payable' },
+            { id: 4, type: 'rule', name: 'High-Value Referral Check' },
+            { id: 5, type: 'end', name: 'Default Exit' },
+          ],
+          edges: [
+            { id: 1, source: 1, target: 2 }, { id: 2, source: 2, target: 3 },
+            { id: 3, source: 3, target: 4 }, { id: 4, source: 4, target: 5 },
+          ],
+        },
+      },
+      {
+        id: uid(), version: 2, status: 'PEER_REVIEW',
+        description: 'Proposed: add dental and vision claim type branches to the default subflow to reduce manual queue volume for routine non-inpatient claims.',
+        changeSummary: 'Add dental and vision fast-track branches', effectiveFrom: '2026-02-01T00:00:00', effectiveUntil: null,
+        flow: {
+          mergeStrategy: 'last_writer_wins',
+          nodes: [
+            { id: 1, type: 'start', name: 'Default Entry' },
+            { id: 2, type: 'rule', name: 'Claim Type Branch' },
+            { id: 3, type: 'table', name: 'Generic Benefit Cap', config: { tableRef: 'claims_line_item_benefit_cap_table' } },
+            { id: 4, type: 'expression', name: 'Compute Generic Payable' },
+            { id: 5, type: 'rule', name: 'High-Value Referral Check' },
+            { id: 6, type: 'end', name: 'Default Exit' },
+          ],
+          edges: [
+            { id: 1, source: 1, target: 2 }, { id: 2, source: 2, target: 3 },
+            { id: 3, source: 3, target: 4 }, { id: 4, source: 4, target: 5 }, { id: 5, source: 5, target: 6 },
+          ],
+        },
+      },
+    ],
+  },
+];
+
+/* ── UI PRIMITIVES ───────────────────────────────── */
+interface BtnProps {
+  children: React.ReactNode;
+  variant?: 'default' | 'outline' | 'ghost' | 'destructive' | 'secondary';
+  size?: 'default' | 'sm' | 'lg' | 'icon';
+  className?: string;
+  onClick?: () => void;
+  disabled?: boolean;
+  type?: 'button' | 'submit' | 'reset';
+  title?: string;
+}
+
+export const Btn: React.FC<BtnProps> = ({ children, variant = 'default', size = 'default', className = '', onClick, disabled, type = 'button', title }) => {
+  const base = 'inline-flex items-center justify-center font-medium rounded-md transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:opacity-40 disabled:pointer-events-none';
+  const v = {
+    default: 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm',
+    outline: 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50',
+    ghost: 'text-gray-600 hover:bg-gray-100 hover:text-gray-800',
+    destructive: 'bg-red-600 text-white hover:bg-red-700',
+    secondary: 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+  };
+  const s = { default: 'h-8 px-3.5 text-sm gap-2', sm: 'h-7 px-2.5 text-xs gap-1.5', lg: 'h-9 px-4 text-sm gap-2', icon: 'h-8 w-8 p-0 text-sm' };
+  return (
+    <button type={type} disabled={disabled} onClick={onClick} title={title} className={cn(base, v[variant], s[size], className)}>
+      {children}
+    </button>
+  );
+};
+
+export const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
+  const m = STATUS_META[status] || STATUS_META.DRAFT;
+  return (
+    <span className={cn('inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium', m.bg, m.text)}>
+      <span className={cn('w-1.5 h-1.5 rounded-full', m.dot)} />
+      {m.label}
+    </span>
+  );
+};
+
+export const Tag: React.FC<{ label: string; onRemove?: () => void }> = ({ label, onRemove }) => (
+  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded-md font-medium">
+    {label}
+    {onRemove && <button type="button" onClick={onRemove} className="hover:text-blue-900 ml-0.5">×</button>}
+  </span>
+);
+
+export const Field: React.FC<{ label: string; required?: boolean; children: React.ReactNode; hint?: string }> = ({ label, required, children, hint }) => (
+  <div className="flex flex-col gap-1">
+    <label className="text-sm font-medium text-gray-700">{label}{required && <span className="text-red-500 ml-0.5">*</span>}</label>
+    {children}
+    {hint && <p className="text-xs text-gray-400">{hint}</p>}
+  </div>
+);
+
+interface InpProps {
+  value: string;
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  placeholder?: string;
+  disabled?: boolean;
+  className?: string;
+  type?: string;
+  id?: string;
+  readOnly?: boolean;
+}
+
+export const Inp: React.FC<InpProps> = ({ value, onChange, placeholder, disabled, className = '', type = 'text', id, readOnly }) => (
+  <input
+    id={id} type={type} value={value} onChange={onChange} placeholder={placeholder}
+    disabled={disabled} readOnly={readOnly}
+    style={{ WebkitAppearance: 'none' }}
+    className={cn('h-8 px-3 text-sm border border-gray-200 rounded-md bg-white placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:bg-gray-50 disabled:text-gray-500 transition-colors', className)}
+  />
+);
+
+interface SelProps {
+  value: string;
+  onChange?: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  options: { value: string; label: string }[] | string[];
+  disabled?: boolean;
+  className?: string;
+}
+
+export const Sel: React.FC<SelProps> = ({ value, onChange, options, disabled, className = '' }) => (
+  <select
+    value={value} onChange={onChange} disabled={disabled}
+    style={{ WebkitAppearance: 'none', backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center' }}
+    className={cn('h-8 px-2 pr-7 text-sm border border-gray-200 rounded-md bg-white text-gray-800 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:bg-gray-50 transition-colors', className)}
+  >
+    {(options as Array<{ value: string; label: string } | string>).map(o => {
+      const v = typeof o === 'string' ? o : o.value;
+      const l = typeof o === 'string' ? o : o.label;
+      return <option key={v} value={v}>{l}</option>;
+    })}
+  </select>
+);
+
+interface ModalProps {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+  width?: string;
+}
+
+export const Modal: React.FC<ModalProps> = ({ open, onClose, title, subtitle, children, width = 'max-w-lg' }) => {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 px-4" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="fixed inset-0 bg-black/25 backdrop-blur-sm" onClick={onClose} />
+      <div className={cn('relative bg-white rounded-xl shadow-2xl w-full flex flex-col max-h-[80vh]', width)} style={{ animation: 'fadeIn .15s ease-out' }}>
+        <div className="flex items-start justify-between p-5 pb-3 shrink-0 border-b border-gray-100">
+          <div>
+            <h2 className="text-base font-semibold text-gray-900">{title}</h2>
+            {subtitle && <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>}
+          </div>
+          <button onClick={onClose} className="ml-3 p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6 6 18M6 6l12 12" /></svg>
+          </button>
+        </div>
+        <div className="overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>{children}</div>
+      </div>
+    </div>
+  );
+};
+
+export const Toast: React.FC<{ msg: string; onDone: () => void }> = ({ msg, onDone }) => {
+  useEffect(() => { const t = setTimeout(onDone, 3000); return () => clearTimeout(t); }, [onDone]);
+  return (
+    <div className="fixed bottom-5 right-5 z-50 bg-gray-900 text-white text-sm px-4 py-2.5 rounded-xl shadow-xl flex items-center gap-2.5" style={{ animation: 'fadeIn .15s ease-out' }}>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ADE80" strokeWidth="2.5"><path d="M20 6 9 17l-5-5" /></svg>
+      {msg}
+    </div>
+  );
+};
+
+/* ── ICON SYSTEM ─────────────────────────────────── */
+const Ic: React.FC<{ d: string | string[]; size?: number; className?: string; sw?: number }> = ({ d, size = 16, className = '', sw = 2 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    {Array.isArray(d) ? d.map((p, i) => <path key={i} d={p} />) : <path d={d} />}
+  </svg>
+);
+
+export const IC = {
+  Home: (p: { size?: number; className?: string }) => <Ic d={['M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z', 'M9 22V12h6v10']} {...p} />,
+  Policy: (p: { size?: number; className?: string }) => <Ic d={['M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z']} {...p} />,
+  Claims: (p: { size?: number; className?: string }) => <Ic d={['M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z', 'M14 2v6h6', 'M16 13H8', 'M16 17H8', 'M10 9H8']} {...p} />,
+  Billing: (p: { size?: number; className?: string }) => <Ic d={['M3 6h18', 'M3 12h18', 'M3 18h18']} {...p} />,
+  Rules: (p: { size?: number; className?: string }) => <Ic d={['M12 2L2 7l10 5 10-5-10-5z', 'M2 17l10 5 10-5', 'M2 12l10 5 10-5']} {...p} />,
+  Config: (p: { size?: number; className?: string }) => <Ic d={['M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z', 'M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z']} {...p} />,
+  Alerts: (p: { size?: number; className?: string }) => <Ic d={['M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9', 'M13.73 21a2 2 0 0 1-3.46 0']} {...p} />,
+  Plus: (p: { size?: number; className?: string }) => <Ic d="M12 5v14M5 12h14" {...p} />,
+  Back: (p: { size?: number; className?: string }) => <Ic d={['M19 12H5', 'M12 19l-7-7 7-7']} {...p} />,
+  Search: (p: { size?: number; className?: string }) => <Ic d={['M21 21l-4.35-4.35', 'M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z']} {...p} />,
+  Eye: (p: { size?: number; className?: string }) => <Ic d={['M1 12s4-8 11-8 11 8 11 8', 'M1 12s4 8 11 8 11-8 11-8', 'M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z']} {...p} />,
+  Edit: (p: { size?: number; className?: string }) => <Ic d={['M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7', 'M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z']} {...p} />,
+  Trash: (p: { size?: number; className?: string }) => <Ic d={['M3 6h18', 'M8 6V4h8v2', 'M19 6l-1 14H6L5 6']} {...p} />,
+  Bolt: (p: { size?: number; className?: string }) => <Ic d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" {...p} />,
+  ChevR: (p: { size?: number; className?: string }) => <Ic d="M9 18l6-6-6-6" {...p} />,
+  ChevD: (p: { size?: number; className?: string }) => <Ic d="M6 9l6 6 6-6" {...p} />,
+  Flow: (p: { size?: number; className?: string }) => <Ic d={['M5 12h14', 'M12 5l7 7-7 7']} {...p} />,
+  Table2: (p: { size?: number; className?: string }) => <Ic d={['M3 3h18v18H3z', 'M3 9h18', 'M3 15h18', 'M9 3v18']} {...p} />,
+  Activate: (p: { size?: number; className?: string }) => <Ic d={['M9 12l2 2 4-4', 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z']} {...p} />,
+  Tag: (p: { size?: number; className?: string }) => <Ic d={['M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z', 'M7 7h.01']} {...p} />,
+  Grid: (p: { size?: number; className?: string }) => <Ic d={['M10 3H3v7h7V3z', 'M21 3h-7v7h7V3z', 'M21 14h-7v7h7v-7z', 'M10 14H3v7h7v-7z']} {...p} />,
+  Dashboard: (p: { size?: number; className?: string }) => <Ic d={['M3 3h7v7H3z', 'M14 3h7v7h-7z', 'M14 14h7v7h-7z', 'M3 14h7v7H3z']} {...p} />,
+  Lookup: (p: { size?: number; className?: string }) => <Ic d={['M4 6h16', 'M4 12h16', 'M4 18h7']} {...p} />,
+  Check: (p: { size?: number; className?: string }) => <Ic d="M20 6L9 17l-5-5" {...p} />,
+  Zap: (p: { size?: number; className?: string }) => <Ic d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" {...p} />,
+  Users: (p: { size?: number; className?: string }) => <Ic d={['M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2', 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z', 'M23 21v-2a4 4 0 0 0-3-3.87', 'M16 3.13a4 4 0 0 1 0 7.75']} {...p} />,
+  Globe: (p: { size?: number; className?: string }) => <Ic d={['M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z', 'M2 12h20', 'M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z']} {...p} />,
+  Copy: (p: { size?: number; className?: string }) => <Ic d={['M8 17.929H6c-1.105 0-2-.912-2-2.036V5.036C4 3.91 4.895 3 6 3h8c1.105 0 2 .911 2 2.036v1.866m-6 .17h8c1.105 0 2 .91 2 2.036v10.857C20 21.09 19.105 22 18 22h-8c-1.105 0-2-.911-2-2.036V9.107c0-1.124.895-2.036 2-2.036z']} {...p} />,
+  Info: (p: { size?: number; className?: string }) => <Ic d={['M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z', 'M12 8v4', 'M12 16h.01']} {...p} />,
+  X: (p: { size?: number; className?: string }) => <Ic d="M18 6 6 18M6 6l12 12" {...p} />,
+};
+
+/* ── PRIMARY SIDEBAR ─────────────────────────────── */
+const NAV = [
+  { key: 'home', Icon: IC.Home, label: 'Home' },
+  { key: 'policy', Icon: IC.Policy, label: 'Policy' },
+  { key: 'claims', Icon: IC.Claims, label: 'Claims' },
+  { key: 'billing', Icon: IC.Billing, label: 'Billing' },
+  { key: 'rules', Icon: IC.Rules, label: 'Rules' },
+  { key: 'config', Icon: IC.Config, label: 'Config' },
+];
+
+export const PrimarySidebar: React.FC<{ active: string; onSelect: (k: string) => void }> = ({ active, onSelect }) => (
+  <aside className="w-[64px] bg-white border-r border-gray-200 flex flex-col items-center py-3 shrink-0">
+    <div className="w-9 h-9 rounded-lg bg-gray-900 flex items-center justify-center mb-4">
+      <IC.Zap size={16} className="text-white" />
+    </div>
+    <div className="flex flex-col gap-1 flex-1 w-full px-2">
+      {NAV.map(({ key, Icon, label }) => (
+        <button key={key} onClick={() => onSelect(key)}
+          className={cn('flex flex-col items-center gap-1 py-2 px-1 rounded-lg w-full transition-colors',
+            active === key ? 'bg-gray-100 text-gray-900' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50')}>
+          <Icon size={18} />
+          <span className="text-[10px] font-medium leading-none">{label}</span>
+        </button>
+      ))}
+    </div>
+    <div className="flex flex-col gap-1 w-full px-2">
+      {[{ Icon: IC.Alerts, label: 'Alerts' }, { Icon: IC.Config, label: 'Settings' }].map(({ Icon, label }) => (
+        <button key={label} className="flex flex-col items-center gap-1 py-2 px-1 rounded-lg w-full text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors">
+          <Icon size={18} /><span className="text-[10px] font-medium leading-none">{label}</span>
+        </button>
+      ))}
+    </div>
+  </aside>
+);
+
+/* ── SECONDARY SIDEBAR ───────────────────────────── */
+const RULES_NAV = [
+  { section: 'HOME', items: [{ key: 'dashboard', Icon: IC.Dashboard, label: 'Dashboard' }] },
+  {
+    section: 'RULES', items: [
+      { key: 'decisions', Icon: IC.Rules, label: 'Decisions' },
+      { key: 'lookup', Icon: IC.Lookup, label: 'Lookup' },
+      { key: 'approvals', Icon: IC.Check, label: 'Approvals' },
+      { key: 'analytics', Icon: IC.Grid, label: 'Analytics' },
+      { key: 'health', Icon: IC.Bolt, label: 'Health' },
+    ],
+  },
+  {
+    section: 'MONITOR', items: [
+      { key: 'sandbox', Icon: IC.Eye, label: 'Sandbox' },
+      { key: 'environments', Icon: IC.Flow, label: 'Environments' },
+    ],
+  },
+  {
+    section: 'CONFIG', items: [
+      { key: 'fields', Icon: IC.Table2, label: 'Fields' },
+      { key: 'facts', Icon: IC.Lookup, label: 'Facts' },
+    ],
+  },
+];
+
+interface SecondarySidebarProps {
+  active: string;
+  onSelect: (k: string) => void;
+  space: Space;
+  onSpaceClick: () => void;
+}
+
+export const SecondarySidebar: React.FC<SecondarySidebarProps> = ({ active, onSelect, space, onSpaceClick }) => (
+  <aside className="w-[200px] bg-white border-r border-gray-200 flex flex-col shrink-0">
+    <button onClick={onSpaceClick}
+      className="px-4 py-3.5 border-b border-gray-100 text-left hover:bg-gray-50 transition-colors group w-full">
+      <div className="flex items-center justify-between">
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Space</p>
+          <p className="text-xs font-semibold text-gray-900 leading-tight truncate">{space.name}</p>
+        </div>
+        <IC.ChevD size={12} className="text-gray-400 group-hover:text-gray-600 shrink-0 ml-1" />
+      </div>
+    </button>
+    <div className="flex flex-col gap-0 overflow-y-auto flex-1 py-2" style={{ scrollbarWidth: 'thin' }}>
+      {/* Spaces link */}
+      <div className="mb-1">
+        <button onClick={() => onSelect('spaces')}
+          className={cn('flex items-center gap-2.5 w-full px-4 py-1.5 text-sm transition-colors text-left',
+            active === 'spaces' ? 'text-gray-900 font-medium' : 'text-gray-500 hover:text-gray-700')}>
+          {active === 'spaces'
+            ? <span className="flex items-center gap-2.5 bg-gray-100 rounded-lg px-2 py-1 w-full -mx-2"><IC.Globe size={15} />Spaces</span>
+            : <><IC.Globe size={15} />Spaces</>}
+        </button>
+      </div>
+      {RULES_NAV.map(({ section, items }) => (
+        <div key={section} className="mb-1">
+          <p className="px-4 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{section}</p>
+          {items.map(({ key, Icon, label }) => (
+            <button key={key} onClick={() => onSelect(key)}
+              className={cn('flex items-center gap-2.5 w-full px-4 py-1.5 text-sm transition-colors text-left',
+                active === key ? 'text-gray-900 font-medium' : 'text-gray-500 hover:text-gray-700')}>
+              {active === key
+                ? <span className="flex items-center gap-2.5 bg-gray-100 rounded-lg px-2 py-1 w-full -mx-2"><Icon size={15} />{label}</span>
+                : <><Icon size={15} />{label}</>}
+            </button>
+          ))}
+        </div>
+      ))}
+    </div>
+  </aside>
+);

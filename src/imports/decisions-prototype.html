@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Decisions — AXA Motor Insurance</title>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,sans-serif;background:#F9FAFB;color:#111827;-webkit-font-smoothing:antialiased}
+.scrollbar::-webkit-scrollbar{width:4px;height:4px}
+.scrollbar::-webkit-scrollbar-thumb{background:#D1D5DB;border-radius:4px}
+.fade-in{animation:fadeIn .15s ease-out}
+@keyframes fadeIn{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}
+select{-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;padding-right:26px!important}
+.tab-on{border-bottom:2px solid #2563EB;color:#1D4ED8;font-weight:500}
+.tab-off{border-bottom:2px solid transparent;color:#6B7280}
+.tab-off:hover{color:#374151;border-color:#D1D5DB}
+.ring-f:focus{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px #3B82F6}
+input[type=checkbox]{accent-color:#2563EB}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useMemo,useRef,useEffect,useCallback}=React;
+
+/* ── HELPERS ─────────────────────────────────────── */
+const cn=(...c)=>c.filter(Boolean).join(' ');
+const uid=()=>Math.random().toString(36).slice(2,9);
+const fmt=(iso)=>iso?new Date(iso).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'—';
+
+/* ── SEED DATA ───────────────────────────────────── */
+const FACT_FIELDS=[
+  {label:'ApplicantInfo.age',value:'ApplicantInfo.age',dataType:'number'},
+  {label:'ApplicantInfo.annualIncome',value:'ApplicantInfo.annualIncome',dataType:'number'},
+  {label:'ApplicantInfo.productCode',value:'ApplicantInfo.productCode',dataType:'string'},
+  {label:'ApplicantInfo.dateOfBirth',value:'ApplicantInfo.dateOfBirth',dataType:'date'},
+  {label:'ApplicantInfo.eligible',value:'ApplicantInfo.eligible',dataType:'boolean'},
+  {label:'ApplicantInfo.premiumRate',value:'ApplicantInfo.premiumRate',dataType:'number'},
+  {label:'ApplicantInfo.riskScore',value:'ApplicantInfo.riskScore',dataType:'number'},
+  {label:'ApplicantInfo.sumAssured',value:'ApplicantInfo.sumAssured',dataType:'number'},
+  {label:'VehicleInfo.make',value:'VehicleInfo.make',dataType:'string'},
+  {label:'VehicleInfo.year',value:'VehicleInfo.year',dataType:'number'},
+  {label:'VehicleInfo.cubicCapacity',value:'VehicleInfo.cubicCapacity',dataType:'number'},
+  {label:'ClaimInfo.claimCount',value:'ClaimInfo.claimCount',dataType:'number'},
+];
+
+const OPERATORS=[
+  {value:'EQUALS',label:'equals',types:['number','string','boolean','date']},
+  {value:'NOT_EQUALS',label:'does not equal',types:['number','string','boolean','date']},
+  {value:'GREATER_THAN',label:'is greater than',types:['number']},
+  {value:'GREATER_THAN_OR_EQUAL',label:'is ≥',types:['number']},
+  {value:'LESS_THAN',label:'is less than',types:['number']},
+  {value:'LESS_THAN_OR_EQUAL',label:'is ≤',types:['number']},
+  {value:'BETWEEN',label:'is between',types:['number','date']},
+  {value:'CONTAINS',label:'contains',types:['string']},
+  {value:'STARTS_WITH',label:'starts with',types:['string']},
+  {value:'IN',label:'is one of',types:['string','number']},
+  {value:'IS_NULL',label:'is null',types:['number','string','boolean','date']},
+  {value:'IS_NOT_NULL',label:'is not null',types:['number','string','boolean','date']},
+];
+
+const ACTION_TYPES=[
+  {value:'ASSIGN',label:'ASSIGN — Set field value'},
+  {value:'COMPUTE',label:'COMPUTE — Evaluate formula'},
+  {value:'MULTIPLY',label:'MULTIPLY — Multiply field'},
+  {value:'APPLY_PERCENTAGE',label:'APPLY_PERCENTAGE — Apply %'},
+  {value:'ADD_MESSAGE',label:'ADD_MESSAGE — Append message'},
+  {value:'BRANCH',label:'BRANCH — Conditional action'},
+  {value:'LOOKUP',label:'LOOKUP — Fetch from table'},
+  {value:'LOG',label:'LOG — Debug log'},
+];
+
+const STATUS_META={
+  DRAFT:{label:'Draft',bg:'bg-slate-100',text:'text-slate-600',dot:'bg-slate-400'},
+  PEER_REVIEW:{label:'Peer Review',bg:'bg-blue-50',text:'text-blue-700',dot:'bg-blue-400'},
+  BUSINESS_REVIEW:{label:'Business Review',bg:'bg-indigo-50',text:'text-indigo-700',dot:'bg-indigo-400'},
+  COMPLIANCE_REVIEW:{label:'Compliance Review',bg:'bg-violet-50',text:'text-violet-700',dot:'bg-violet-400'},
+  APPROVED:{label:'Approved',bg:'bg-teal-50',text:'text-teal-700',dot:'bg-teal-400'},
+  ACTIVE:{label:'Active',bg:'bg-green-50',text:'text-green-700',dot:'bg-green-500'},
+  INACTIVE:{label:'Inactive',bg:'bg-yellow-50',text:'text-yellow-700',dot:'bg-yellow-400'},
+  DEPRECATED:{label:'Deprecated',bg:'bg-orange-50',text:'text-orange-700',dot:'bg-orange-400'},
+  ARCHIVE:{label:'Archive',bg:'bg-red-50',text:'text-red-400',dot:'bg-red-300'},
+};
+
+const CATEGORIES=['Underwriting','Claims','Pricing','Compliance','Operations'];
+
+const mkRule=(id,name,category,tags,versions)=>({id,name,category,tags,createdAt:'2025-01-10T08:00:00',createdBy:'alice@insure.com',versions});
+const mkVer=(version,status,desc,summary,from,rule,input,output)=>({
+  id:uid(),version,status,description:desc,changeSummary:summary,
+  effectiveFrom:from,effectiveUntil:null,
+  activatedAt:status==='ACTIVE'?'2025-02-01T09:00:00':null,
+  activatedBy:status==='ACTIVE'?'bob@insure.com':null,
+  inputSchema:input,outputSchema:output,rule
+});
+
+const defaultInput={facts:[{factType:'ApplicantInfo',fields:[{name:'age',dataType:'number',required:true}]}],onDemand:[]};
+const defaultOutput={facts:[{factType:'ApplicantInfo',fields:[{name:'eligible',dataType:'boolean'}]}],decisions:[{name:'eligibilityDecision',dataType:'string'}],reasons:[]};
+
+const SEED_RULES=[
+  mkRule('r1','Age Eligibility Check','Underwriting',['eligibility','age'],[
+    mkVer(1,'ACTIVE','Rejects applicants under 18 or over 65','Initial version','2026-01-01T00:00:00',
+      {when:{match:'and',conditions:[{id:'c1',field:'ApplicantInfo.age',operator:'LESS_THAN',value:'18',secondValue:''},{id:'c2',field:'ApplicantInfo.age',operator:'GREATER_THAN',value:'65',secondValue:''}]},then:[{id:'a1',type:'ASSIGN',field:'ApplicantInfo.eligible',value:'false',config:{}},{id:'a2',type:'ADD_MESSAGE',field:'',value:'',config:{template:'Applicant does not meet age requirements'}}]},
+      defaultInput,defaultOutput),
+    mkVer(2,'DRAFT','Raises minimum age to 21 per regulatory update','Regulatory compliance change','2026-07-01T00:00:00',
+      {when:{match:'and',conditions:[{id:'c3',field:'ApplicantInfo.age',operator:'LESS_THAN',value:'21',secondValue:''}]},then:[{id:'a3',type:'ASSIGN',field:'ApplicantInfo.eligible',value:'false',config:{}},{id:'a4',type:'ADD_MESSAGE',field:'',value:'',config:{template:'Applicant must be at least 21 years old'}}]},
+      defaultInput,defaultOutput),
+  ]),
+  mkRule('r2','Premium Base Calculation','Pricing',['premium','rating'],[
+    mkVer(1,'ACTIVE','Calculates base premium from age and sum assured','Initial version','2026-01-01T00:00:00',
+      {when:{match:'and',conditions:[{id:'c5',field:'ApplicantInfo.age',operator:'BETWEEN',value:'18',secondValue:'65'}]},then:[{id:'a5',type:'COMPUTE',field:'ApplicantInfo.premiumRate',value:'',config:{formula:'age * sumAssured * 0.0012'}},{id:'a6',type:'LOG',field:'',value:'',config:{message:'Premium computed'}}]},
+      {facts:[{factType:'ApplicantInfo',fields:[{name:'age',dataType:'number',required:true},{name:'sumAssured',dataType:'number',required:true}]}],onDemand:[]},
+      {facts:[{factType:'ApplicantInfo',fields:[{name:'premiumRate',dataType:'number'}]}],decisions:[{name:'premiumDecision',dataType:'number'}],reasons:[]}),
+  ]),
+  mkRule('r3','Discount Eligibility','Underwriting',['discount','no-claim'],[
+    mkVer(1,'ACTIVE','Applies no-claim discount for zero claims','Initial version','2026-01-01T00:00:00',
+      {when:{match:'and',conditions:[{id:'c6',field:'ClaimInfo.claimCount',operator:'EQUALS',value:'0',secondValue:''}]},then:[{id:'a7',type:'APPLY_PERCENTAGE',field:'ApplicantInfo.premiumRate',value:'',config:{percentage:15}},{id:'a8',type:'ADD_MESSAGE',field:'',value:'',config:{template:'15% no-claim discount applied'}}]},
+      {facts:[{factType:'ClaimInfo',fields:[{name:'claimCount',dataType:'number',required:true}]},{factType:'ApplicantInfo',fields:[{name:'premiumRate',dataType:'number',required:true}]}],onDemand:[]},
+      {facts:[{factType:'ApplicantInfo',fields:[{name:'premiumRate',dataType:'number'}]}],decisions:[],reasons:[]}),
+  ]),
+  mkRule('r4','Risk Score Assessment','Underwriting',['risk','vehicle'],[
+    mkVer(1,'INACTIVE','Computes risk score from vehicle data','Initial version','2025-06-01T00:00:00',
+      {when:{match:'and',conditions:[{id:'c7',field:'VehicleInfo.cubicCapacity',operator:'GREATER_THAN',value:'2000',secondValue:''}]},then:[{id:'a9',type:'ASSIGN',field:'ApplicantInfo.riskScore',value:'8',config:{}}]},
+      {facts:[{factType:'VehicleInfo',fields:[{name:'cubicCapacity',dataType:'number',required:true}]}],onDemand:[]},
+      {facts:[{factType:'ApplicantInfo',fields:[{name:'riskScore',dataType:'number'}]}],decisions:[],reasons:[]}),
+    mkVer(2,'PEER_REVIEW','Adds vehicle year as additional risk factor','Added vehicle year scoring','2026-01-01T00:00:00',
+      {when:{match:'or',conditions:[{id:'c8',field:'VehicleInfo.cubicCapacity',operator:'GREATER_THAN',value:'2000',secondValue:''},{id:'c9',field:'VehicleInfo.year',operator:'LESS_THAN',value:'2015',secondValue:''}]},then:[{id:'a10',type:'COMPUTE',field:'ApplicantInfo.riskScore',value:'',config:{formula:'cubicCapacity > 2000 ? 8 : 5'}}]},
+      {facts:[{factType:'VehicleInfo',fields:[{name:'cubicCapacity',dataType:'number',required:true},{name:'year',dataType:'number',required:true}]}],onDemand:[]},
+      {facts:[{factType:'ApplicantInfo',fields:[{name:'riskScore',dataType:'number'}]}],decisions:[],reasons:[]}),
+  ]),
+];
+
+const SEED_TABLES=[
+  {id:'t1',name:'Premium Rate Table',category:'Pricing',tags:['premium','rating'],createdAt:'2025-01-20T08:00:00',
+    versions:[{id:uid(),version:1,status:'ACTIVE',description:'Rates by age band and product type',changeSummary:'Initial version',effectiveFrom:'2026-01-01T00:00:00',effectiveUntil:null,
+      table:{hitPolicy:'first_match',inputs:[{field:'ApplicantInfo.age',operator:'BETWEEN',dataType:'number',label:'Age'},{field:'ApplicantInfo.productCode',operator:'EQUALS',dataType:'string',label:'Product'}],
+        outputs:[{field:'ApplicantInfo.premiumRate',dataType:'number',label:'Rate'}],
+        rows:[{id:1,isEnabled:true,inputs:['18','35','PA'],outputs:[5]},{id:2,isEnabled:true,inputs:['36','50','PA'],outputs:[7]},{id:3,isEnabled:false,inputs:['51','65','PA'],outputs:[9]}]}}]},
+  {id:'t2',name:'Risk Factor Table',category:'Underwriting',tags:['risk','vehicle'],createdAt:'2025-02-01T08:00:00',
+    versions:[{id:uid(),version:1,status:'ACTIVE',description:'Risk factors by vehicle category',changeSummary:'Initial version',effectiveFrom:'2026-01-01T00:00:00',effectiveUntil:null,
+      table:{hitPolicy:'unique_match',inputs:[{field:'VehicleInfo.make',operator:'EQUALS',dataType:'string',label:'Make'}],
+        outputs:[{field:'ApplicantInfo.riskScore',dataType:'number',label:'Risk'}],
+        rows:[{id:1,isEnabled:true,inputs:['BMW'],outputs:[8]},{id:2,isEnabled:true,inputs:['Toyota'],outputs:[3]},{id:3,isEnabled:true,inputs:['Honda'],outputs:[3]}]}}]},
+];
+
+const SEED_FLOWS=[
+  {id:'f1',name:'New Policy Underwriting',category:'Underwriting',tags:['enrolment','policy'],stopOnError:false,createdAt:'2025-01-25T08:00:00',
+    versions:[{id:uid(),version:1,status:'ACTIVE',description:'Full enrolment validation and premium calculation',changeSummary:'Initial version',effectiveFrom:'2026-01-01T00:00:00',effectiveUntil:null,
+      flow:{mergeStrategy:'last_writer_wins',nodes:[{id:1,type:'start',name:'Start'},{id:2,type:'rule',name:'Age Eligibility',config:{ruleRef:'age-eligibility-check'}},{id:3,type:'table',name:'Premium Rating',config:{tableRef:'premium-rate-table'}},{id:4,type:'rule',name:'Discount Check',config:{ruleRef:'discount-eligibility'}},{id:5,type:'end',name:'End'}],
+        edges:[{id:1,source:1,target:2},{id:2,source:2,target:3},{id:3,source:3,target:4},{id:4,source:4,target:5}]}}]},
+  {id:'f2',name:'Renewal Assessment',category:'Underwriting',tags:['renewal'],stopOnError:true,createdAt:'2025-03-10T08:00:00',
+    versions:[{id:uid(),version:1,status:'DRAFT',description:'Annual renewal decision flow',changeSummary:'Initial version',effectiveFrom:'2026-06-01T00:00:00',effectiveUntil:null,
+      flow:{mergeStrategy:'fail_on_conflict',nodes:[{id:1,type:'start',name:'Start'},{id:2,type:'rule',name:'Risk Score',config:{ruleRef:'risk-score-assessment'}},{id:3,type:'end',name:'End'}],
+        edges:[{id:1,source:1,target:2},{id:2,source:2,target:3}]}}]},
+];
+
+/* ── UI PRIMITIVES ───────────────────────────────── */
+const Btn=({children,variant='default',size='default',className='',onClick,disabled,type='button'})=>{
+  const base='inline-flex items-center justify-center font-medium rounded-md transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:opacity-40 disabled:pointer-events-none';
+  const v={default:'bg-blue-600 text-white hover:bg-blue-700 shadow-sm',outline:'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50',ghost:'text-gray-600 hover:bg-gray-100 hover:text-gray-800',destructive:'bg-red-600 text-white hover:bg-red-700',secondary:'bg-gray-100 text-gray-700 hover:bg-gray-200'};
+  const s={default:'h-8 px-3.5 text-sm gap-2',sm:'h-7 px-2.5 text-xs gap-1.5',lg:'h-9 px-4 text-sm gap-2',icon:'h-8 w-8 p-0 text-sm'};
+  return<button type={type} disabled={disabled} onClick={onClick} className={cn(base,v[variant],s[size],className)}>{children}</button>;
+};
+
+const StatusBadge=({status})=>{
+  const m=STATUS_META[status]||STATUS_META.DRAFT;
+  return<span className={cn('inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium',m.bg,m.text)}>
+    <span className={cn('w-1.5 h-1.5 rounded-full',m.dot)}/>
+    {m.label}
+  </span>;
+};
+
+const Tag=({label,onRemove})=>(
+  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded-md font-medium">
+    {label}
+    {onRemove&&<button type="button" onClick={onRemove} className="hover:text-blue-900 ml-0.5">×</button>}
+  </span>
+);
+
+const Field=({label,required,children,hint})=>(
+  <div className="flex flex-col gap-1">
+    <label className="text-sm font-medium text-gray-700">{label}{required&&<span className="text-red-500 ml-0.5">*</span>}</label>
+    {children}
+    {hint&&<p className="text-xs text-gray-400">{hint}</p>}
+  </div>
+);
+
+const Inp=({value,onChange,placeholder,disabled,className='',type='text',id})=>(
+  <input id={id} type={type} value={value} onChange={onChange} placeholder={placeholder} disabled={disabled}
+    className={cn('ring-f h-8 px-3 text-sm border border-gray-200 rounded-md bg-white placeholder:text-gray-400 focus:border-blue-400 disabled:bg-gray-50 disabled:text-gray-500 transition-colors',className)}/>
+);
+
+const Sel=({value,onChange,options,disabled,className=''})=>(
+  <select value={value} onChange={onChange} disabled={disabled}
+    className={cn('ring-f h-8 px-2 text-sm border border-gray-200 rounded-md bg-white text-gray-800 focus:border-blue-400 disabled:bg-gray-50 transition-colors',className)}>
+    {options.map(o=><option key={o.value||o} value={o.value||o}>{o.label||o}</option>)}
+  </select>
+);
+
+const Modal=({open,onClose,title,subtitle,children,width='max-w-lg'})=>{
+  if(!open)return null;
+  return<div className="fixed inset-0 z-50 flex items-start justify-center pt-16 px-4" onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div className="fixed inset-0 bg-black/25 backdrop-blur-sm" onClick={onClose}/>
+    <div className={cn('relative bg-white rounded-xl shadow-2xl w-full fade-in flex flex-col max-h-[80vh]',width)}>
+      <div className="flex items-start justify-between p-5 pb-3 shrink-0 border-b border-gray-100">
+        <div><h2 className="text-base font-semibold text-gray-900">{title}</h2>
+        {subtitle&&<p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>}</div>
+        <button onClick={onClose} className="ml-3 p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div className="overflow-y-auto scrollbar">{children}</div>
+    </div>
+  </div>;
+};
+
+const Toast=({msg,onDone})=>{
+  useEffect(()=>{const t=setTimeout(onDone,3000);return()=>clearTimeout(t);},[]);
+  return<div className="fixed bottom-5 right-5 z-50 fade-in bg-gray-900 text-white text-sm px-4 py-2.5 rounded-xl shadow-xl flex items-center gap-2.5">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ADE80" strokeWidth="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+    {msg}
+  </div>;
+};
+
+/* ── SVG ICON SYSTEM ─────────────────────────────── */
+const I=({d,size=16,className='',sw=2})=>(
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    {Array.isArray(d)?d.map((p,i)=><path key={i} d={p}/>):<path d={d}/>}
+  </svg>
+);
+const IC={
+  Home:(p)=><I d={['M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z','M9 22V12h6v10']} {...p}/>,
+  Policy:(p)=><I d={['M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z']} {...p}/>,
+  Claims:(p)=><I d={['M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z','M14 2v6h6','M16 13H8','M16 17H8','M10 9H8']} {...p}/>,
+  Billing:(p)=><I d={['M3 6h18','M3 12h18','M3 18h18']} {...p}/>,
+  Rules:(p)=><I d={['M12 2L2 7l10 5 10-5-10-5z','M2 17l10 5 10-5','M2 12l10 5 10-5']} {...p}/>,
+  Config:(p)=><I d={['M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z','M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z']} {...p}/>,
+  Alerts:(p)=><I d={['M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9','M13.73 21a2 2 0 0 1-3.46 0']} {...p}/>,
+  Plus:(p)=><I d="M12 5v14M5 12h14" {...p}/>,
+  Back:(p)=><I d={['M19 12H5','M12 19l-7-7 7-7']} {...p}/>,
+  Search:(p)=><I d={['M21 21l-4.35-4.35','M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z']} {...p}/>,
+  Eye:(p)=><I d={['M1 12s4-8 11-8 11 8 11 8','M1 12s4 8 11 8 11-8 11-8','M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z']} {...p}/>,
+  Edit:(p)=><I d={['M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7','M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z']} {...p}/>,
+  Trash:(p)=><I d={['M3 6h18','M8 6V4h8v2','M19 6l-1 14H6L5 6']} {...p}/>,
+  Bolt:(p)=><I d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" {...p}/>,
+  Vert:(p)=><I d="M12 5h.01M12 12h.01M12 19h.01" sw={3} {...p}/>,
+  ChevR:(p)=><I d="M9 18l6-6-6-6" {...p}/>,
+  Copy:(p)=><I d={['M8 17.929H6c-1.105 0-2-.912-2-2.036V5.036C4 3.91 4.895 3 6 3h8c1.105 0 2 .911 2 2.036v1.866m-6 .17h8c1.105 0 2 .91 2 2.036v10.857C20 21.09 19.105 22 18 22h-8c-1.105 0-2-.911-2-2.036V9.107c0-1.124.895-2.036 2-2.036z']} {...p}/>,
+  Zap:(p)=><I d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" {...p}/>,
+  Flow:(p)=><I d={['M5 12h14','M12 5l7 7-7 7']} {...p}/>,
+  Table2:(p)=><I d={['M3 3h18v18H3z','M3 9h18','M3 15h18','M9 3v18']} {...p}/>,
+  Activate:(p)=><I d={['M9 12l2 2 4-4','M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z']} {...p}/>,
+  Stop:(p)=><I d={['M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z','M12 9v4','M12 17h.01']} {...p}/>,
+  Tag:(p)=><I d={['M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z','M7 7h.01']} {...p}/>,
+  Grid:(p)=><I d={['M10 3H3v7h7V3z','M21 3h-7v7h7V3z','M21 14h-7v7h7v-7z','M10 14H3v7h7v-7z']} {...p}/>,
+  Dashboard:(p)=><I d={['M3 3h7v7H3z','M14 3h7v7h-7z','M14 14h7v7h-7z','M3 14h7v7H3z']} {...p}/>,
+  Lookup:(p)=><I d={['M4 6h16','M4 12h16','M4 18h7']} {...p}/>,
+  Check:(p)=><I d="M20 6L9 17l-5-5" {...p}/>,
+};
+
+/* ── PRIMARY SIDEBAR ─────────────────────────────── */
+const NAV=[
+  {key:'home',Icon:IC.Home,label:'Home'},
+  {key:'policy',Icon:IC.Policy,label:'Policy'},
+  {key:'claims',Icon:IC.Claims,label:'Claims'},
+  {key:'billing',Icon:IC.Billing,label:'Billing'},
+  {key:'rules',Icon:IC.Rules,label:'Rules'},
+  {key:'config',Icon:IC.Config,label:'Config'},
+];
+
+const PrimarySidebar=({active,onSelect})=>(
+  <aside className="w-[64px] bg-white border-r border-gray-200 flex flex-col items-center py-3 shrink-0">
+    <div className="w-9 h-9 rounded-lg bg-gray-900 flex items-center justify-center mb-4">
+      <IC.Zap size={16} className="text-white"/>
+    </div>
+    <div className="flex flex-col gap-1 flex-1 w-full px-2">
+      {NAV.map(({key,Icon,label})=>(
+        <button key={key} onClick={()=>onSelect(key)}
+          className={cn('flex flex-col items-center gap-1 py-2 px-1 rounded-lg w-full transition-colors',
+            active===key?'bg-gray-100 text-gray-900':'text-gray-500 hover:text-gray-700 hover:bg-gray-50')}>
+          <Icon size={18}/>
+          <span className="text-[10px] font-medium leading-none">{label}</span>
+        </button>
+      ))}
+    </div>
+    <div className="flex flex-col gap-1 w-full px-2">
+      {[{Icon:IC.Alerts,label:'Alerts'},{Icon:IC.Config,label:'Settings'}].map(({Icon,label})=>(
+        <button key={label} className="flex flex-col items-center gap-1 py-2 px-1 rounded-lg w-full text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors">
+          <Icon size={18}/><span className="text-[10px] font-medium leading-none">{label}</span>
+        </button>
+      ))}
+    </div>
+  </aside>
+);
+
+/* ── SECONDARY SIDEBAR ───────────────────────────── */
+const RULES_NAV=[
+  {section:'HOME',items:[{key:'dashboard',Icon:IC.Dashboard,label:'Dashboard'}]},
+  {section:'RULES',items:[
+    {key:'decisions',Icon:IC.Rules,label:'Decisions'},
+    {key:'lookup',Icon:IC.Lookup,label:'Lookup'},
+    {key:'approvals',Icon:IC.Check,label:'Approvals'},
+    {key:'analytics',Icon:IC.Grid,label:'Analytics'},
+    {key:'health',Icon:IC.Bolt,label:'Health'},
+  ]},
+  {section:'MONITOR',items:[
+    {key:'sandbox',Icon:IC.Eye,label:'Sandbox'},
+    {key:'environments',Icon:IC.Flow,label:'Environments'},
+  ]},
+  {section:'CONFIG',items:[
+    {key:'fields',Icon:IC.Table2,label:'Fields'},
+    {key:'facts',Icon:IC.Lookup,label:'Facts'},
+  ]},
+];
+
+const SecondarySidebar=({active,onSelect,space})=>(
+  <aside className="w-[200px] bg-white border-r border-gray-200 flex flex-col shrink-0">
+    <div className="px-4 py-3.5 border-b border-gray-100">
+      <p className="text-xs font-semibold text-gray-900 leading-tight">{space}</p>
+    </div>
+    <div className="flex flex-col gap-0 overflow-y-auto scrollbar flex-1 py-2">
+      {RULES_NAV.map(({section,items})=>(
+        <div key={section} className="mb-1">
+          <p className="px-4 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{section}</p>
+          {items.map(({key,Icon,label})=>(
+            <button key={key} onClick={()=>onSelect(key)}
+              className={cn('flex items-center gap-2.5 w-full px-4 py-1.5 text-sm transition-colors text-left',
+                active===key?'text-gray-900 font-medium':'text-gray-500 hover:text-gray-700')}>
+              {active===key
+                ?<span className="flex items-center gap-2.5 bg-gray-100 rounded-lg px-2 py-1 w-full -mx-2">
+                    <Icon size={15}/>{label}
+                  </span>
+                :<><Icon size={15}/>{label}</>}
+            </button>
+          ))}
+        </div>
+      ))}
+    </div>
+  </aside>
+);
+
+/* ── DECISIONS LIST ──────────────────────────────── */
+const activeVer=(doc)=>doc.versions.find(v=>v.status==='ACTIVE')||doc.versions[doc.versions.length-1]||null;
+
+const RuleRow=({rule,onView,onEdit,onDelete})=>{
+  const ver=activeVer(rule);
+  return(
+    <tr className="hover:bg-gray-50/70 group transition-colors">
+      <td className="px-4 py-3">
+        <button onClick={()=>onView(rule)} className="text-sm font-medium text-gray-900 hover:text-blue-600 transition-colors text-left">{rule.name}</button>
+        <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+          <IC.Tag size={10}/>{rule.category}
+        </p>
+      </td>
+      <td className="px-4 py-3">
+        <div className="flex flex-wrap gap-1">
+          {rule.tags.slice(0,3).map(t=><Tag key={t} label={t}/>)}
+        </div>
+      </td>
+      <td className="px-4 py-3 text-sm text-gray-600">v{ver?.version||'—'}</td>
+      <td className="px-4 py-3"><StatusBadge status={ver?.status||'DRAFT'}/></td>
+      <td className="px-4 py-3 text-xs text-gray-400">{fmt(rule.createdAt)}</td>
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Btn size="icon" variant="ghost" onClick={()=>onView(rule)} title="View"><IC.Eye size={13} className="text-gray-500"/></Btn>
+          <Btn size="icon" variant="ghost" onClick={()=>onEdit(rule)} title="Edit"><IC.Edit size={13} className="text-gray-500"/></Btn>
+          <Btn size="icon" variant="ghost" onClick={()=>onDelete(rule)} className="hover:bg-red-50" title="Delete"><IC.Trash size={13} className="text-red-400"/></Btn>
+        </div>
+      </td>
+    </tr>
+  );
+};
+
+const TableRow=({tbl,onView})=>{
+  const ver=activeVer(tbl);
+  return(
+    <tr className="hover:bg-gray-50/70 group transition-colors">
+      <td className="px-4 py-3"><button onClick={()=>onView(tbl)} className="text-sm font-medium text-gray-900 hover:text-blue-600 text-left">{tbl.name}</button>
+        <p className="text-xs text-gray-400 mt-0.5">{tbl.category}</p></td>
+      <td className="px-4 py-3"><div className="flex gap-1">{tbl.tags.map(t=><Tag key={t} label={t}/>)}</div></td>
+      <td className="px-4 py-3 text-sm text-gray-500">{ver?.table?.hitPolicy?.replace('_',' ')}</td>
+      <td className="px-4 py-3 text-sm text-gray-600">{ver?.table?.rows?.length||0} rows</td>
+      <td className="px-4 py-3"><StatusBadge status={ver?.status||'DRAFT'}/></td>
+      <td className="px-4 py-3 text-xs text-gray-400">{fmt(tbl.createdAt)}</td>
+      <td className="px-4 py-3"><div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100"><Btn size="icon" variant="ghost" onClick={()=>onView(tbl)}><IC.Eye size={13} className="text-gray-500"/></Btn></div></td>
+    </tr>
+  );
+};
+
+const FlowRow=({flow,onView})=>{
+  const ver=activeVer(flow);
+  return(
+    <tr className="hover:bg-gray-50/70 group transition-colors">
+      <td className="px-4 py-3"><button onClick={()=>onView(flow)} className="text-sm font-medium text-gray-900 hover:text-blue-600 text-left">{flow.name}</button>
+        <p className="text-xs text-gray-400 mt-0.5">{flow.category}</p></td>
+      <td className="px-4 py-3"><div className="flex gap-1">{flow.tags.map(t=><Tag key={t} label={t}/>)}</div></td>
+      <td className="px-4 py-3 text-sm text-gray-600">{ver?.flow?.nodes?.length||0} nodes</td>
+      <td className="px-4 py-3"><StatusBadge status={ver?.status||'DRAFT'}/></td>
+      <td className="px-4 py-3 text-xs text-gray-400">{fmt(flow.createdAt)}</td>
+      <td className="px-4 py-3"><div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100"><Btn size="icon" variant="ghost" onClick={()=>onView(flow)}><IC.Eye size={13} className="text-gray-500"/></Btn></div></td>
+    </tr>
+  );
+};
+
+const DecisionsPage=({rules,tables,flows,onViewRule,onCreateRule,onEditRule,onDeleteRule,onViewTable,onViewFlow})=>{
+  const [tab,setTab]=useState('rules');
+  const [search,setSearch]=useState('');
+  const [statusF,setStatusF]=useState('');
+
+  const filteredRules=useMemo(()=>rules.filter(r=>{
+    const av=activeVer(r);
+    return r.name.toLowerCase().includes(search.toLowerCase())&&(!statusF||av?.status===statusF);
+  }),[rules,search,statusF]);
+
+  return(
+    <div className="flex flex-col h-full">
+      {/* page header */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="text-lg font-semibold text-gray-900">Decisions</h1>
+            <p className="text-sm text-gray-500">Rules, decision tables, and flows in this space</p>
+          </div>
+          {tab==='rules'&&<Btn onClick={onCreateRule}><IC.Plus size={14}/>New Rule</Btn>}
+        </div>
+        {/* tabs */}
+        <div className="flex gap-0 -mb-4">
+          {[{key:'rules',label:`Rules (${rules.length})`},{key:'tables',label:`Decision Tables (${tables.length})`},{key:'flows',label:`Flows (${flows.length})`}].map(t=>(
+            <button key={t.key} onClick={()=>{setTab(t.key);setSearch('');setStatusF('');}}
+              className={cn('px-4 py-2 text-sm transition-colors',tab===t.key?'tab-on':'tab-off')}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* filters */}
+      <div className="bg-white border-b border-gray-100 px-6 py-2.5 flex gap-3">
+        <div className="relative flex-1 max-w-xs">
+          <IC.Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400"/>
+          <Inp value={search} onChange={e=>setSearch(e.target.value)} placeholder={`Search ${tab}…`} className="pl-8 w-full"/>
+        </div>
+        {tab==='rules'&&(
+          <Sel value={statusF} onChange={e=>setStatusF(e.target.value)}
+            options={[{value:'',label:'All statuses'},...Object.keys(STATUS_META).map(k=>({value:k,label:STATUS_META[k].label}))]}/>
+        )}
+      </div>
+
+      {/* table */}
+      <div className="flex-1 overflow-auto scrollbar p-6">
+        {tab==='rules'&&(
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead><tr className="bg-gray-50 border-b border-gray-100">
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Name</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Tags</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Version</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Created</th>
+                <th className="px-4 py-2.5"/>
+              </tr></thead>
+              <tbody className="divide-y divide-gray-50">
+                {filteredRules.map(r=><RuleRow key={r.id} rule={r} onView={onViewRule} onEdit={onEditRule} onDelete={onDeleteRule}/>)}
+              </tbody>
+            </table>
+            {filteredRules.length===0&&<div className="py-16 text-center text-sm text-gray-400">No rules found</div>}
+          </div>
+        )}
+        {tab==='tables'&&(
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead><tr className="bg-gray-50 border-b border-gray-100">
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Name</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Tags</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Hit Policy</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Rows</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Created</th>
+                <th/>
+              </tr></thead>
+              <tbody className="divide-y divide-gray-50">{tables.map(t=><TableRow key={t.id} tbl={t} onView={onViewTable}/>)}</tbody>
+            </table>
+          </div>
+        )}
+        {tab==='flows'&&(
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead><tr className="bg-gray-50 border-b border-gray-100">
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Name</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Tags</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Nodes</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Created</th>
+                <th/>
+              </tr></thead>
+              <tbody className="divide-y divide-gray-50">{flows.map(f=><FlowRow key={f.id} flow={f} onView={onViewFlow}/>)}</tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/* ── CONDITION BUILDER ───────────────────────────── */
+const ConditionRow=({cond,onChange,onRemove,index})=>{
+  const fieldMeta=FACT_FIELDS.find(f=>f.value===cond.field);
+  const dtype=fieldMeta?.dataType||'string';
+  const ops=OPERATORS.filter(o=>o.types.includes(dtype));
+  const isBetween=cond.operator==='BETWEEN';
+  return(
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="text-xs text-gray-400 w-5 text-right shrink-0">{index>0?'AND':''}</span>
+      <Sel value={cond.field} onChange={e=>onChange({...cond,field:e.target.value,operator:'EQUALS',value:'',secondValue:''})}
+        options={[{value:'',label:'Select field…'},...FACT_FIELDS]} className="min-w-[190px]"/>
+      <Sel value={cond.operator} onChange={e=>onChange({...cond,operator:e.target.value,secondValue:''})}
+        options={ops.map(o=>({value:o.value,label:o.label}))} className="min-w-[140px]"/>
+      {!['IS_NULL','IS_NOT_NULL'].includes(cond.operator)&&(
+        <Inp value={cond.value} onChange={e=>onChange({...cond,value:e.target.value})} placeholder="value" className="w-24"/>
+      )}
+      {isBetween&&<>
+        <span className="text-xs text-gray-400">and</span>
+        <Inp value={cond.secondValue||''} onChange={e=>onChange({...cond,secondValue:e.target.value})} placeholder="end" className="w-24"/>
+      </>}
+      <Btn size="icon" variant="ghost" onClick={onRemove} className="shrink-0 hover:bg-red-50 hover:text-red-500"><IC.Trash size={12}/></Btn>
+    </div>
+  );
+};
+
+const ActionRow=({action,onChange,onRemove})=>{
+  const isAssign=action.type==='ASSIGN';
+  const isMsg=action.type==='ADD_MESSAGE';
+  const isCompute=action.type==='COMPUTE';
+  const isMultiply=action.type==='MULTIPLY';
+  const isPct=action.type==='APPLY_PERCENTAGE';
+  const isLog=action.type==='LOG';
+  return(
+    <div className="flex items-start gap-2 flex-wrap">
+      <Sel value={action.type} onChange={e=>onChange({...action,type:e.target.value,field:'',value:'',config:{}})}
+        options={ACTION_TYPES} className="min-w-[200px]"/>
+      {(isAssign||isCompute||isMultiply||isPct)&&
+        <Sel value={action.field} onChange={e=>onChange({...action,field:e.target.value})}
+          options={[{value:'',label:'Target field…'},...FACT_FIELDS]} className="min-w-[180px]"/>}
+      {isAssign&&<Inp value={action.value} onChange={e=>onChange({...action,value:e.target.value})} placeholder="value" className="w-28"/>}
+      {isCompute&&<Inp value={action.config?.formula||''} onChange={e=>onChange({...action,config:{formula:e.target.value}})} placeholder="formula" className="w-48"/>}
+      {(isMultiply||isPct)&&<Inp value={action.config?.multiplier||action.config?.percentage||''} onChange={e=>onChange({...action,config:isMultiply?{multiplier:e.target.value}:{percentage:e.target.value}})} placeholder={isMultiply?"multiplier":"%"} className="w-24"/>}
+      {isMsg&&<Inp value={action.config?.template||''} onChange={e=>onChange({...action,config:{template:e.target.value}})} placeholder="Message template…" className="flex-1 min-w-[240px]"/>}
+      {isLog&&<Inp value={action.config?.message||''} onChange={e=>onChange({...action,config:{message:e.target.value}})} placeholder="Log message…" className="flex-1 min-w-[240px]"/>}
+      <Btn size="icon" variant="ghost" onClick={onRemove} className="hover:bg-red-50 hover:text-red-500 shrink-0"><IC.Trash size={12}/></Btn>
+    </div>
+  );
+};
+
+const RuleBuilder=({when,then,onChange})=>{
+  const updCond=(i,c)=>{const nc=[...when.conditions];nc[i]=c;onChange({when:{...when,conditions:nc},then});};
+  const delCond=(i)=>{const nc=when.conditions.filter((_,j)=>j!==i);onChange({when:{...when,conditions:nc},then});};
+  const addCond=()=>onChange({when:{...when,conditions:[...when.conditions,{id:uid(),field:'',operator:'EQUALS',value:'',secondValue:''}]},then});
+  const updAct=(i,a)=>{const na=[...then];na[i]=a;onChange({when,then:na});};
+  const delAct=(i)=>onChange({when,then:then.filter((_,j)=>j!==i)});
+  const addAct=()=>onChange({when,then:[...then,{id:uid(),type:'ASSIGN',field:'',value:'',config:{}}]});
+
+  return(
+    <div className="flex flex-col gap-5">
+      {/* WHEN */}
+      <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <div className="bg-amber-50 border-b border-amber-100 px-4 py-2.5 flex items-center gap-3">
+          <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">WHEN</span>
+          <div className="flex items-center bg-white border border-amber-200 rounded-md overflow-hidden text-xs">
+            {['and','or'].map(m=>(
+              <button key={m} type="button" onClick={()=>onChange({when:{...when,match:m},then})}
+                className={cn('px-2.5 py-1 font-medium uppercase transition-colors',when.match===m?'bg-amber-500 text-white':'text-gray-500 hover:bg-amber-50')}>
+                {m}
+              </button>
+            ))}
+          </div>
+          <span className="text-xs text-amber-600">of the following conditions are true</span>
+        </div>
+        <div className="p-4 flex flex-col gap-2.5">
+          {when.conditions.length===0&&<p className="text-sm text-gray-400 text-center py-3">No conditions — rule will always fire</p>}
+          {when.conditions.map((c,i)=><ConditionRow key={c.id} cond={c} index={i} onChange={nc=>updCond(i,nc)} onRemove={()=>delCond(i)}/>)}
+          <button type="button" onClick={addCond} className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium mt-1">
+            <IC.Plus size={13}/>Add Condition
+          </button>
+        </div>
+      </div>
+
+      {/* THEN */}
+      <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <div className="bg-blue-50 border-b border-blue-100 px-4 py-2.5">
+          <span className="text-xs font-bold text-blue-700 uppercase tracking-wider">THEN</span>
+          <span className="ml-3 text-xs text-blue-600">execute the following actions</span>
+        </div>
+        <div className="p-4 flex flex-col gap-2.5">
+          {then.length===0&&<p className="text-sm text-gray-400 text-center py-3">No actions defined</p>}
+          {then.map((a,i)=><ActionRow key={a.id} action={a} onChange={na=>updAct(i,na)} onRemove={()=>delAct(i)}/>)}
+          <button type="button" onClick={addAct} className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium mt-1">
+            <IC.Plus size={13}/>Add Action
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ── SCHEMA BUILDER ──────────────────────────────── */
+const SchemaBuilder=({schema,onChange,label})=>{
+  const addFact=()=>onChange({...schema,facts:[...schema.facts,{factType:'',fields:[{name:'',dataType:'string',required:false}]}]});
+  const updFact=(i,f)=>{const nf=[...schema.facts];nf[i]=f;onChange({...schema,facts:nf});};
+  const delFact=(i)=>onChange({...schema,facts:schema.facts.filter((_,j)=>j!==i)});
+  const addField=(fi)=>{const nf=[...schema.facts];nf[fi]={...nf[fi],fields:[...nf[fi].fields,{name:'',dataType:'string',required:false}]};onChange({...schema,facts:nf});};
+  const updField=(fi,fli,fl)=>{const nf=[...schema.facts];const nfl=[...nf[fi].fields];nfl[fli]=fl;nf[fi]={...nf[fi],fields:nfl};onChange({...schema,facts:nf});};
+  const delField=(fi,fli)=>{const nf=[...schema.facts];nf[fi]={...nf[fi],fields:nf[fi].fields.filter((_,j)=>j!==fli)};onChange({...schema,facts:nf});};
+  return(
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-medium text-gray-700">{label}</span>
+        <button type="button" onClick={addFact} className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"><IC.Plus size={12}/>Add fact type</button>
+      </div>
+      {schema.facts.map((fact,fi)=>(
+        <div key={fi} className="border border-gray-200 rounded-lg mb-2 overflow-hidden">
+          <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border-b border-gray-100">
+            <Inp value={fact.factType} onChange={e=>updFact(fi,{...fact,factType:e.target.value})} placeholder="FactType name" className="flex-1"/>
+            <button type="button" onClick={()=>delFact(fi)} className="text-gray-400 hover:text-red-500"><IC.Trash size={12}/></button>
+          </div>
+          <div className="p-3 flex flex-col gap-1.5">
+            {fact.fields.map((fl,fli)=>(
+              <div key={fli} className="flex items-center gap-2">
+                <Inp value={fl.name} onChange={e=>updField(fi,fli,{...fl,name:e.target.value})} placeholder="field name" className="flex-1"/>
+                <Sel value={fl.dataType} onChange={e=>updField(fi,fli,{...fl,dataType:e.target.value})}
+                  options={['string','number','boolean','date','datetime','list','object'].map(v=>({value:v,label:v}))} className="w-28"/>
+                <label className="flex items-center gap-1 text-xs text-gray-500 whitespace-nowrap">
+                  <input type="checkbox" checked={fl.required} onChange={e=>updField(fi,fli,{...fl,required:e.target.checked})} className="w-3.5 h-3.5"/>req
+                </label>
+                <button type="button" onClick={()=>delField(fi,fli)} className="text-gray-300 hover:text-red-400"><IC.Trash size={11}/></button>
+              </div>
+            ))}
+            <button type="button" onClick={()=>addField(fi)} className="text-xs text-blue-500 hover:text-blue-600 flex items-center gap-1 mt-1"><IC.Plus size={11}/>field</button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+/* ── RULE CREATE PAGE ────────────────────────────── */
+const emptyRule={when:{match:'and',conditions:[]},then:[]};
+const emptyInput={facts:[{factType:'ApplicantInfo',fields:[{name:'',dataType:'string',required:false}]}],onDemand:[]};
+const emptyOutput={facts:[{factType:'ApplicantInfo',fields:[{name:'',dataType:'string',required:false}]}],decisions:[],reasons:[]};
+
+const RuleCreatePage=({onSave,onCancel,initialRule=null})=>{
+  const isNewVersion=!!initialRule;
+  const [step,setStep]=useState(0);
+  const [form,setForm]=useState({
+    name:initialRule?.name||'',
+    category:initialRule?.category||'',
+    tags:initialRule?.tags||[],
+    description:'',
+    effectiveFrom:'',
+    effectiveUntil:'',
+    changeSummary:isNewVersion?'':'Initial version',
+    inputSchema:JSON.parse(JSON.stringify(emptyInput)),
+    outputSchema:JSON.parse(JSON.stringify(emptyOutput)),
+    rule:JSON.parse(JSON.stringify(emptyRule)),
+  });
+  const [tagInput,setTagInput]=useState('');
+  const [errors,setErrors]=useState({});
+
+  const addTag=(e)=>{if(e.key==='Enter'&&tagInput.trim()){e.preventDefault();setForm(f=>({...f,tags:[...f.tags,tagInput.trim()]}));setTagInput('');}};
+  const removeTag=(t)=>setForm(f=>({...f,tags:f.tags.filter(x=>x!==t)}));
+
+  const validate=()=>{
+    const e={};
+    if(!form.name.trim())e.name='Rule name is required';
+    setErrors(e);return Object.keys(e).length===0;
+  };
+
+  const handleSave=()=>{if(validate())onSave(form);};
+
+  const STEPS=[
+    {label:'Document'},
+    {label:'Version Info'},
+    {label:'Input Schema'},
+    {label:'Output Schema'},
+    {label:'Rule Logic'},
+  ];
+
+  return(
+    <div className="flex flex-col h-full">
+      {/* breadcrumb */}
+      <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center gap-3">
+        <button onClick={onCancel} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700"><IC.Back size={14}/>Decisions</button>
+        <IC.ChevR size={14} className="text-gray-300"/>
+        <span className="text-sm font-medium text-gray-900">{isNewVersion?`New Version — ${initialRule.name}`:'New Rule'}</span>
+      </div>
+
+      {/* stepper */}
+      <div className="bg-white border-b border-gray-100 px-6 py-3">
+        <div className="flex items-center gap-0">
+          {STEPS.map((s,i)=>(
+            <React.Fragment key={s.label}>
+              <button type="button" onClick={()=>setStep(i)}
+                className={cn('flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors',
+                  step===i?'bg-blue-50 text-blue-700 font-medium':i<step?'text-gray-600 hover:bg-gray-50':'text-gray-400 hover:bg-gray-50')}>
+                <span className={cn('w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0',
+                  step===i?'bg-blue-600 text-white':i<step?'bg-green-500 text-white':'bg-gray-200 text-gray-500')}>
+                  {i<step?<IC.Check size={10}/>:i+1}
+                </span>
+                {s.label}
+              </button>
+              {i<STEPS.length-1&&<div className="w-4 h-px bg-gray-200 mx-1"/>}
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto scrollbar p-6">
+        <div className="max-w-2xl mx-auto">
+          {/* STEP 0: Document */}
+          {step===0&&(
+            <div className="bg-white rounded-xl border border-gray-200 p-6 flex flex-col gap-5">
+              <div>
+                <h2 className="text-base font-semibold text-gray-900 mb-0.5">Document Info</h2>
+                <p className="text-sm text-gray-400">The rule name is immutable after creation and serves as the unique key within this space.</p>
+              </div>
+              <Field label="Rule Name" required hint={isNewVersion?"Name is locked — creating a new version of an existing rule":"Must be unique within this space. Cannot be changed after creation."}>
+                <Inp value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Age Eligibility Check" disabled={isNewVersion}
+                  className={cn(errors.name&&'border-red-400',isNewVersion&&'bg-gray-50')}/>
+                {errors.name&&<p className="text-xs text-red-500 mt-1">{errors.name}</p>}
+              </Field>
+              <Field label="Category">
+                <Sel value={form.category} onChange={e=>setForm(f=>({...f,category:e.target.value}))}
+                  options={[{value:'',label:'Select category…'},...CATEGORIES.map(c=>({value:c,label:c}))]}/>
+              </Field>
+              <Field label="Tags" hint="Press Enter to add">
+                <div className="flex flex-wrap gap-1.5 p-2 border border-gray-200 rounded-md bg-white min-h-[36px]">
+                  {form.tags.map(t=><Tag key={t} label={t} onRemove={()=>removeTag(t)}/>)}
+                  <input value={tagInput} onChange={e=>setTagInput(e.target.value)} onKeyDown={addTag}
+                    placeholder={form.tags.length?'':"Add tag…"}
+                    className="ring-f flex-1 text-sm outline-none min-w-[80px] placeholder:text-gray-400"/>
+                </div>
+              </Field>
+            </div>
+          )}
+
+          {/* STEP 1: Version Info */}
+          {step===1&&(
+            <div className="bg-white rounded-xl border border-gray-200 p-6 flex flex-col gap-5">
+              <div>
+                <h2 className="text-base font-semibold text-gray-900 mb-0.5">Version Metadata</h2>
+                <p className="text-sm text-gray-400">Describes what this specific version does. Can be edited on DRAFT versions via PATCH.</p>
+              </div>
+              <Field label="Description" hint="What does this version of the rule do?">
+                <textarea value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} rows={3}
+                  placeholder="Rejects applicants under 18 or over 65…"
+                  className="ring-f px-3 py-2 text-sm border border-gray-200 rounded-md bg-white resize-none focus:border-blue-400 placeholder:text-gray-400"/>
+              </Field>
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Effective From">
+                  <Inp type="date" value={form.effectiveFrom} onChange={e=>setForm(f=>({...f,effectiveFrom:e.target.value}))}/>
+                </Field>
+                <Field label="Effective Until" hint="Leave blank for open-ended">
+                  <Inp type="date" value={form.effectiveUntil} onChange={e=>setForm(f=>({...f,effectiveUntil:e.target.value}))}/>
+                </Field>
+              </div>
+              <Field label="Change Summary" hint={isNewVersion?"Describe what changed in this version":""}>
+                <Inp value={form.changeSummary} onChange={e=>setForm(f=>({...f,changeSummary:e.target.value}))}
+                  placeholder={isNewVersion?"e.g. Raised minimum age from 18 to 21":"Initial version"}/>
+              </Field>
+            </div>
+          )}
+
+          {/* STEP 2: Input Schema */}
+          {step===2&&(
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <div className="mb-4">
+                <h2 className="text-base font-semibold text-gray-900 mb-0.5">Input Schema</h2>
+                <p className="text-sm text-gray-400">Declare the fact types and fields this rule reads. Drives authoring-time validation.</p>
+              </div>
+              <SchemaBuilder schema={form.inputSchema} onChange={s=>setForm(f=>({...f,inputSchema:s}))} label="Input fact types"/>
+            </div>
+          )}
+
+          {/* STEP 3: Output Schema */}
+          {step===3&&(
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <div className="mb-4">
+                <h2 className="text-base font-semibold text-gray-900 mb-0.5">Output Schema</h2>
+                <p className="text-sm text-gray-400">Declare what fact fields and top-level decisions this rule produces.</p>
+              </div>
+              <SchemaBuilder schema={form.outputSchema} onChange={s=>setForm(f=>({...f,outputSchema:s}))} label="Output fact types"/>
+              {/* decisions */}
+              <div className="mt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-700">Top-level Decisions</span>
+                  <button type="button" onClick={()=>setForm(f=>({...f,outputSchema:{...f.outputSchema,decisions:[...f.outputSchema.decisions,{name:'',dataType:'string'}]}}))}
+                    className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"><IC.Plus size={12}/>Add decision</button>
+                </div>
+                {form.outputSchema.decisions.map((d,i)=>(
+                  <div key={i} className="flex items-center gap-2 mb-1.5">
+                    <Inp value={d.name} onChange={e=>{const nd=[...form.outputSchema.decisions];nd[i]={...d,name:e.target.value};setForm(f=>({...f,outputSchema:{...f.outputSchema,decisions:nd}}));}} placeholder="decision name" className="flex-1"/>
+                    <Sel value={d.dataType} onChange={e=>{const nd=[...form.outputSchema.decisions];nd[i]={...d,dataType:e.target.value};setForm(f=>({...f,outputSchema:{...f.outputSchema,decisions:nd}}));}}
+                      options={['string','number','boolean'].map(v=>({value:v,label:v}))} className="w-28"/>
+                    <button type="button" onClick={()=>setForm(f=>({...f,outputSchema:{...f.outputSchema,decisions:f.outputSchema.decisions.filter((_,j)=>j!==i)}}))} className="text-gray-300 hover:text-red-400"><IC.Trash size={12}/></button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* STEP 4: Rule Logic */}
+          {step===4&&(
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <div className="mb-5">
+                <h2 className="text-base font-semibold text-gray-900 mb-0.5">Rule Logic</h2>
+                <p className="text-sm text-gray-400">Define the conditions (WHEN) and actions (THEN) for this rule.</p>
+              </div>
+              <RuleBuilder when={form.rule.when} then={form.rule.then} onChange={r=>setForm(f=>({...f,rule:r}))}/>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* footer */}
+      <div className="bg-white border-t border-gray-200 px-6 py-3 flex items-center justify-between shrink-0">
+        <Btn variant="ghost" onClick={onCancel}>Cancel</Btn>
+        <div className="flex gap-2">
+          {step>0&&<Btn variant="outline" onClick={()=>setStep(s=>s-1)}>← Back</Btn>}
+          {step<STEPS.length-1
+            ?<Btn onClick={()=>setStep(s=>s+1)}>Next →</Btn>
+            :<Btn onClick={handleSave}>{isNewVersion?'Create New Version':'Save as Draft'}</Btn>}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ── RULE DETAIL PAGE ────────────────────────────── */
+const RuleDetailPage=({rule,onBack,onUpdate,onNewVersion,onEditMeta})=>{
+  const [selVer,setSelVer]=useState(()=>activeVer(rule)||rule.versions[0]);
+  const [confirmDel,setConfirmDel]=useState(null);
+  const currentRule=rule; // may be updated via onUpdate
+
+  const getVer=(v)=>rule.versions.find(x=>x.version===v)||null;
+
+  const handleActivate=(ver)=>{
+    onUpdate({...rule,versions:rule.versions.map(v=>v.version===ver.version?{...v,status:'ACTIVE',activatedAt:new Date().toISOString(),activatedBy:'alice@insure.com'}:v)});
+    setSelVer({...ver,status:'ACTIVE'});
+  };
+  const handleDeactivate=(ver)=>{
+    onUpdate({...rule,versions:rule.versions.map(v=>v.version===ver.version?{...v,status:'INACTIVE'}:v)});
+    setSelVer({...ver,status:'INACTIVE'});
+  };
+  const handleDeleteVer=(ver)=>{
+    onUpdate({...rule,versions:rule.versions.filter(v=>v.version!==ver.version)});
+    setSelVer(rule.versions[0]||null);
+    setConfirmDel(null);
+  };
+
+  const ver=selVer;
+
+  return(
+    <div className="flex flex-col h-full">
+      {/* header */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-3"><IC.Back size={14}/>Decisions</button>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-lg font-semibold text-gray-900">{rule.name}</h1>
+              <span className="px-2 py-0.5 bg-gray-100 text-gray-500 text-xs rounded font-mono">immutable</span>
+              <span className="text-xs text-gray-400">{rule.category}</span>
+            </div>
+            <div className="flex gap-1.5 mt-1.5 flex-wrap">
+              {rule.tags.map(t=><Tag key={t} label={t}/>)}
+            </div>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <Btn variant="outline" size="sm" onClick={onEditMeta}><IC.Edit size={13}/>Edit Metadata</Btn>
+            <Btn size="sm" onClick={()=>onNewVersion(rule)}><IC.Plus size={13}/>New Version</Btn>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-1 overflow-hidden">
+        {/* LEFT: versions panel */}
+        <div className="w-64 border-r border-gray-200 bg-white flex flex-col shrink-0">
+          <div className="px-4 py-3 border-b border-gray-100">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Versions ({rule.versions.length})</p>
+          </div>
+          <div className="overflow-y-auto scrollbar flex-1 py-2">
+            {[...rule.versions].sort((a,b)=>b.version-a.version).map(v=>(
+              <button key={v.version} onClick={()=>setSelVer(v)}
+                className={cn('w-full text-left px-4 py-3 flex items-start gap-3 transition-colors border-l-2',
+                  selVer?.version===v.version?'bg-blue-50 border-blue-500':'border-transparent hover:bg-gray-50')}>
+                <div className={cn('w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5',
+                  selVer?.version===v.version?'bg-blue-600 text-white':'bg-gray-100 text-gray-600')}>
+                  v{v.version}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <StatusBadge status={v.status}/>
+                  <p className="text-xs text-gray-400 mt-1 truncate">{v.changeSummary||'No summary'}</p>
+                  {v.effectiveFrom&&<p className="text-xs text-gray-300 mt-0.5">From {fmt(v.effectiveFrom)}</p>}
+                </div>
+              </button>
+            ))}
+          </div>
+          {/* doc info */}
+          <div className="border-t border-gray-100 p-4 text-xs text-gray-400 space-y-1">
+            <p className="font-medium text-gray-500 mb-2">Document</p>
+            <p>ID: <span className="font-mono">{rule.id}</span></p>
+            <p>Created: {fmt(rule.createdAt)}</p>
+            <p>By: {rule.createdBy}</p>
+          </div>
+        </div>
+
+        {/* RIGHT: version detail */}
+        {ver?(
+          <div className="flex-1 overflow-y-auto scrollbar p-6">
+            <div className="max-w-2xl flex flex-col gap-5">
+              {/* version header */}
+              <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <div className="flex items-start justify-between gap-4 mb-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-base font-semibold text-gray-900">Version {ver.version}</span>
+                      <StatusBadge status={ver.status}/>
+                    </div>
+                    <p className="text-sm text-gray-600">{ver.description||<span className="text-gray-400">No description</span>}</p>
+                  </div>
+                  <div className="flex gap-1.5 shrink-0">
+                    {ver.status==='DRAFT'&&<Btn size="sm" variant="secondary" onClick={()=>handleActivate(ver)}><IC.Activate size={13}/>Activate</Btn>}
+                    {ver.status==='ACTIVE'&&<Btn size="sm" variant="outline" onClick={()=>handleDeactivate(ver)}>Deactivate</Btn>}
+                    {['DRAFT','INACTIVE','DEPRECATED'].includes(ver.status)&&(
+                      <Btn size="sm" variant="ghost" onClick={()=>setConfirmDel(ver)} className="hover:bg-red-50 hover:text-red-500"><IC.Trash size={13}/></Btn>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                  {[['Change Summary',ver.changeSummary||'—'],['Effective From',fmt(ver.effectiveFrom)],['Effective Until',ver.effectiveUntil?fmt(ver.effectiveUntil):'Open-ended'],
+                    ver.activatedAt&&['Activated',fmt(ver.activatedAt)],ver.activatedAt&&['Activated By',ver.activatedBy]].filter(Boolean).map(([k,v2])=>(
+                    <div key={k}><span className="text-gray-400">{k}</span><p className="text-gray-700 font-medium mt-0.5">{v2}</p></div>
+                  ))}
+                </div>
+              </div>
+
+              {/* schemas */}
+              <div className="grid grid-cols-2 gap-4">
+                {[{label:'Input Schema',schema:ver.inputSchema},{label:'Output Schema',schema:ver.outputSchema}].map(({label,schema})=>(
+                  <div key={label} className="bg-white rounded-xl border border-gray-200 p-4">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">{label}</p>
+                    {schema?.facts?.map((f,i)=>(
+                      <div key={i} className="mb-3">
+                        <p className="text-xs font-semibold text-gray-700 mb-1.5">{f.factType}</p>
+                        {f.fields.map(fl=>(
+                          <div key={fl.name} className="flex items-center gap-2 text-xs mb-1">
+                            <span className="font-mono text-blue-600">{fl.name}</span>
+                            <span className="text-gray-300">:</span>
+                            <span className="text-gray-500">{fl.dataType}</span>
+                            {fl.required&&<span className="text-red-400 text-[10px]">required</span>}
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                    {schema?.decisions?.length>0&&(
+                      <div className="mt-2 pt-2 border-t border-gray-100">
+                        <p className="text-[10px] text-gray-400 mb-1">DECISIONS</p>
+                        {schema.decisions.map(d=>(
+                          <div key={d.name} className="flex items-center gap-2 text-xs">
+                            <span className="font-mono text-purple-600">{d.name}</span>
+                            <span className="text-gray-400">{d.dataType}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* rule logic */}
+              <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Rule Logic</p>
+                {/* WHEN */}
+                <div className="mb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-bold rounded">WHEN</span>
+                    <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs font-bold rounded uppercase">{ver.rule?.when?.match||'and'}</span>
+                  </div>
+                  {ver.rule?.when?.conditions?.length===0&&<p className="text-xs text-gray-400 italic">No conditions — always fires</p>}
+                  {ver.rule?.when?.conditions?.map((c,i)=>(
+                    <div key={c.id||i} className="flex items-center gap-2 text-xs mb-1.5 pl-4">
+                      {i>0&&<span className="text-gray-400 w-6">{ver.rule.when.match.toUpperCase()}</span>}
+                      <span className="font-mono text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">{c.field}</span>
+                      <span className="text-gray-500">{OPERATORS.find(o=>o.value===c.operator)?.label||c.operator}</span>
+                      <span className="font-mono text-green-700 bg-green-50 px-1.5 py-0.5 rounded">{c.value}{c.secondValue&&` … ${c.secondValue}`}</span>
+                    </div>
+                  ))}
+                </div>
+                {/* THEN */}
+                <div>
+                  <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-bold rounded mb-2 inline-block">THEN</span>
+                  {ver.rule?.then?.map((a,i)=>(
+                    <div key={a.id||i} className="flex items-center gap-2 text-xs mb-1.5 pl-4 flex-wrap">
+                      <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-700 rounded font-mono font-medium">{a.type}</span>
+                      {a.field&&<><span className="text-gray-400">→</span><span className="font-mono text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">{a.field}</span></>}
+                      {a.value!==undefined&&a.value!==''&&<><span className="text-gray-400">=</span><span className="font-mono text-green-700 bg-green-50 px-1.5 py-0.5 rounded">{String(a.value)}</span></>}
+                      {a.config?.template&&<span className="text-gray-600 italic">"{a.config.template}"</span>}
+                      {a.config?.formula&&<span className="font-mono text-purple-600">{a.config.formula}</span>}
+                      {a.config?.percentage!=null&&<span className="text-gray-500">{a.config.percentage}%</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* API hint */}
+              <div className="bg-gray-50 rounded-lg p-4 text-xs text-gray-500 border border-gray-100">
+                <p className="font-semibold text-gray-600 mb-1">API Reference</p>
+                <p className="font-mono text-gray-400">GET /api/v1/spaces/motor-uw/rules/{rule.id}/versions/{ver.version}</p>
+                {ver.status==='DRAFT'&&<p className="font-mono text-gray-400 mt-0.5">PATCH /api/v1/spaces/motor-uw/rules/{rule.id}/versions/{ver.version} <span className="text-amber-600">(metadata only)</span></p>}
+                <p className="font-mono text-gray-400 mt-0.5">POST /api/v1/spaces/motor-uw/rules/{rule.id}/versions/{ver.version}/activate</p>
+              </div>
+            </div>
+          </div>
+        ):(
+          <div className="flex-1 flex items-center justify-center text-sm text-gray-400">Select a version to view details</div>
+        )}
+      </div>
+
+      {/* delete version confirm */}
+      <Modal open={!!confirmDel} onClose={()=>setConfirmDel(null)} title="Delete Version" width="max-w-sm">
+        <div className="p-5 flex flex-col gap-4">
+          <div className="p-3.5 bg-red-50 rounded-lg border border-red-100 text-sm text-red-700">
+            Version {confirmDel?.version} will be soft-deleted and retained for audit compliance. You can restore it later.
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Btn variant="outline" onClick={()=>setConfirmDel(null)}>Cancel</Btn>
+            <Btn variant="destructive" onClick={()=>handleDeleteVer(confirmDel)}>Delete Version</Btn>
+          </div>
+        </div>
+      </Modal>
+    </div>
+  );
+};
+
+/* ── EDIT METADATA MODAL ─────────────────────────── */
+const EditMetaModal=({rule,open,onClose,onSave})=>{
+  const [tags,setTags]=useState(rule?.tags||[]);
+  const [category,setCategory]=useState(rule?.category||'');
+  const [tagInput,setTagInput]=useState('');
+  useEffect(()=>{if(open){setTags(rule.tags);setCategory(rule.category);}},[open,rule]);
+  const addTag=(e)=>{if(e.key==='Enter'&&tagInput.trim()){e.preventDefault();setTags(t=>[...t,tagInput.trim()]);setTagInput('');}};
+  return(
+    <Modal open={open} onClose={onClose} title="Edit Document Metadata"
+      subtitle="Only tags and category can be changed. Rule name is immutable.">
+      <div className="p-5 flex flex-col gap-4">
+        <div className="px-3 py-2 bg-amber-50 border border-amber-100 rounded-lg text-xs text-amber-700">
+          <strong>Note:</strong> To change rule logic, create a new version. To update version-level metadata on a DRAFT, use the version PATCH endpoint.
+        </div>
+        <Field label="Category">
+          <Sel value={category} onChange={e=>setCategory(e.target.value)}
+            options={[{value:'',label:'Select…'},...CATEGORIES.map(c=>({value:c,label:c}))]}/>
+        </Field>
+        <Field label="Tags" hint="Press Enter to add">
+          <div className="flex flex-wrap gap-1.5 p-2 border border-gray-200 rounded-md bg-white min-h-[36px]">
+            {tags.map(t=><Tag key={t} label={t} onRemove={()=>setTags(ts=>ts.filter(x=>x!==t))}/>)}
+            <input value={tagInput} onChange={e=>setTagInput(e.target.value)} onKeyDown={addTag}
+              placeholder="Add tag…" className="ring-f flex-1 text-sm outline-none min-w-[80px] placeholder:text-gray-400"/>
+          </div>
+        </Field>
+        <div className="flex gap-2 justify-end">
+          <Btn variant="outline" onClick={onClose}>Cancel</Btn>
+          <Btn onClick={()=>onSave({tags,category})}>Save Changes</Btn>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
+/* ── DELETE RULE CONFIRM ─────────────────────────── */
+const DeleteRuleModal=({rule,open,onClose,onConfirm})=>(
+  <Modal open={open} onClose={onClose} title="Delete Rule" width="max-w-sm">
+    <div className="p-5 flex flex-col gap-4">
+      <div className="p-3.5 bg-red-50 rounded-lg border border-red-100 text-sm text-red-700">
+        Soft-deleting <strong>{rule?.name}</strong> will make it inaccessible. All {rule?.versions?.length||0} version(s) are retained for audit compliance (7 years). Use <code>?hard=true</code> for permanent deletion.
+      </div>
+      <div className="flex gap-2 justify-end">
+        <Btn variant="outline" onClick={onClose}>Cancel</Btn>
+        <Btn variant="destructive" onClick={onConfirm}>Delete Rule</Btn>
+      </div>
+    </div>
+  </Modal>
+);
+
+/* ── TABLE DETAIL (simple) ───────────────────────── */
+const TableDetailPage=({tbl,onBack})=>{
+  const ver=activeVer(tbl)||tbl.versions[0];
+  return(
+    <div className="flex flex-col h-full">
+      <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-3"><IC.Back size={14}/>Decisions</button>
+        <h1 className="text-lg font-semibold text-gray-900">{tbl.name}</h1>
+        <div className="flex gap-1.5 mt-1">{tbl.tags.map(t=><Tag key={t} label={t}/>)}</div>
+      </div>
+      <div className="flex-1 overflow-auto scrollbar p-6">
+        <div className="max-w-3xl">
+          <div className="bg-white rounded-xl border border-gray-200 p-5 mb-4">
+            <div className="flex items-center gap-3 mb-4">
+              <StatusBadge status={ver?.status}/>
+              <span className="text-sm text-gray-500">v{ver?.version} · Hit policy: <strong>{ver?.table?.hitPolicy?.replace('_',' ')}</strong></span>
+            </div>
+            <p className="text-sm text-gray-600 mb-1">{ver?.description}</p>
+          </div>
+          {ver?.table&&(
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead><tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="px-3 py-2 text-xs font-semibold text-gray-500 text-left">Row</th>
+                  {ver.table.inputs.map((inp,i)=><th key={i} className="px-3 py-2 text-xs font-semibold text-amber-600 text-left">{inp.label||inp.field} <span className="text-gray-300">({inp.operator})</span></th>)}
+                  {ver.table.outputs.map((out,i)=><th key={i} className="px-3 py-2 text-xs font-semibold text-blue-600 text-left">{out.label||out.field}</th>)}
+                  <th className="px-3 py-2 text-xs font-semibold text-gray-400 text-left">Enabled</th>
+                </tr></thead>
+                <tbody className="divide-y divide-gray-50">
+                  {ver.table.rows.map(row=>(
+                    <tr key={row.id} className={cn('transition-colors',row.isEnabled?'hover:bg-gray-50':'bg-gray-50 opacity-50')}>
+                      <td className="px-3 py-2 text-xs text-gray-400">{row.id}</td>
+                      {row.inputs.map((inp,i)=><td key={i} className="px-3 py-2 font-mono text-xs text-gray-700">{inp}</td>)}
+                      {row.outputs.map((out,i)=><td key={i} className="px-3 py-2 font-mono text-xs text-blue-700 font-medium">{out}</td>)}
+                      <td className="px-3 py-2"><span className={cn('text-xs font-medium',row.isEnabled?'text-green-600':'text-gray-400')}>{row.isEnabled?'Yes':'No'}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ── FLOW DETAIL (simple) ────────────────────────── */
+const FlowDetailPage=({flow,onBack})=>{
+  const ver=activeVer(flow)||flow.versions[0];
+  const nodeColors={start:'bg-green-100 text-green-700 border-green-200',end:'bg-red-100 text-red-700 border-red-200',rule:'bg-blue-50 text-blue-700 border-blue-200',table:'bg-purple-50 text-purple-700 border-purple-200',expression:'bg-amber-50 text-amber-700 border-amber-200'};
+  return(
+    <div className="flex flex-col h-full">
+      <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-3"><IC.Back size={14}/>Decisions</button>
+        <h1 className="text-lg font-semibold text-gray-900">{flow.name}</h1>
+        <div className="flex gap-1.5 mt-1">{flow.tags.map(t=><Tag key={t} label={t}/>)}</div>
+      </div>
+      <div className="flex-1 overflow-auto scrollbar p-6">
+        <div className="max-w-2xl">
+          <div className="bg-white rounded-xl border border-gray-200 p-5 mb-4">
+            <div className="flex items-center gap-3 mb-2"><StatusBadge status={ver?.status}/>
+              <span className="text-sm text-gray-500">v{ver?.version} · Merge: <strong>{ver?.flow?.mergeStrategy?.replace(/_/g,' ')}</strong></span>
+            </div>
+          </div>
+          {ver?.flow&&(
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Pipeline Nodes</p>
+              <div className="flex flex-col gap-2">
+                {ver.flow.nodes.map((node,i)=>(
+                  <div key={node.id} className="flex items-center gap-3">
+                    <div className={cn('flex items-center gap-2.5 px-3 py-2 rounded-lg border text-sm font-medium flex-1',nodeColors[node.type]||'bg-gray-50 text-gray-700 border-gray-200')}>
+                      <span className="text-xs opacity-60 font-mono">{node.type}</span>
+                      <span>{node.name}</span>
+                      {node.config?.ruleRef&&<span className="text-xs opacity-50 ml-auto font-mono">{node.config.ruleRef}</span>}
+                      {node.config?.tableRef&&<span className="text-xs opacity-50 ml-auto font-mono">{node.config.tableRef}</span>}
+                    </div>
+                    {i<ver.flow.nodes.length-1&&<IC.Flow size={14} className="text-gray-300 shrink-0"/>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ── ROOT APP ────────────────────────────────────── */
+const App=()=>{
+  const [primaryNav,setPrimaryNav]=useState('rules');
+  const [secondaryNav,setSecondaryNav]=useState('decisions');
+  const [rules,setRules]=useState(SEED_RULES);
+  const [tables]=useState(SEED_TABLES);
+  const [flows]=useState(SEED_FLOWS);
+  const [page,setPage]=useState('decisions'); // decisions | rule-detail | rule-create | rule-new-version | table-detail | flow-detail
+  const [selectedRule,setSelectedRule]=useState(null);
+  const [selectedTable,setSelectedTable]=useState(null);
+  const [selectedFlow,setSelectedFlow]=useState(null);
+  const [editMetaOpen,setEditMetaOpen]=useState(false);
+  const [deleteRule,setDeleteRule]=useState(null);
+  const [toast,setToast]=useState(null);
+
+  const showToast=(msg)=>setToast(msg);
+
+  const handleViewRule=(rule)=>{setSelectedRule(rule);setPage('rule-detail');};
+  const handleCreateRule=()=>setPage('rule-create');
+  const handleEditRule=(rule)=>{setSelectedRule(rule);setPage('rule-detail');};
+  const handleDeleteRule=(rule)=>setDeleteRule(rule);
+  const handleViewTable=(tbl)=>{setSelectedTable(tbl);setPage('table-detail');};
+  const handleViewFlow=(flow)=>{setSelectedFlow(flow);setPage('flow-detail');};
+
+  const handleSaveRule=(form)=>{
+    const newRule={
+      id:'r'+uid(),name:form.name,category:form.category,tags:form.tags,
+      createdAt:new Date().toISOString(),createdBy:'alice@insure.com',
+      versions:[{id:uid(),version:1,status:'DRAFT',description:form.description,changeSummary:form.changeSummary,
+        effectiveFrom:form.effectiveFrom,effectiveUntil:form.effectiveUntil,activatedAt:null,activatedBy:null,
+        inputSchema:form.inputSchema,outputSchema:form.outputSchema,rule:form.rule}],
+    };
+    setRules(rs=>[...rs,newRule]);
+    setPage('decisions');
+    showToast(`Rule "${form.name}" created as Draft`);
+  };
+
+  const handleSaveNewVersion=(existingRule,form)=>{
+    const nextVer=Math.max(...existingRule.versions.map(v=>v.version))+1;
+    const newVer={id:uid(),version:nextVer,status:'DRAFT',description:form.description,changeSummary:form.changeSummary,
+      effectiveFrom:form.effectiveFrom,effectiveUntil:form.effectiveUntil,activatedAt:null,activatedBy:null,
+      inputSchema:form.inputSchema,outputSchema:form.outputSchema,rule:form.rule};
+    const updated={...existingRule,versions:[...existingRule.versions,newVer]};
+    setRules(rs=>rs.map(r=>r.id===existingRule.id?updated:r));
+    setSelectedRule(updated);
+    setPage('rule-detail');
+    showToast(`Version ${nextVer} created as Draft`);
+  };
+
+  const handleUpdateRule=(updatedRule)=>{
+    setRules(rs=>rs.map(r=>r.id===updatedRule.id?updatedRule:r));
+    setSelectedRule(updatedRule);
+  };
+
+  const handleEditMeta=({tags,category})=>{
+    const updated={...selectedRule,tags,category};
+    setRules(rs=>rs.map(r=>r.id===selectedRule.id?updated:r));
+    setSelectedRule(updated);
+    setEditMetaOpen(false);
+    showToast('Metadata updated');
+  };
+
+  const handleConfirmDelete=()=>{
+    setRules(rs=>rs.filter(r=>r.id!==deleteRule.id));
+    if(selectedRule?.id===deleteRule.id){setPage('decisions');setSelectedRule(null);}
+    showToast(`Rule "${deleteRule.name}" deleted`);
+    setDeleteRule(null);
+  };
+
+  const handleBack=()=>{setPage('decisions');setSelectedRule(null);setSelectedTable(null);setSelectedFlow(null);};
+
+  const handleSecNav=(key)=>{
+    setSecondaryNav(key);
+    if(key==='decisions'){setPage('decisions');setSelectedRule(null);}
+  };
+
+  return(
+    <div className="h-screen flex overflow-hidden bg-gray-50">
+      <PrimarySidebar active={primaryNav} onSelect={setPrimaryNav}/>
+      <SecondarySidebar active={secondaryNav} onSelect={handleSecNav} space="AXA Motor Insurance"/>
+      <main className="flex-1 overflow-hidden flex flex-col">
+        {page==='decisions'&&(
+          <DecisionsPage rules={rules} tables={tables} flows={flows}
+            onViewRule={handleViewRule} onCreateRule={handleCreateRule}
+            onEditRule={handleEditRule} onDeleteRule={handleDeleteRule}
+            onViewTable={handleViewTable} onViewFlow={handleViewFlow}/>
+        )}
+        {page==='rule-detail'&&selectedRule&&(
+          <RuleDetailPage rule={selectedRule} onBack={handleBack}
+            onUpdate={handleUpdateRule}
+            onNewVersion={(r)=>{setSelectedRule(r);setPage('rule-new-version');}}
+            onEditMeta={()=>setEditMetaOpen(true)}/>
+        )}
+        {page==='rule-create'&&(
+          <RuleCreatePage onSave={handleSaveRule} onCancel={handleBack}/>
+        )}
+        {page==='rule-new-version'&&selectedRule&&(
+          <RuleCreatePage initialRule={selectedRule}
+            onSave={(form)=>handleSaveNewVersion(selectedRule,form)}
+            onCancel={()=>setPage('rule-detail')}/>
+        )}
+        {page==='table-detail'&&selectedTable&&(
+          <TableDetailPage tbl={selectedTable} onBack={handleBack}/>
+        )}
+        {page==='flow-detail'&&selectedFlow&&(
+          <FlowDetailPage flow={selectedFlow} onBack={handleBack}/>
+        )}
+      </main>
+
+      {/* modals */}
+      {selectedRule&&<EditMetaModal rule={selectedRule} open={editMetaOpen} onClose={()=>setEditMetaOpen(false)} onSave={handleEditMeta}/>}
+      <DeleteRuleModal rule={deleteRule} open={!!deleteRule} onClose={()=>setDeleteRule(null)} onConfirm={handleConfirmDelete}/>
+      {toast&&<Toast msg={toast} onDone={()=>setToast(null)}/>}
+    </div>
+  );
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
