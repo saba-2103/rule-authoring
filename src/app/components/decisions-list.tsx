@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import {
-  cn, fmt, activeVer, Btn, Inp, Sel, StatusBadge, IC, Modal,
+  cn, fmt, activeVer, Btn, Inp, Sel, StatusBadge, IC, Modal, SearchBanner,
   Rule, Table, Flow, STATUS_META,
 } from './shared';
 
@@ -542,21 +542,24 @@ export const DecisionsPage: React.FC<DecisionsPageProps> = ({
       </div>
 
       {/* content */}
-      <div className="flex-1 overflow-auto p-6" style={{ scrollbarWidth: 'thin' }}>
-        <UnifiedTable
-          items={visibleItems}
-          page={page}
-          onPageChange={setPage}
-          sort={sort}
-          onSort={handleSort}
-          expanded={expanded}
-          onToggle={toggleExpand}
-          onViewRule={onViewRule}
-          onEditRule={onEditRule}
-          onDeleteRule={onDeleteRule}
-          onViewTable={onViewTable}
-          onViewFlow={onViewFlow}
-        />
+      <div className="flex-1 overflow-auto flex flex-col" style={{ scrollbarWidth: 'thin' }}>
+        <SearchBanner query={search} count={visibleItems.length} label="decision" />
+        <div className="flex-1 overflow-auto p-6">
+          <UnifiedTable
+            items={visibleItems}
+            page={page}
+            onPageChange={setPage}
+            sort={sort}
+            onSort={handleSort}
+            expanded={expanded}
+            onToggle={toggleExpand}
+            onViewRule={onViewRule}
+            onEditRule={onEditRule}
+            onDeleteRule={onDeleteRule}
+            onViewTable={onViewTable}
+            onViewFlow={onViewFlow}
+          />
+        </div>
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
-  cn, uid, fmt, Btn, Inp, Sel, Modal, Tag, Field, IC,
-  ROLES, Space, SpaceMember,
+  cn, uid, fmt, Btn, Inp, Sel, Modal, Tag, Field, IC, FactIcon,
+  ROLES, Space, SpaceMember, Fact, FactField,
 } from './shared';
 
 /* ── SPACE PICKER MODAL ──────────────────────────── */
@@ -131,11 +131,14 @@ interface SpaceDetailProps {
   onUpdate: (space: Space) => void;
   onDelete: (space: Space) => void;
   onEnter: (space: Space) => void;
+  facts: Fact[];
+  factFields: FactField[];
 }
 
-const SpaceDetail: React.FC<SpaceDetailProps> = ({ space, onBack, onUpdate, onDelete, onEnter }) => {
+const SpaceDetail: React.FC<SpaceDetailProps> = ({ space, onBack, onUpdate, onDelete, onEnter, facts, factFields }) => {
   const [editOpen, setEditOpen] = useState(false);
   const [addMemberOpen, setAddMemberOpen] = useState(false);
+  const [tab, setTab] = useState<'members' | 'facts'>('members');
 
   const handleEdit = (data: { name: string; description: string }) => {
     onUpdate({ ...space, ...data });
@@ -185,10 +188,21 @@ const SpaceDetail: React.FC<SpaceDetailProps> = ({ space, onBack, onUpdate, onDe
         </div>
       </div>
 
+      {/* Tab bar */}
+      <div className="bg-white border-b border-gray-200 px-6 flex gap-0">
+        {(['members', 'facts'] as const).map(t => (
+          <button key={t} onClick={() => setTab(t)}
+            className={cn('px-4 py-2.5 text-sm capitalize transition-colors border-b-2',
+              tab === t ? 'border-blue-500 text-blue-700 font-medium' : 'border-transparent text-gray-500 hover:text-gray-700')}>
+            {t === 'members' ? `Members (${space.members.length})` : `Facts & Fields (${space.enabledFactIds.length} enabled)`}
+          </button>
+        ))}
+      </div>
+
       <div className="flex-1 overflow-y-auto p-6" style={{ scrollbarWidth: 'thin' }}>
         <div className="max-w-3xl flex flex-col gap-6">
-          {/* Members */}
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          {/* Members tab */}
+          {tab === 'members' && <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
               <div>
                 <p className="text-sm font-semibold text-gray-900">Members</p>
@@ -237,7 +251,49 @@ const SpaceDetail: React.FC<SpaceDetailProps> = ({ space, onBack, onUpdate, onDe
                 ))}
               </tbody>
             </table>
-          </div>
+          </div>}
+
+          {/* Facts & Fields tab */}
+          {tab === 'facts' && (
+            <div className="flex flex-col gap-3">
+              <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 flex items-start gap-2.5 text-sm text-blue-700">
+                <IC.Info size={14} className="shrink-0 mt-0.5 text-blue-500" />
+                Enable facts to make their fields available in this space’s decisions. Disabled facts are hidden from rule builders in this space.
+              </div>
+              {facts.map(fact => {
+                const enabled = space.enabledFactIds.includes(fact.id);
+                const fieldCount = factFields.filter(f => f.factId === fact.id).length;
+                const toggle = () => {
+                  const next = enabled
+                    ? space.enabledFactIds.filter(id => id !== fact.id)
+                    : [...space.enabledFactIds, fact.id];
+                  onUpdate({ ...space, enabledFactIds: next });
+                };
+                return (
+                  <div key={fact.id}
+                    className={cn('bg-white rounded-xl border p-4 flex items-start gap-4 transition-colors',
+                      enabled ? 'border-blue-200 shadow-sm' : 'border-gray-200 opacity-60 hover:opacity-80')}>
+                    <FactIcon name={fact.name} size="md" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-semibold text-gray-800">{fact.displayName}</p>
+                        <code className="text-xs font-mono text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{fact.name}.*</code>
+                        {enabled && <span className="text-[10px] font-semibold bg-green-50 text-green-700 border border-green-200 px-1.5 py-0.5 rounded">ENABLED</span>}
+                      </div>
+                      <p className="text-xs text-gray-400 mt-0.5">{fact.description}</p>
+                      <p className="text-xs text-gray-400 mt-1">{fieldCount} field{fieldCount !== 1 ? 's' : ''}</p>
+                    </div>
+                    <button onClick={toggle}
+                      className={cn('shrink-0 mt-0.5 w-10 h-5.5 rounded-full transition-colors relative flex items-center',
+                        enabled ? 'bg-blue-600' : 'bg-gray-200')} style={{ width: 40, height: 22 }}>
+                      <span className={cn('absolute w-4 h-4 rounded-full bg-white shadow transition-transform',
+                        enabled ? 'translate-x-5' : 'translate-x-1')} style={{ transitionDuration: '150ms' }} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {/* API Reference */}
           <div className="bg-gray-50 rounded-xl border border-gray-200 p-5">
@@ -285,9 +341,12 @@ interface SpacesPageProps {
   onCreate: (space: Space) => void;
   onUpdate: (space: Space) => void;
   onDelete: (space: Space) => void;
+  facts: Fact[];
+  factFields: FactField[];
 }
 
-export const SpacesPage: React.FC<SpacesPageProps> = ({ spaces, currentSpaceId, onSelectSpace, onCreate, onUpdate, onDelete }) => {
+export const SpacesPage: React.FC<SpacesPageProps> = (props) => {
+  const { spaces, currentSpaceId, onSelectSpace, onCreate, onUpdate, onDelete } = props;
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedSpace, setSelectedSpace] = useState<Space | null>(null);
 
@@ -295,7 +354,7 @@ export const SpacesPage: React.FC<SpacesPageProps> = ({ spaces, currentSpaceId, 
     const newSpace: Space = {
       id: data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
       name: data.name, description: data.description,
-      createdAt: new Date().toISOString(), members: [],
+      createdAt: new Date().toISOString(), members: [], enabledFactIds: [],
     };
     onCreate(newSpace);
     setSelectedSpace(newSpace);
@@ -315,6 +374,8 @@ export const SpacesPage: React.FC<SpacesPageProps> = ({ spaces, currentSpaceId, 
         onUpdate={s => { onUpdate(s); setSelectedSpace(s); }}
         onDelete={handleDelete}
         onEnter={s => { onSelectSpace(s); setSelectedSpace(null); }}
+        facts={props.facts}
+        factFields={props.factFields}
       />
     );
   }

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   cn, uid, Btn, Inp, Sel, Field, Tag, IC,
   CATEGORIES, mkBlockGroup,
-  RuleContent, Rule,
+  RuleContent, Rule, FactField,
 } from './shared';
 import { BlockBuilder, SchemaPanel } from './block-builder';
 
@@ -27,9 +27,10 @@ interface RuleCreatePageProps {
   onSave: (form: RuleForm) => void;
   onCancel: () => void;
   initialRule?: Rule | null;
+  factFields?: FactField[];
 }
 
-export const RuleCreatePage: React.FC<RuleCreatePageProps> = ({ onSave, onCancel, initialRule = null }) => {
+export const RuleCreatePage: React.FC<RuleCreatePageProps> = ({ onSave, onCancel, initialRule = null, factFields }) => {
   const isNewVersion = !!initialRule;
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<RuleForm>({
@@ -184,6 +185,7 @@ export const RuleCreatePage: React.FC<RuleCreatePageProps> = ({ onSave, onCancel
                 <BlockBuilder
                   content={form.rule}
                   onChange={rule => setForm(f => ({ ...f, rule }))}
+                  factFields={factFields}
                 />
               </div>
             </div>

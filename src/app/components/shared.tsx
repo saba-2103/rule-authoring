@@ -139,6 +139,31 @@ export interface Space {
   description: string;
   createdAt: string;
   members: SpaceMember[];
+  enabledFactIds: string[];
+}
+
+export type DataType = 'string' | 'number' | 'boolean' | 'date' | 'list';
+
+export interface Fact {
+  id: string;
+  name: string;        // namespace key used in rule paths, e.g. "policy"
+  displayName: string; // human-readable, e.g. "Policy"
+  description: string;
+  createdAt: string;
+  createdBy: string;
+}
+
+export interface FactField {
+  id: string;
+  factId: string;      // references Fact.id
+  name: string;        // attribute name, e.g. "vehicleType"
+  path: string;        // full dot-path, e.g. "policy.vehicleType"
+  displayName: string; // human-readable, e.g. "Vehicle Type"
+  dataType: DataType;
+  description: string;
+  isOutput: boolean;   // true = written by rules; false = read as input
+  createdAt: string;
+  createdBy: string;
 }
 
 /* ── CONSTANTS ───────────────────────────────────── */
@@ -294,6 +319,7 @@ export const SEED_SPACES: Space[] = [
       { userId: 'u2', email: 'bob@insure.com', role: 'RULE_APPROVER', joinedAt: '2025-01-05T00:00:00' },
       { userId: 'u3', email: 'carol@insure.com', role: 'RULE_AUTHOR', joinedAt: '2025-02-01T00:00:00' },
     ],
+    enabledFactIds: ['f-policy', 'f-driver', 'f-pricing'],
   },
   {
     id: 'life-uw', name: 'AXA Life Insurance', description: 'Life insurance underwriting, pricing and compliance rules',
@@ -302,6 +328,7 @@ export const SEED_SPACES: Space[] = [
       { userId: 'u1', email: 'alice@insure.com', role: 'ADMIN', joinedAt: '2025-03-01T00:00:00' },
       { userId: 'u4', email: 'david@insure.com', role: 'RULE_AUTHOR', joinedAt: '2025-03-10T00:00:00' },
     ],
+    enabledFactIds: ['f-applicant', 'f-rider', 'f-pricing'],
   },
   {
     id: 'claims', name: 'Claims Processing', description: 'Claims assessment, settlement and fraud detection rules',
@@ -310,7 +337,126 @@ export const SEED_SPACES: Space[] = [
       { userId: 'u2', email: 'bob@insure.com', role: 'ADMIN', joinedAt: '2025-02-01T00:00:00' },
       { userId: 'u5', email: 'eve@insure.com', role: 'RULE_EXECUTOR', joinedAt: '2025-02-15T00:00:00' },
     ],
+    enabledFactIds: ['f-claim', 'f-policy', 'f-fraud', 'f-provider', 'f-adjudication', 'f-renewal'],
   },
+];
+
+export const SEED_FACTS: Fact[] = [
+  { id: 'f-policy',      name: 'policy',      displayName: 'Policy',       description: 'Core policy details including status, dates, coverage type, and lapse information.',        createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-claim',       name: 'claim',        displayName: 'Claim',        description: 'Claim submission details including benefit codes, treatment dates, and decision outputs.',    createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-driver',      name: 'driver',       displayName: 'Driver',       description: 'Driver profile used for motor underwriting — age, telematics, and licence details.',         createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-applicant',   name: 'applicant',    displayName: 'Applicant',    description: 'Applicant health and personal details used in life and health underwriting.',               createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-rider',       name: 'rider',        displayName: 'Rider',        description: 'Rider eligibility and premium output fields for add-on benefits (CI, waiver, etc.).',       createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-pricing',     name: 'pricing',      displayName: 'Pricing',      description: 'Computed pricing outputs: base premium, loadings, NCB discounts, and EV flags.',            createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-fraud',       name: 'fraud',        displayName: 'Fraud',        description: 'Fraud detection scoring, signal aggregation, and bureau score integration.',                createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-renewal',     name: 'renewal',      displayName: 'Renewal',      description: 'Renewal processing context: claim history aggregates, tier progression, and NCB awards.',   createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-provider',    name: 'provider',     displayName: 'Provider',     description: 'Healthcare provider network tier and empanelment classification.',                          createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-adjudication',name: 'adjudication', displayName: 'Adjudication', description: 'Claims adjudication decision outputs: STP pass/fail, approval thresholds, ML confidence.',  createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+];
+
+const ff = (id: string, factId: string, name: string, displayName: string, dataType: DataType, description: string, isOutput: boolean): FactField => ({
+  id, factId, name, path: `${SEED_FACTS.find(f => f.id === factId)!.name}.${name}`, displayName, dataType, description, isOutput,
+  createdAt: '2025-01-01T00:00:00', createdBy: 'system',
+});
+
+export const SEED_FACT_FIELDS: FactField[] = [
+  /* policy */
+  ff('ff-pol-01','f-policy','vehicleType',               'Vehicle Type',                         'string', 'Type of vehicle (e.g. SEDAN, SUV, MOTORCYCLE, TRUCK).',                          false),
+  ff('ff-pol-02','f-policy','region',                    'Region',                               'string', 'Geographic region of policy registration for territory pricing.',                  false),
+  ff('ff-pol-03','f-policy','vehicleAge',                'Vehicle Age',                          'number', 'Age of vehicle in years at policy inception.',                                    false),
+  ff('ff-pol-04','f-policy','pincode',                   'Pincode',                              'string', 'Policyholder postcode used for dynamic region derivation.',                        false),
+  ff('ff-pol-05','f-policy','status',                    'Status',                               'string', 'Current policy status: ACTIVE, LAPSED, CANCELLED, EXPIRED.',                     false),
+  ff('ff-pol-06','f-policy','claimHistory',              'Claim History',                        'list',   'List of historical claim objects for aggregation rules.',                         false),
+  ff('ff-pol-07','f-policy','claimFreeYears',            'Claim-Free Years',                     'number', 'Consecutive years without a claim. Used for NCB calculation.',                   false),
+  ff('ff-pol-08','f-policy','tenure',                    'Tenure (Years)',                       'number', 'Total years the policy has been continuously held.',                              false),
+  ff('ff-pol-09','f-policy','continuousCoverageMonths',  'Continuous Coverage (Months)',         'number', 'Uninterrupted months of coverage. Used for waiting period checks.',               false),
+  ff('ff-pol-10','f-policy','hasLapseInLast24Months',    'Has Lapse in Last 24 Months',          'boolean','Whether a coverage lapse occurred in the last 24 months.',                       false),
+  ff('ff-pol-11','f-policy','inceptionDate',             'Inception Date',                       'date',   'Policy start date.',                                                              false),
+  ff('ff-pol-12','f-policy','expiryDate',                'Expiry Date',                          'date',   'Policy end/renewal date.',                                                        false),
+  ff('ff-pol-13','f-policy','lapseGapDays',              'Lapse Gap (Days)',                     'number', 'Number of days between lapse and reinstatement.',                                false),
+  ff('ff-pol-14','f-policy','reinstatementDate',         'Reinstatement Date',                   'date',   'Date the policy was reinstated after lapse.',                                    false),
+  ff('ff-pol-15','f-policy','preExistingDeclared',       'Pre-Existing Declared',                'boolean','Whether a pre-existing condition was declared at inception.',                    false),
+  ff('ff-pol-16','f-policy','policyType',                'Policy Type',                          'string', 'Policy variant: INDIVIDUAL, GROUP, FLOATER.',                                    false),
+  ff('ff-pol-17','f-policy','currentTier',               'Current Loyalty Tier',                 'string', 'Current tier in the loyalty/renewal tier ladder.',                               false),
+  ff('ff-pol-18','f-policy','isPortability',             'Is Portability',                       'boolean','Whether the policy was ported from another insurer.',                            false),
+  ff('ff-pol-19','f-policy','requiresReinstatementDeclaration', 'Requires Reinstatement Declaration', 'boolean', 'Output flag: triggers pre-issuance health declaration after long lapse.', true),
+  /* claim */
+  ff('ff-clm-01','f-claim','benefitCode',                'Benefit Code',                         'string', 'Benefit code identifying the claim type (e.g. MATERNITY, IPD, OPD).',            false),
+  ff('ff-clm-02','f-claim','treatmentDate',              'Treatment Date',                       'date',   'Date of treatment / hospitalisation.',                                            false),
+  ff('ff-clm-03','f-claim','eligible',                   'Eligible',                             'boolean','Output: whether the claim is eligible for reimbursement.',                       true),
+  ff('ff-clm-04','f-claim','rejectionReasons',           'Rejection Reasons',                    'list',   'Output list of rejection reason codes.',                                          true),
+  ff('ff-clm-05','f-claim','providerId',                 'Provider ID',                          'string', 'Unique identifier of the healthcare provider submitting the claim.',              false),
+  ff('ff-clm-06','f-claim','preAuthRef',                 'Pre-Auth Reference',                   'string', 'Pre-authorisation reference number for inpatient claims.',                       false),
+  ff('ff-clm-07','f-claim','payableAmount',              'Payable Amount',                       'number', 'Computed payable amount after co-pay and deductions.',                           false),
+  ff('ff-clm-08','f-claim','decisionLane',               'Decision Lane',                        'string', 'Output: routing lane — AUTO_APPROVE, REVIEW, SOFT_REVIEW, AUTO_DECLINE.',       true),
+  ff('ff-clm-09','f-claim','reviewFlags',                'Review Flags',                         'list',   'Output list of flags for manual review processing.',                             true),
+  ff('ff-clm-10','f-claim','claimType',                  'Claim Type',                           'string', 'Claim category: INPATIENT, OUTPATIENT, DAYCARE, EMERGENCY.',                    false),
+  ff('ff-clm-11','f-claim','preAuthVerified',            'Pre-Auth Verified',                    'boolean','Output: whether pre-auth reference has been validated.',                         true),
+  ff('ff-clm-12','f-claim','deductibleRemaining',        'Deductible Remaining',                 'number', 'Remaining deductible balance for the policy year.',                              false),
+  /* driver */
+  ff('ff-drv-01','f-driver','age',                       'Age',                                  'number', 'Driver age in years at policy inception.',                                        false),
+  ff('ff-drv-02','f-driver','telematicsScore',           'Telematics Score',                     'number', 'Telematics safety score (0–100). Higher is safer.',                              false),
+  ff('ff-drv-03','f-driver','licenceYears',              'Licence Years',                        'number', 'Number of years the driver has held a valid licence.',                           false),
+  ff('ff-drv-04','f-driver','convictions',               'Convictions',                          'number', 'Number of driving convictions in the last 5 years.',                             false),
+  /* applicant */
+  ff('ff-app-01','f-applicant','age',                    'Age',                                  'number', 'Applicant age in years.',                                                         false),
+  ff('ff-app-02','f-applicant','dateOfBirth',            'Date of Birth',                        'date',   'Applicant date of birth.',                                                        false),
+  ff('ff-app-03','f-applicant','annualIncome',           'Annual Income',                        'number', 'Applicant gross annual income.',                                                  false),
+  ff('ff-app-04','f-applicant','sumAssured',             'Sum Assured',                          'number', 'Requested sum assured amount.',                                                   false),
+  ff('ff-app-05','f-applicant','productCode',            'Product Code',                         'string', 'Insurance product code selected by the applicant.',                              false),
+  ff('ff-app-06','f-applicant','hba1c',                  'HbA1c Level',                          'number', 'Glycated haemoglobin level. Used for diabetic eligibility checks.',              false),
+  ff('ff-app-07','f-applicant','bmi',                    'BMI',                                  'number', 'Body Mass Index.',                                                                false),
+  ff('ff-app-08','f-applicant','smokingStatus',          'Smoking Status',                       'string', 'Smoking status: CURRENT_SMOKER, RECENT_QUITTER, NON_SMOKER, NRT_USER.',         false),
+  ff('ff-app-09','f-applicant','smokeFreeYears',         'Smoke-Free Years',                     'number', 'Years since the applicant stopped smoking.',                                     false),
+  ff('ff-app-10','f-applicant','preExistingConditions',  'Pre-Existing Conditions',              'list',   'List of declared pre-existing condition codes.',                                  false),
+  ff('ff-app-11','f-applicant','telehealthAssessmentCompleted', 'Telehealth Assessment Completed','boolean','Whether a telehealth medical assessment has been completed.',                  false),
+  ff('ff-app-12','f-applicant','eligible',               'Eligible',                             'boolean','Output: overall applicant eligibility decision.',                                true),
+  ff('ff-app-13','f-applicant','premiumRate',            'Premium Rate',                         'number', 'Output: computed premium rate.',                                                  true),
+  ff('ff-app-14','f-applicant','riskScore',              'Risk Score',                           'number', 'Output: overall applicant risk score.',                                           true),
+  /* rider */
+  ff('ff-rid-01','f-rider','ciEligible',                 'CI Eligible',                          'boolean','Output: whether the critical illness rider is approved.',                        true),
+  ff('ff-rid-02','f-rider','ciBasePremium',              'CI Base Premium',                      'number', 'Output: CI rider base premium.',                                                  true),
+  ff('ff-rid-03','f-rider','waitingPeriodMonths',        'Waiting Period (Months)',              'number', 'Output: applicable waiting period for the rider.',                               true),
+  ff('ff-rid-04','f-rider','loadingReasons',             'Loading Reasons',                      'list',   'Output: list of loading reason codes applied to the rider.',                     true),
+  ff('ff-rid-05','f-rider','assessmentType',             'Assessment Type',                      'string', 'Output: how the applicant was assessed — IN_PERSON, TELEHEALTH.',                true),
+  /* pricing */
+  ff('ff-prc-01','f-pricing','basePremium',              'Base Premium',                         'number', 'Computed base premium before loadings and discounts.',                           true),
+  ff('ff-prc-02','f-pricing','ncbDiscountPct',           'NCB Discount %',                       'number', 'No-claims bonus discount percentage.',                                            true),
+  ff('ff-prc-03','f-pricing','ncbCapped',                'NCB Capped',                           'boolean','Whether the NCB discount has been capped at the regulatory maximum.',            true),
+  ff('ff-prc-04','f-pricing','ncbBand',                  'NCB Band',                             'string', 'NCB tier band label.',                                                            true),
+  ff('ff-prc-05','f-pricing','evBandApplied',            'EV Band Applied',                      'boolean','Whether the EV classification flag has been set.',                               true),
+  ff('ff-prc-06','f-pricing','youngDriverLoading',       'Young Driver Loading',                 'number', 'Computed young driver surcharge as a decimal (e.g. 0.15).',                     true),
+  ff('ff-prc-07','f-pricing','loadingReasons',           'Loading Reasons',                      'list',   'List of loading reason codes applied to the premium.',                           true),
+  /* fraud */
+  ff('ff-frd-01','f-fraud','detections',                 'Detections',                           'list',   'List of fraud signal objects with points values.',                               false),
+  ff('ff-frd-02','f-fraud','totalScore',                 'Total Score',                          'number', 'Output: aggregated fraud score.',                                                  true),
+  ff('ff-frd-03','f-fraud','signalCount',                'Signal Count',                         'number', 'Output: number of fraud signals detected.',                                       true),
+  ff('ff-frd-04','f-fraud','bureauScore',                'Bureau Score',                         'number', 'Third-party fraud bureau score (0–100).',                                        false),
+  ff('ff-frd-05','f-fraud','mlScore',                    'ML Score',                             'number', 'ML model fraud probability score (0–1).',                                        false),
+  ff('ff-frd-06','f-fraud','internalScore',              'Internal Score',                       'number', 'Output: internal rule-based fraud score component.',                             true),
+  ff('ff-frd-07','f-fraud','ruleScore',                  'Rule Score',                           'number', 'Output: rule-based component of hybrid scoring.',                                true),
+  /* renewal */
+  ff('ff-rnw-01','f-renewal','triggerType',              'Trigger Type',                         'string', 'Event that triggered renewal processing: ANNUAL_RENEWAL, MID_TERM.',             false),
+  ff('ff-rnw-02','f-renewal','claimCountLast3Years',     'Claim Count (Last 3 Years)',           'number', 'Output: aggregated claim count over rolling 3-year window.',                     true),
+  ff('ff-rnw-03','f-renewal','gracePeriodExpired',       'Grace Period Expired',                 'boolean','Whether the renewal grace period has passed.',                                   false),
+  ff('ff-rnw-04','f-renewal','nextTier',                 'Next Loyalty Tier',                    'string', 'Output: upgraded loyalty tier for zero-claim renewal.',                          true),
+  ff('ff-rnw-05','f-renewal','ncbDiscountPct',           'NCB Discount %',                       'number', 'Output: NCB discount awarded at renewal.',                                        true),
+  ff('ff-rnw-06','f-renewal','consecutiveZeroClaimYears','Consecutive Zero-Claim Years',         'number', 'Years of consecutive claim-free renewal.',                                       false),
+  ff('ff-rnw-07','f-renewal','cashbackAmount',           'Cashback Amount',                      'number', 'Output: cashback reward for zero-claim milestone.',                               true),
+  ff('ff-rnw-08','f-renewal','basePremium',              'Base Premium at Renewal',              'number', 'Base premium value used for loading calculations at renewal.',                   false),
+  ff('ff-rnw-09','f-renewal','restrictedNetworkRequired','Restricted Network Required',          'boolean','Output: whether restricted provider network applies at renewal.',                true),
+  ff('ff-rnw-10','f-renewal','loadingPct',               'Loading %',                            'number', 'Output: computed high-claim loading percentage.',                                true),
+  ff('ff-rnw-11','f-renewal','chronicConditionClaimCount','Chronic Condition Claim Count',       'number', 'Claims attributed to declared chronic conditions — excluded from loading calc.', false),
+  /* provider */
+  ff('ff-prv-01','f-provider','networkTier',             'Network Tier',                         'string', 'Output: IN_NETWORK, OUT_OF_NETWORK, or GAP.',                                    true),
+  ff('ff-prv-02','f-provider','empanelmentStatus',       'Empanelment Status',                   'string', 'Real-time empanelment status: ACTIVE, SUSPENDED, DELISTED.',                    false),
+  ff('ff-prv-03','f-provider','empanelmentVerified',     'Empanelment Verified',                 'boolean','Output: whether empanelment was validated via API.',                              true),
+  ff('ff-prv-04','f-provider','hospitalTier',            'Hospital Tier',                        'number', 'Provider tier (1=premium, 2=standard, 3=basic) for approval limits.',           false),
+  ff('ff-prv-05','f-provider','gapReimbursementPct',     'GAP Reimbursement %',                  'number', 'Output: reimbursement percentage for GAP network providers.',                    true),
+  /* adjudication */
+  ff('ff-adj-01','f-adjudication','stpPassed',           'STP Passed',                           'boolean','Output: whether the claim passed the straight-through processing gate.',         true),
+  ff('ff-adj-02','f-adjudication','approvalLimit',       'Approval Limit',                       'number', 'Output: maximum auto-approval amount based on provider tier.',                   true),
+  ff('ff-adj-03','f-adjudication','mlConfidence',        'ML Confidence',                        'number', 'ML model confidence score (0–1) for auto-approval eligibility.',                false),
 ];
 
 const mkVer = (
@@ -1550,6 +1696,17 @@ export const Tag: React.FC<{ label: string; onRemove?: () => void }> = ({ label,
   </span>
 );
 
+export const SearchBanner: React.FC<{ query: string; count: number; label?: string }> = ({ query, count, label = 'result' }) =>
+  query.trim() ? (
+    <div className="flex items-center justify-between px-4 py-2 bg-blue-50 border-b border-blue-100 text-sm shrink-0">
+      <span className="text-gray-600">
+        Showing results for <span className="font-semibold text-gray-900">"{query}"</span>
+      </span>
+      <span className="text-gray-500 font-medium">{count} {count === 1 ? label : label + 's'}</span>
+    </div>
+  ) : null;
+
+
 export const Field: React.FC<{ label: string; required?: boolean; children: React.ReactNode; hint?: string }> = ({ label, required, children, hint }) => (
   <div className="flex flex-col gap-1">
     <label className="text-sm font-medium text-gray-700">{label}{required && <span className="text-red-500 ml-0.5">*</span>}</label>
@@ -1664,6 +1821,8 @@ export const IC = {
   Bolt: (p: { size?: number; className?: string }) => <Ic d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" {...p} />,
   ChevR: (p: { size?: number; className?: string }) => <Ic d="M9 18l6-6-6-6" {...p} />,
   ChevD: (p: { size?: number; className?: string }) => <Ic d="M6 9l6 6 6-6" {...p} />,
+  MoreVert: (p: { size?: number; className?: string }) => <Ic d="M12 5v.01M12 12v.01M12 19v.01" {...p} />,
+  ChevU: (p: { size?: number; className?: string }) => <Ic d="M18 15l-6-6-6 6" {...p} />,
   Flow: (p: { size?: number; className?: string }) => <Ic d={['M5 12h14', 'M12 5l7 7-7 7']} {...p} />,
   Table2: (p: { size?: number; className?: string }) => <Ic d={['M3 3h18v18H3z', 'M3 9h18', 'M3 15h18', 'M9 3v18']} {...p} />,
   Activate: (p: { size?: number; className?: string }) => <Ic d={['M9 12l2 2 4-4', 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z']} {...p} />,
@@ -1678,6 +1837,36 @@ export const IC = {
   Copy: (p: { size?: number; className?: string }) => <Ic d={['M8 17.929H6c-1.105 0-2-.912-2-2.036V5.036C4 3.91 4.895 3 6 3h8c1.105 0 2 .911 2 2.036v1.866m-6 .17h8c1.105 0 2 .91 2 2.036v10.857C20 21.09 19.105 22 18 22h-8c-1.105 0-2-.911-2-2.036V9.107c0-1.124.895-2.036 2-2.036z']} {...p} />,
   Info: (p: { size?: number; className?: string }) => <Ic d={['M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z', 'M12 8v4', 'M12 16h.01']} {...p} />,
   X: (p: { size?: number; className?: string }) => <Ic d="M18 6 6 18M6 6l12 12" {...p} />,
+};
+
+/* ── FACT ICON ───────────────────────────────────── */
+type IcProps = { size?: number; className?: string };
+const _FACT_ICON_MAP: Record<string, { Icon: (p: IcProps) => React.ReactElement; bg: string }> = {
+  policy:       { Icon: IC.Policy,   bg: 'bg-blue-600' },
+  claim:        { Icon: IC.Claims,   bg: 'bg-indigo-600' },
+  driver:       { Icon: IC.Users,    bg: 'bg-violet-600' },
+  applicant:    { Icon: IC.Users,    bg: 'bg-purple-600' },
+  rider:        { Icon: IC.Bolt,     bg: 'bg-pink-600' },
+  pricing:      { Icon: IC.Billing,  bg: 'bg-emerald-600' },
+  fraud:        { Icon: IC.Alerts,   bg: 'bg-red-600' },
+  renewal:      { Icon: IC.Flow,     bg: 'bg-amber-600' },
+  provider:     { Icon: IC.Globe,    bg: 'bg-teal-600' },
+  adjudication: { Icon: IC.Activate, bg: 'bg-green-700' },
+};
+const _FB_BG = ['bg-blue-500','bg-violet-500','bg-rose-500','bg-emerald-500','bg-amber-600','bg-teal-500','bg-pink-600','bg-indigo-500'];
+const _strHash = (s: string) => s.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+
+export const FactIcon: React.FC<{ name: string; size?: 'sm' | 'md' | 'lg' }> = ({ name, size = 'sm' }) => {
+  const cfg = _FACT_ICON_MAP[name.toLowerCase()];
+  const bg  = cfg?.bg ?? _FB_BG[_strHash(name) % _FB_BG.length];
+  const Icon = cfg?.Icon ?? IC.Table2;
+  const dim  = size === 'lg' ? 'w-10 h-10 rounded-xl' : size === 'md' ? 'w-9 h-9 rounded-lg' : 'w-8 h-8 rounded-lg';
+  const sz   = size === 'lg' ? 16 : size === 'md' ? 15 : 13;
+  return (
+    <div className={cn(dim, bg, 'flex items-center justify-center shrink-0')}>
+      <Icon size={sz} className="text-white" />
+    </div>
+  );
 };
 
 /* ── PRIMARY SIDEBAR ─────────────────────────────── */
@@ -1735,8 +1924,7 @@ const RULES_NAV = [
   },
   {
     section: 'CONFIG', items: [
-      { key: 'fields', Icon: IC.Table2, label: 'Fields' },
-      { key: 'facts', Icon: IC.Lookup, label: 'Facts' },
+      { key: 'fields', Icon: IC.Table2, label: 'Fields & Facts' },
     ],
   },
 ];

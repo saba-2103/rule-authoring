@@ -1,8 +1,8 @@
 import React, { useState, useCallback } from 'react';
 import {
   uid, PrimarySidebar, SecondarySidebar, Toast,
-  SEED_SPACES, SEED_RULES, SEED_TABLES, SEED_FLOWS,
-  Space, Rule, Table, Flow,
+  SEED_SPACES, SEED_RULES, SEED_TABLES, SEED_FLOWS, SEED_FACTS, SEED_FACT_FIELDS,
+  Space, Rule, Table, Flow, Fact, FactField,
 } from './components/shared';
 import { SpacesPage, SpacePickerModal } from './components/spaces';
 import { DecisionsPage } from './components/decisions-list';
@@ -10,6 +10,7 @@ import { RuleDetailPage, EditMetaModal, DeleteRuleModal } from './components/rul
 import { RuleCreatePage, RuleForm } from './components/rule-create';
 import { TableDetailPage } from './components/table-detail';
 import { FlowDetailPage } from './components/flow-detail';
+import { FieldsPage } from './components/fields';
 
 type Page =
   | 'decisions'
@@ -18,7 +19,8 @@ type Page =
   | 'rule-new-version'
   | 'table-detail'
   | 'flow-detail'
-  | 'spaces';
+  | 'spaces'
+  | 'fields';
 
 export default function App() {
   /* ── STATE ─────────────────────────────────────── */
@@ -29,6 +31,8 @@ export default function App() {
   const [rules, setRules] = useState<Rule[]>(SEED_RULES);
   const [tables] = useState<Table[]>(SEED_TABLES);
   const [flows] = useState<Flow[]>(SEED_FLOWS);
+  const [facts, setFacts] = useState<Fact[]>(SEED_FACTS);
+  const [factFields, setFactFields] = useState<FactField[]>(SEED_FACT_FIELDS);
   const [page, setPage] = useState<Page>('decisions');
   const [selectedRule, setSelectedRule] = useState<Rule | null>(null);
   const [selectedVersion, setSelectedVersion] = useState<number | undefined>(undefined);
@@ -48,6 +52,7 @@ export default function App() {
     setSecondaryNav(key);
     if (key === 'decisions') { setPage('decisions'); setSelectedRule(null); }
     else if (key === 'spaces') setPage('spaces');
+    else if (key === 'fields' || key === 'facts') setPage('fields');
   };
 
   const handleBack = () => {
@@ -128,6 +133,30 @@ export default function App() {
     setDeleteRule(null);
   };
 
+  /* ── FACT / FIELD HANDLERS ──────────────────────── */
+  const handleCreateFact = (data: { name: string; displayName: string; description: string }) => {
+    const newFact: Fact = { id: 'f-' + uid(), ...data, createdAt: new Date().toISOString(), createdBy: 'alice@insure.com' };
+    setFacts(fs => [...fs, newFact]);
+    showToast(`Fact "${newFact.displayName}" created`);
+  };
+  const handleUpdateFact = (fact: Fact) => { setFacts(fs => fs.map(f => f.id === fact.id ? fact : f)); showToast('Fact updated'); };
+  const handleDeleteFact = (factId: string) => {
+    setFacts(fs => fs.filter(f => f.id !== factId));
+    setFactFields(ffs => ffs.filter(f => f.factId !== factId));
+    showToast('Fact deleted');
+  };
+  const handleCreateField = (data: Omit<FactField, 'id' | 'createdAt' | 'createdBy' | 'path'>) => {
+    const fact = facts.find(f => f.id === data.factId)!;
+    const newField: FactField = { id: 'ff-' + uid(), ...data, path: `${fact.name}.${data.name}`, createdAt: new Date().toISOString(), createdBy: 'alice@insure.com' };
+    setFactFields(ffs => [...ffs, newField]);
+    showToast(`Field "${newField.path}" created`);
+  };
+  const handleUpdateField = (field: FactField) => { setFactFields(ffs => ffs.map(f => f.id === field.id ? field : f)); showToast('Field updated'); };
+  const handleDeleteField = (fieldId: string) => { setFactFields(ffs => ffs.filter(f => f.id !== fieldId)); showToast('Field deleted'); };
+
+  /* space-scoped fact fields for the current space */
+  const spaceFactFields = factFields.filter(f => currentSpace.enabledFactIds.includes(f.factId));
+
   /* ── SPACE HANDLERS ────────────────────────────── */
   const handleSelectSpace = (space: Space) => {
     setCurrentSpaceId(space.id);
@@ -184,6 +213,24 @@ export default function App() {
             onCreate={handleCreateSpace}
             onUpdate={handleUpdateSpace}
             onDelete={handleDeleteSpace}
+            facts={facts}
+            factFields={factFields}
+          />
+        )}
+
+        {/* Fields & Facts Page */}
+        {page === 'fields' && (
+          <FieldsPage
+            facts={facts}
+            factFields={factFields}
+            spaces={spaces}
+            onCreateFact={handleCreateFact}
+            onUpdateFact={handleUpdateFact}
+            onDeleteFact={handleDeleteFact}
+            onCreateField={handleCreateField}
+            onUpdateField={handleUpdateField}
+            onDeleteField={handleDeleteField}
+            initialTab={secondaryNav === 'facts' ? 'facts' : 'facts'}
           />
         )}
 
@@ -214,7 +261,7 @@ export default function App() {
 
         {/* Rule Create */}
         {page === 'rule-create' && (
-          <RuleCreatePage onSave={handleSaveRule} onCancel={handleBack} />
+          <RuleCreatePage onSave={handleSaveRule} onCancel={handleBack} factFields={spaceFactFields} />
         )}
 
         {/* Rule New Version */}
@@ -223,6 +270,7 @@ export default function App() {
             initialRule={selectedRule}
             onSave={form => handleSaveNewVersion(selectedRule, form)}
             onCancel={() => setPage('rule-detail')}
+            factFields={spaceFactFields}
           />
         )}
 

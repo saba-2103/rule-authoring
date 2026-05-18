@@ -5,7 +5,12 @@ import {
   Condition, WhenClause, RuleAction, ConditionalBlock, BlockGroup, RuleContent, BlockType,
   mkIfBlock, mkElseIfBlock, mkElseBlock, mkBlockGroup,
   deriveInputSchema, deriveOutputSchema,
+  FactField,
 } from './shared';
+
+/* ── FACT FIELDS CONTEXT ─────────────────────────── */
+type FieldOption = { value: string; label: string; dataType: string };
+const FactFieldsCtx = React.createContext<FieldOption[]>(FACT_FIELDS);
 
 /* ── CONDITION ROW ───────────────────────────────── */
 interface ConditionRowProps {
@@ -17,7 +22,8 @@ interface ConditionRowProps {
 }
 
 const ConditionRow: React.FC<ConditionRowProps> = ({ cond, index, matchLabel, onChange, onRemove }) => {
-  const fieldMeta = FACT_FIELDS.find(f => f.value === cond.field);
+  const factFields = React.useContext(FactFieldsCtx);
+  const fieldMeta = factFields.find(f => f.value === cond.field);
   const dtype = fieldMeta?.dataType || 'string';
   const ops = OPERATORS.filter(o => o.types.includes(dtype));
   const isBetween = ['BETWEEN', 'DATE_BETWEEN'].includes(cond.operator);
@@ -30,7 +36,7 @@ const ConditionRow: React.FC<ConditionRowProps> = ({ cond, index, matchLabel, on
       </span>
       <Sel value={cond.field}
         onChange={e => onChange({ ...cond, field: e.target.value, operator: 'EQUALS', value: '', secondValue: '' })}
-        options={[{ value: '', label: 'Select field…' }, ...FACT_FIELDS]}
+        options={[{ value: '', label: 'Select field…' }, ...factFields]}
         className="min-w-[180px]" />
       <Sel value={cond.operator}
         onChange={e => onChange({ ...cond, operator: e.target.value, secondValue: '' })}
@@ -62,6 +68,7 @@ interface ActionRowProps {
 }
 
 const ActionRow: React.FC<ActionRowProps> = ({ action, onChange, onRemove }) => {
+  const factFields = React.useContext(FactFieldsCtx);
   const isAssign = action.type === 'ASSIGN';
   const isMsg = action.type === 'ADD_MESSAGE';
   const isCompute = action.type === 'COMPUTE';
@@ -78,7 +85,7 @@ const ActionRow: React.FC<ActionRowProps> = ({ action, onChange, onRemove }) => 
       {needsField && (
         <Sel value={action.field}
           onChange={e => onChange({ ...action, field: e.target.value })}
-          options={[{ value: '', label: 'Target field…' }, ...FACT_FIELDS]}
+          options={[{ value: '', label: 'Target field…' }, ...factFields]}
           className="min-w-[180px]" />
       )}
       {isAssign && (
@@ -405,9 +412,13 @@ const BlockGroupComponent: React.FC<BlockGroupProps> = ({ group, onChange, onRem
 interface BlockBuilderProps {
   content: RuleContent;
   onChange: (content: RuleContent) => void;
+  factFields?: FactField[];
 }
 
-export const BlockBuilder: React.FC<BlockBuilderProps> = ({ content, onChange }) => {
+export const BlockBuilder: React.FC<BlockBuilderProps> = ({ content, onChange, factFields }) => {
+  const fieldOptions: FieldOption[] = factFields && factFields.length > 0
+    ? factFields.map(f => ({ value: f.path, label: f.displayName, dataType: f.dataType }))
+    : FACT_FIELDS;
   const addTopGroup = () => onChange({ ...content, topGroups: [...content.topGroups, mkBlockGroup()] });
 
   const updTopGroup = (i: number, g: BlockGroup) => {
@@ -418,30 +429,32 @@ export const BlockBuilder: React.FC<BlockBuilderProps> = ({ content, onChange })
   const delTopGroup = (i: number) => onChange({ ...content, topGroups: content.topGroups.filter((_, j) => j !== i) });
 
   return (
-    <div className="flex flex-col gap-5">
-      {content.topGroups.map((group, i) => (
-        <div key={group.id}>
-          {i > 0 && (
-            <div className="flex items-center gap-2 mb-4">
-              <div className="h-px flex-1 bg-gray-200" />
-              <span className="text-xs text-gray-400 uppercase tracking-wider font-semibold px-2">Sequential Block {i + 1}</span>
-              <div className="h-px flex-1 bg-gray-200" />
-            </div>
-          )}
-          <BlockGroupComponent
-            group={group}
-            onChange={g => updTopGroup(i, g)}
-            onRemove={() => delTopGroup(i)}
-            depth={0}
-            canRemove={content.topGroups.length > 1}
-          />
-        </div>
-      ))}
-      <button type="button" onClick={addTopGroup}
-        className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 px-4 py-3 border-2 border-dashed border-blue-200 rounded-xl hover:bg-blue-50 transition-colors justify-center">
-        <IC.Plus size={15} />Add Sequential IF Block
-      </button>
-    </div>
+    <FactFieldsCtx.Provider value={fieldOptions}>
+      <div className="flex flex-col gap-5">
+        {content.topGroups.map((group, i) => (
+          <div key={group.id}>
+            {i > 0 && (
+              <div className="flex items-center gap-2 mb-4">
+                <div className="h-px flex-1 bg-gray-200" />
+                <span className="text-xs text-gray-400 uppercase tracking-wider font-semibold px-2">Sequential Block {i + 1}</span>
+                <div className="h-px flex-1 bg-gray-200" />
+              </div>
+            )}
+            <BlockGroupComponent
+              group={group}
+              onChange={g => updTopGroup(i, g)}
+              onRemove={() => delTopGroup(i)}
+              depth={0}
+              canRemove={content.topGroups.length > 1}
+            />
+          </div>
+        ))}
+        <button type="button" onClick={addTopGroup}
+          className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 px-4 py-3 border-2 border-dashed border-blue-200 rounded-xl hover:bg-blue-50 transition-colors justify-center">
+          <IC.Plus size={15} />Add Sequential IF Block
+        </button>
+      </div>
+    </FactFieldsCtx.Provider>
   );
 };
 
