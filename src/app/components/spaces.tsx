@@ -12,13 +12,14 @@ interface SpacePickerModalProps {
   onSelect: (space: Space) => void;
   onManage: () => void;
   onClose: () => void;
+  factFields: FactField[];
 }
 
-export const SpacePickerModal: React.FC<SpacePickerModalProps> = ({ open, spaces, currentSpaceId, onSelect, onManage, onClose }) => (
+export const SpacePickerModal: React.FC<SpacePickerModalProps> = ({ open, spaces, currentSpaceId, onSelect, onManage, onClose, factFields }) => (
   <Modal open={open} onClose={onClose} title="Switch Space" subtitle="Select a space to work in" width="max-w-sm">
     <div className="p-4 flex flex-col gap-2">
       {spaces.map(s => (
-        <button key={s.id} onClick={() => { onSelect(s); onClose(); }}
+        <button key={s.id} onClick={() => onSelect(s)}
           className={cn(
             'w-full text-left px-4 py-3 rounded-lg border transition-colors flex items-start gap-3',
             s.id === currentSpaceId ? 'border-blue-200 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'
@@ -30,13 +31,23 @@ export const SpacePickerModal: React.FC<SpacePickerModalProps> = ({ open, spaces
           <div className="flex-1 min-w-0">
             <p className={cn('text-sm font-medium', s.id === currentSpaceId ? 'text-blue-700' : 'text-gray-900')}>{s.name}</p>
             <p className="text-xs text-gray-400 truncate mt-0.5">{s.description}</p>
-            <p className="text-xs text-gray-300 mt-0.5">{s.members.length} member{s.members.length !== 1 ? 's' : ''}</p>
+            <div className="flex items-center justify-between mt-0.5">
+              <p className="text-xs text-gray-300">{s.members.length} member{s.members.length !== 1 ? 's' : ''}</p>
+              <div className="flex gap-1">
+                <span className="px-1.5 py-0.5 bg-purple-50 text-purple-700 text-[10px] font-medium rounded-full border border-purple-100">
+                  {s.enabledFactIds.length} facts
+                </span>
+                <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-medium rounded-full border border-blue-100">
+                  {factFields.filter(f => s.enabledFactIds.includes(f.factId)).length} fields
+                </span>
+              </div>
+            </div>
           </div>
           {s.id === currentSpaceId && <IC.Check size={14} className="text-blue-600 shrink-0 mt-1" />}
         </button>
       ))}
       <div className="border-t border-gray-100 pt-2 mt-1">
-        <button onClick={onManage} className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-2">
+        <button onClick={onManage} className="w-full px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2">
           <IC.Globe size={14} className="text-gray-400" /> Manage all spaces
         </button>
       </div>
@@ -48,28 +59,34 @@ export const SpacePickerModal: React.FC<SpacePickerModalProps> = ({ open, spaces
 interface SpaceFormModalProps {
   open: boolean;
   onClose: () => void;
-  onSave: (data: { name: string; description: string }) => void;
+  onSave: (data: { name: string; description: string; identifier?: string }) => void;
   initial?: { name: string; description: string };
   title: string;
 }
 
 const SpaceFormModal: React.FC<SpaceFormModalProps> = ({ open, onClose, onSave, initial, title }) => {
   const [name, setName] = useState(initial?.name || '');
+  const [identifier, setIdentifier] = useState('');
   const [desc, setDesc] = useState(initial?.description || '');
   const [err, setErr] = useState('');
 
+  const computedIdentifier = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+
   const handleSave = () => {
     if (!name.trim()) { setErr('Space name is required'); return; }
-    onSave({ name: name.trim(), description: desc.trim() });
+    onSave({ name: name.trim(), description: desc.trim(), identifier: identifier.trim() || computedIdentifier });
     onClose();
   };
 
   return (
     <Modal open={open} onClose={onClose} title={title} width="max-w-md">
       <div className="p-5 flex flex-col gap-4">
-        <Field label="Space Name" required hint="Used as the unique identifier. Use lowercase with hyphens (e.g. motor-underwriting).">
-          <Inp value={name} onChange={e => { setName(e.target.value); setErr(''); }} placeholder="e.g. motor-underwriting" />
+        <Field label="Space Name" required>
+          <Inp value={name} onChange={e => { setName(e.target.value); setErr(''); }} placeholder="e.g. Motor Underwriting" />
           {err && <p className="text-xs text-red-500 mt-0.5">{err}</p>}
+        </Field>
+        <Field label="Unique Identifier" hint="Used in API references. Lowercase with hyphens.">
+          <Inp value={identifier} onChange={e => setIdentifier(e.target.value)} placeholder={computedIdentifier || 'e.g. motor-underwriting'} />
         </Field>
         <Field label="Description" hint="Brief description of what this space contains.">
           <textarea value={desc} onChange={e => setDesc(e.target.value)} rows={3}
@@ -338,6 +355,7 @@ interface SpacesPageProps {
   spaces: Space[];
   currentSpaceId: string;
   onSelectSpace: (space: Space) => void;
+  onOpenSpace: (space: Space) => void;
   onCreate: (space: Space) => void;
   onUpdate: (space: Space) => void;
   onDelete: (space: Space) => void;
@@ -346,13 +364,13 @@ interface SpacesPageProps {
 }
 
 export const SpacesPage: React.FC<SpacesPageProps> = (props) => {
-  const { spaces, currentSpaceId, onSelectSpace, onCreate, onUpdate, onDelete } = props;
+  const { spaces, currentSpaceId, onSelectSpace, onOpenSpace, onCreate, onUpdate, onDelete } = props;
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedSpace, setSelectedSpace] = useState<Space | null>(null);
 
-  const handleCreate = (data: { name: string; description: string }) => {
+  const handleCreate = (data: { name: string; description: string; identifier?: string }) => {
     const newSpace: Space = {
-      id: data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
+      id: data.identifier || data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
       name: data.name, description: data.description,
       createdAt: new Date().toISOString(), members: [], enabledFactIds: [],
     };
@@ -373,7 +391,7 @@ export const SpacesPage: React.FC<SpacesPageProps> = (props) => {
         onBack={() => setSelectedSpace(null)}
         onUpdate={s => { onUpdate(s); setSelectedSpace(s); }}
         onDelete={handleDelete}
-        onEnter={s => { onSelectSpace(s); setSelectedSpace(null); }}
+        onEnter={s => { onOpenSpace(s); setSelectedSpace(null); }}
         facts={props.facts}
         factFields={props.factFields}
       />
@@ -393,79 +411,55 @@ export const SpacesPage: React.FC<SpacesPageProps> = (props) => {
       </div>
 
       <div className="flex-1 overflow-y-auto p-6" style={{ scrollbarWidth: 'thin' }}>
-        <div className="max-w-4xl">
-          {/* Info banner */}
-          <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6 flex items-start gap-3">
-            <IC.Info size={16} className="text-blue-500 shrink-0 mt-0.5" />
-            <div className="text-sm text-blue-700">
-              <strong>Spaces are the top-level isolation boundary.</strong> Rules, tables, and flows in one space are not visible to another.
-              Each space has its own member list with role-based access control.
-              Scoped to: <code className="font-mono text-xs bg-blue-100 px-1 py-0.5 rounded">GET /api/v1/spaces</code>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4">
+        <div className="max-w-5xl">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {spaces.map(s => (
               <div key={s.id}
-                className={cn('bg-white rounded-xl border p-5 flex items-center gap-4 hover:shadow-sm transition-all cursor-pointer group',
+                className={cn('bg-white rounded-xl border p-5 flex flex-col gap-3 hover:shadow-sm transition-all cursor-pointer group',
                   s.id === currentSpaceId ? 'border-blue-200 ring-1 ring-blue-100' : 'border-gray-200')}
                 onClick={() => setSelectedSpace(s)}>
-                <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold shrink-0',
-                  s.id === currentSpaceId ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600')}>
-                  {s.name.charAt(0)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <p className="text-sm font-semibold text-gray-900 truncate">{s.name}</p>
-                    {s.id === currentSpaceId && (
-                      <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-semibold rounded uppercase tracking-wide shrink-0">Current</span>
-                    )}
+                {/* Card header */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center text-base font-bold shrink-0',
+                    s.id === currentSpaceId ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600')}>
+                    {s.name.charAt(0)}
                   </div>
-                  <p className="text-xs text-gray-500 truncate">{s.description}</p>
-                  <div className="flex items-center gap-3 mt-1.5">
+                  {s.id === currentSpaceId ? (
+                    <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-semibold rounded uppercase tracking-wide shrink-0">Current</span>
+                  ) : (
+                    <span onClick={e => e.stopPropagation()}>
+                      <Btn size="sm" variant="outline" onClick={() => onSelectSpace(s)} className="text-xs">
+                        <IC.Flow size={12} />Switch
+                      </Btn>
+                    </span>
+                  )}
+                </div>
+                {/* Name + description */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 truncate">{s.name}</p>
+                  <p className="text-xs text-gray-400 font-mono truncate mt-0.5">{s.id}</p>
+                  {s.description && <p className="text-xs text-gray-500 mt-1.5 line-clamp-2">{s.description}</p>}
+                  <div className="flex gap-1.5 flex-wrap mt-2">
+                    <span className="px-2 py-0.5 bg-purple-50 text-purple-700 text-[11px] font-medium rounded-full border border-purple-100">
+                      {s.enabledFactIds.length} facts
+                    </span>
+                    <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[11px] font-medium rounded-full border border-blue-100">
+                      {props.factFields.filter(f => s.enabledFactIds.includes(f.factId)).length} fields
+                    </span>
+                  </div>
+                </div>
+                {/* Footer stats + actions */}
+                <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                  <div className="flex items-center gap-3">
                     <span className="text-xs text-gray-400 flex items-center gap-1">
                       <IC.Users size={11} />{s.members.length} member{s.members.length !== 1 ? 's' : ''}
                     </span>
-                    <span className="text-xs text-gray-300">·</span>
-                    <span className="text-xs text-gray-400">Created {fmt(s.createdAt)}</span>
-                    <span className="text-xs text-gray-300">·</span>
-                    <span className="text-xs text-gray-400 font-mono">{s.id}</span>
+                    <span className="text-xs text-gray-400">{fmt(s.createdAt)}</span>
                   </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {s.id !== currentSpaceId && (
-                    <Btn size="sm" variant="outline" onClick={e => { e.stopPropagation(); onSelectSpace(s); }}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity">
-                      <IC.Flow size={13} />Switch
-                    </Btn>
-                  )}
-                  <IC.ChevR size={14} className="text-gray-400 group-hover:text-gray-600" />
+                  <IC.ChevR size={13} className="text-gray-400 group-hover:text-gray-600" />
                 </div>
               </div>
             ))}
-          </div>
-
-          {/* API reference */}
-          <div className="mt-6 bg-gray-50 rounded-xl border border-gray-200 p-5">
-            <p className="text-xs font-semibold text-gray-600 mb-3">Spaces API</p>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                ['POST', '/api/v1/spaces', 'Create space (ADMIN)'],
-                ['GET', '/api/v1/spaces', 'List accessible spaces'],
-                ['GET', '/api/v1/spaces/{spaceId}', 'Get space details'],
-                ['PUT', '/api/v1/spaces/{spaceId}', 'Update name/description'],
-                ['DELETE', '/api/v1/spaces/{spaceId}', 'Soft-delete space'],
-                ['GET', '/api/v1/spaces/{spaceId}/members', 'List members'],
-                ['POST', '/api/v1/spaces/{spaceId}/members', 'Add member'],
-                ['PUT', '/api/v1/spaces/{spaceId}/members/{userId}', 'Update role'],
-              ].map(([method, path, desc]) => (
-                <div key={path} className="text-xs">
-                  <span className={cn('font-mono font-bold mr-1.5', method === 'GET' ? 'text-green-600' : method === 'POST' ? 'text-blue-600' : method === 'PUT' ? 'text-amber-600' : 'text-red-500')}>{method}</span>
-                  <span className="font-mono text-gray-600">{path}</span>
-                  <span className="text-gray-400 ml-1">— {desc}</span>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
       </div>

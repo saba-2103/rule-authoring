@@ -209,7 +209,8 @@ export default function App() {
           <SpacesPage
             spaces={spaces}
             currentSpaceId={currentSpaceId}
-            onSelectSpace={s => { handleSelectSpace(s); setSecondaryNav('decisions'); }}
+            onSelectSpace={s => { setCurrentSpaceId(s.id); showToast(`Switched to ${s.name}`); }}
+            onOpenSpace={s => { handleSelectSpace(s); setSecondaryNav('decisions'); }}
             onCreate={handleCreateSpace}
             onUpdate={handleUpdateSpace}
             onDelete={handleDeleteSpace}
@@ -290,9 +291,10 @@ export default function App() {
         open={spacePickerOpen}
         spaces={spaces}
         currentSpaceId={currentSpaceId}
-        onSelect={handleSelectSpace}
+        onSelect={s => { setCurrentSpaceId(s.id); showToast(`Switched to ${s.name}`); }}
         onManage={() => { setSpacePickerOpen(false); setPage('spaces'); setSecondaryNav('spaces'); }}
         onClose={() => setSpacePickerOpen(false)}
+        factFields={factFields}
       />
 
       {selectedRule && (
