@@ -1,8 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import {
-  cn, fmt, activeVer, Btn, Inp, Sel, StatusBadge, IC, Modal, SearchBanner,
+  cn, fmt, activeVer, Btn, Inp, StatusBadge, IC, Modal, SearchBanner,
   Rule, Table, Flow, STATUS_META,
 } from './shared';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from './ui/select';
 
 /* ── NEW DECISION MODAL ──────────────────────────── */
 type DecisionType = 'rule' | 'table' | 'flow';
@@ -62,8 +65,8 @@ const NewDecisionModal: React.FC<{ open: boolean; onClose: () => void; onCreateR
               !opt.available && 'opacity-40 cursor-not-allowed',
               opt.available && 'cursor-pointer',
               selected === opt.type && opt.available
-                ? 'border-blue-500 bg-blue-50'
-                : 'border-gray-200 hover:border-gray-300 bg-white',
+                ? 'border-primary bg-primary/5'
+                : 'border-border hover:border-border/80 bg-card',
             )}
           >
             <input
@@ -75,17 +78,17 @@ const NewDecisionModal: React.FC<{ open: boolean; onClose: () => void; onCreateR
               onChange={() => opt.available && setSelected(opt.type)}
               className="mt-0.5 accent-blue-600"
             />
-            <div className={cn('shrink-0 mt-0.5', selected === opt.type && opt.available ? 'text-blue-600' : 'text-gray-400')}>
+            <div className={cn('shrink-0 mt-0.5', selected === opt.type && opt.available ? 'text-primary' : 'text-muted-foreground')}>
               {opt.icon}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-gray-800">{opt.label}</span>
+                <span className="text-sm font-semibold text-foreground">{opt.label}</span>
                 {!opt.available && (
-                  <span className="text-[10px] font-medium bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded">Coming soon</span>
+                  <span className="text-[10px] font-medium bg-muted text-muted-foreground px-1.5 py-0.5 rounded">Coming soon</span>
                 )}
               </div>
-              <p className="text-xs text-gray-500 mt-0.5">{opt.desc}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{opt.desc}</p>
             </div>
           </label>
         ))}
@@ -183,7 +186,7 @@ const KindBadge: React.FC<{ kind: Kind }> = ({ kind }) => (
 /* ── VERSION BADGE ───────────────────────────────── */
 const VerBadge: React.FC<{ version: number; mono?: boolean }> = ({ version, mono }) => (
   <span className={cn(
-    'inline-flex items-center px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 border border-gray-200',
+    'inline-flex items-center px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border',
     mono ? 'text-[10px] font-semibold tracking-wide' : 'text-[10px] font-semibold',
   )}>
     V{version}
@@ -238,11 +241,11 @@ function sortItems(items: UnifiedItem[], sort: SortState): UnifiedItem[] {
 const SortTh: React.FC<{ col: SortCol; label: string; sort: SortState; onSort: (c: SortCol) => void; className?: string }> = ({ col, label, sort, onSort, className }) => {
   const active = sort.col === col;
   return (
-    <th className={cn('text-left px-4 py-2.5 text-xs font-semibold uppercase tracking-wide cursor-pointer select-none group', active ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700', className)}
+    <th className={cn('text-left px-4 py-2.5 text-xs font-semibold uppercase tracking-wide cursor-pointer select-none group', active ? 'text-primary' : 'text-muted-foreground hover:text-foreground', className)}
       onClick={() => onSort(col)}>
       <span className="inline-flex items-center gap-1">
         {label}
-        <span className={cn('text-[10px]', active ? 'text-blue-500' : 'text-gray-300 group-hover:text-gray-400')}>
+        <span className={cn('text-[10px]', active ? 'text-primary' : 'text-muted-foreground/50 group-hover:text-muted-foreground')}>
           {active ? (sort.dir === 'asc' ? '↑' : '↓') : '↕'}
         </span>
       </span>
@@ -258,16 +261,16 @@ const VersionSubRows: React.FC<{ item: UnifiedItem; onViewRule: (rule: Rule, ver
     <>
       {sorted.map(v => (
         <tr key={v.version}
-          className="bg-blue-50/30 border-l-2 border-l-blue-300 hover:bg-blue-100/40 cursor-pointer transition-colors"
+          className="bg-primary/5 border-l-2 border-l-primary/40 hover:bg-primary/10 cursor-pointer transition-colors"
           onClick={() => item.kind === 'rule' && onViewRule(item.raw as Rule, v.version)}>
           <td className="px-4 py-2 pl-10" colSpan={4}>
             <div className="flex items-center gap-2 min-w-0">
               <VerBadge version={v.version} />
-              {v.changeSummary && <span className="text-xs text-gray-700 font-medium truncate">{v.changeSummary}</span>}
+              {v.changeSummary && <span className="text-xs text-foreground font-medium truncate">{v.changeSummary}</span>}
             </div>
           </td>
           <td className="px-4 py-2"><StatusBadge status={v.status} /></td>
-          <td className="px-4 py-2 text-xs text-gray-400">
+          <td className="px-4 py-2 text-xs text-muted-foreground">
             {fmt((v as { effectiveFrom?: string }).effectiveFrom)}
           </td>
           <td className="px-4 py-2" />
@@ -287,25 +290,25 @@ const Paginator: React.FC<{ page: number; total: number; pageSize: number; onCha
     else if (pages[pages.length - 1] !== '…') pages.push('…');
   }
   return (
-    <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-white rounded-b-xl">
-      <span className="text-xs text-gray-400">
+    <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-card rounded-b-xl">
+      <span className="text-xs text-muted-foreground">
         {Math.min((page - 1) * pageSize + 1, total)}–{Math.min(page * pageSize, total)} of {total}
       </span>
       <div className="flex items-center gap-1">
         <button disabled={page === 1} onClick={() => onChange(page - 1)}
-          className="h-7 w-7 flex items-center justify-center rounded text-xs text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:pointer-events-none">
+          className="h-7 w-7 flex items-center justify-center rounded text-xs text-muted-foreground hover:bg-accent disabled:opacity-30 disabled:pointer-events-none">
           ‹
         </button>
         {pages.map((p, i) => p === '…'
-          ? <span key={`e${i}`} className="h-7 w-5 flex items-center justify-center text-xs text-gray-300">…</span>
+          ? <span key={`e${i}`} className="h-7 w-5 flex items-center justify-center text-xs text-muted-foreground/40">…</span>
           : <button key={p} onClick={() => onChange(p as number)}
               className={cn('h-7 w-7 flex items-center justify-center rounded text-xs font-medium transition-colors',
-                p === page ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100')}>
+                p === page ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-accent')}>
               {p}
             </button>
         )}
         <button disabled={page === totalPages} onClick={() => onChange(page + 1)}
-          className="h-7 w-7 flex items-center justify-center rounded text-xs text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:pointer-events-none">
+          className="h-7 w-7 flex items-center justify-center rounded text-xs text-muted-foreground hover:bg-accent disabled:opacity-30 disabled:pointer-events-none">
           ›
         </button>
       </div>
@@ -346,71 +349,71 @@ const UnifiedTable: React.FC<UnifiedTableProps> = ({
   const handleViewRuleVersion = (rule: Rule, version: number) => onViewRule(rule, version);
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div className="bg-card rounded-xl border border-border overflow-hidden">
       <table className="w-full text-sm">
         <thead>
-          <tr className="bg-gray-50 border-b border-gray-100">
+          <tr className="bg-muted border-b border-border">
             <SortTh col="name" label="Name" sort={sort} onSort={onSort} />
             <SortTh col="kind" label="Kind" sort={sort} onSort={onSort} />
             <SortTh col="category" label="Category" sort={sort} onSort={onSort} />
             <SortTh col="latestVer" label="Versions" sort={sort} onSort={onSort} />
-            <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
+            <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</th>
             <SortTh col="updatedAt" label="Last Updated" sort={sort} onSort={onSort} />
             <th className="px-4 py-2.5 w-[110px]" />
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-50">
+          <tbody className="divide-y divide-border/50">
           {pageItems.map(item => {
             const isExpanded = expanded.has(item.id);
             const isRule = item.kind === 'rule';
             return (
               <React.Fragment key={item.id}>
-                <tr className="hover:bg-gray-50/70 transition-colors cursor-pointer" onClick={() => onToggle(item.id)}>
+                <tr className="hover:bg-accent/50 transition-colors cursor-pointer" onClick={() => onToggle(item.id)}>
                   {/* Name */}
                   <td className="px-4 py-3">
                     {isRule ? (
                       <button onClick={e => { e.stopPropagation(); onViewRule(item.raw as Rule); }}
-                        className="text-sm font-medium text-blue-700 hover:text-blue-800 hover:underline text-left leading-snug">
+                        className="text-sm font-medium text-primary hover:text-primary/80 hover:underline text-left leading-snug">
                         {item.name}
                       </button>
                     ) : (
-                      <span className="text-sm font-medium text-gray-900 leading-snug">{item.name}</span>
+                      <span className="text-sm font-medium text-foreground leading-snug">{item.name}</span>
                     )}
                     {item.description && (
-                      <p className="text-xs text-gray-400 mt-0.5 truncate max-w-[240px]">{item.description}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-[240px]">{item.description}</p>
                     )}
                   </td>
                   {/* Kind */}
                   <td className="px-4 py-3"><KindBadge kind={item.kind} /></td>
                   {/* Category */}
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {item.category || <span className="text-gray-300">—</span>}
+                  <td className="px-4 py-3 text-sm text-muted-foreground">
+                    {item.category || <span className="text-muted-foreground/40">—</span>}
                   </td>
                   {/* Versions count */}
                   <td className="px-4 py-3">
-                    <span className="text-sm text-gray-700 font-medium">{item.versionsCount}</span>
+                    <span className="text-sm text-foreground font-medium">{item.versionsCount}</span>
                   </td>
                   {/* Status chips */}
                   <td className="px-4 py-3"><StatusChips counts={item.statusCounts} /></td>
                   {/* Last Updated */}
-                  <td className="px-4 py-3 text-xs text-gray-400">{fmt(item.updatedAt)}</td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground">{fmt(item.updatedAt)}</td>
                   {/* Actions */}
                   <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                     <div className="flex items-center gap-0.5">
                       <Btn size="icon" variant="ghost" onClick={() => handleView(item)} title="View">
-                        <IC.Eye size={13} className="text-gray-500" />
+                        <IC.Eye size={13} className="text-muted-foreground" />
                       </Btn>
                       {isRule && (
                         <>
                           <Btn size="icon" variant="ghost" onClick={() => onEditRule(item.raw as Rule)} title="Edit">
-                            <IC.Edit size={13} className="text-gray-500" />
+                            <IC.Edit size={13} className="text-muted-foreground" />
                           </Btn>
-                          <Btn size="icon" variant="ghost" onClick={() => onDeleteRule(item.raw as Rule)} className="hover:bg-red-50" title="Delete">
-                            <IC.Trash size={13} className="text-red-400" />
+                          <Btn size="icon" variant="ghost" onClick={() => onDeleteRule(item.raw as Rule)} className="hover:bg-destructive/10" title="Delete">
+                            <IC.Trash size={13} className="text-destructive/70" />
                           </Btn>
                         </>
                       )}
-                      <span className={cn('ml-0.5 text-gray-400 transition-transform duration-150', isExpanded && 'rotate-180')}>
+                      <span className={cn('ml-0.5 text-muted-foreground transition-transform duration-150', isExpanded && 'rotate-180')}>
                         <IC.ChevD size={12} />
                       </span>
                     </div>
@@ -424,8 +427,8 @@ const UnifiedTable: React.FC<UnifiedTableProps> = ({
       </table>
       {items.length === 0 ? (
         <div className="py-16 text-center">
-          <IC.Rules size={32} className="text-gray-200 mx-auto mb-3" />
-          <p className="text-sm text-gray-400">No items found</p>
+          <IC.Rules size={32} className="text-muted-foreground/30 mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">No items found</p>
         </div>
       ) : (
         <Paginator page={page} total={items.length} pageSize={PAGE_SIZE} onChange={onPageChange} />
@@ -508,11 +511,16 @@ export const DecisionsPage: React.FC<DecisionsPageProps> = ({
     <div className="flex flex-col h-full">
       <NewDecisionModal open={newDecisionOpen} onClose={() => setNewDecisionOpen(false)} onCreateRule={onCreateRule} />
       {/* header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+      <div className="bg-background border-b border-border px-6 py-4">
+        <div className="flex items-center gap-1.5 text-sm mb-3">
+          <span className="text-muted-foreground">Rules</span>
+          <IC.ChevR size={13} className="text-muted-foreground/40" />
+          <span className="text-foreground font-medium">Decisions</span>
+        </div>
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-lg font-semibold text-gray-900">Decisions</h1>
-            <p className="text-sm text-gray-500">Rules, decision tables, and flows in this space</p>
+            <h1 className="text-lg font-semibold text-foreground">Decisions</h1>
+            <p className="text-sm text-muted-foreground">Rules, decision tables, and flows in this space</p>
           </div>
           <Btn onClick={() => setNewDecisionOpen(true)}><IC.Plus size={14} />New Decision</Btn>
         </div>
@@ -520,7 +528,7 @@ export const DecisionsPage: React.FC<DecisionsPageProps> = ({
           {TABS.map(t => (
             <button key={t.key} onClick={() => resetTab(t.key)}
               className={cn('px-4 py-2 text-sm transition-colors border-b-2',
-                tab === t.key ? 'border-blue-500 text-blue-700 font-medium' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300')}>
+                tab === t.key ? 'border-primary text-primary font-medium' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border')}>
               {t.label}
             </button>
           ))}
@@ -528,16 +536,30 @@ export const DecisionsPage: React.FC<DecisionsPageProps> = ({
       </div>
 
       {/* filters */}
-      <div className="bg-white border-b border-gray-100 px-6 py-2.5 flex items-center gap-3">
+      <div className="bg-background border-b border-border px-6 py-2.5 flex items-center gap-3">
         <div className="relative flex-1 max-w-xs">
-          <IC.Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <IC.Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Inp value={search} onChange={e => handleSearch(e.target.value)} placeholder="Search by name…" className="pl-8 w-full" />
         </div>
         <div className="flex items-center gap-2 ml-auto">
-          <Sel value={categoryF} onChange={e => handleCategoryF(e.target.value)}
-            options={[{ value: '', label: 'All categories' }, ...categories.map(c => ({ value: c, label: c }))]} />
-          <Sel value={statusF} onChange={e => handleStatusF(e.target.value)}
-            options={[{ value: '', label: 'All statuses' }, ...Object.keys(STATUS_META).map(k => ({ value: k, label: STATUS_META[k].label }))]} />
+          <Select value={categoryF || '_all'} onValueChange={v => handleCategoryF(v === '_all' ? '' : v)}>
+            <SelectTrigger size="sm" className="w-40">
+              <SelectValue placeholder="All categories" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_all">All categories</SelectItem>
+              {categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={statusF || '_all'} onValueChange={v => handleStatusF(v === '_all' ? '' : v)}>
+            <SelectTrigger size="sm" className="w-36">
+              <SelectValue placeholder="All statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_all">All statuses</SelectItem>
+              {Object.keys(STATUS_META).map(k => <SelectItem key={k} value={k}>{STATUS_META[k].label}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

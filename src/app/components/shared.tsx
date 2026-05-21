@@ -1663,13 +1663,13 @@ interface BtnProps {
 }
 
 export const Btn: React.FC<BtnProps> = ({ children, variant = 'default', size = 'default', className = '', onClick, disabled, type = 'button', title }) => {
-  const base = 'inline-flex items-center justify-center font-medium rounded-md transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:opacity-40 disabled:pointer-events-none';
+  const base = 'inline-flex items-center justify-center font-medium rounded-md transition-all focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 disabled:opacity-40 disabled:pointer-events-none';
   const v = {
-    default: 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm',
-    outline: 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50',
-    ghost: 'text-gray-600 hover:bg-gray-100 hover:text-gray-800',
-    destructive: 'bg-red-600 text-white hover:bg-red-700',
-    secondary: 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+    default: 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm',
+    outline: 'border border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground',
+    ghost: 'text-foreground hover:bg-accent hover:text-accent-foreground',
+    destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+    secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
   };
   const s = { default: 'h-8 px-3.5 text-sm gap-2', sm: 'h-7 px-2.5 text-xs gap-1.5', lg: 'h-9 px-4 text-sm gap-2', icon: 'h-8 w-8 p-0 text-sm' };
   return (
@@ -1690,28 +1690,28 @@ export const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
 };
 
 export const Tag: React.FC<{ label: string; onRemove?: () => void }> = ({ label, onRemove }) => (
-  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded-md font-medium">
+  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary text-xs rounded-md font-medium">
     {label}
-    {onRemove && <button type="button" onClick={onRemove} className="hover:text-blue-900 ml-0.5">×</button>}
+    {onRemove && <button type="button" onClick={onRemove} className="hover:text-primary/70 ml-0.5">×</button>}
   </span>
 );
 
 export const SearchBanner: React.FC<{ query: string; count: number; label?: string }> = ({ query, count, label = 'result' }) =>
   query.trim() ? (
-    <div className="flex items-center justify-between px-4 py-2 bg-blue-50 border-b border-blue-100 text-sm shrink-0">
-      <span className="text-gray-600">
-        Showing results for <span className="font-semibold text-gray-900">"{query}"</span>
+    <div className="flex items-center justify-between px-4 py-2 bg-primary/5 border-b border-primary/20 text-sm shrink-0">
+      <span className="text-foreground">
+        Showing results for <span className="font-semibold text-foreground">"{query}"</span>
       </span>
-      <span className="text-gray-500 font-medium">{count} {count === 1 ? label : label + 's'}</span>
+      <span className="text-muted-foreground font-medium">{count} {count === 1 ? label : label + 's'}</span>
     </div>
   ) : null;
 
 
 export const Field: React.FC<{ label: string; required?: boolean; children: React.ReactNode; hint?: string }> = ({ label, required, children, hint }) => (
   <div className="flex flex-col gap-1">
-    <label className="text-sm font-medium text-gray-700">{label}{required && <span className="text-red-500 ml-0.5">*</span>}</label>
+    <label className="text-sm font-medium text-foreground">{label}{required && <span className="text-destructive ml-0.5">*</span>}</label>
     {children}
-    {hint && <p className="text-xs text-gray-400">{hint}</p>}
+    {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
   </div>
 );
 
@@ -1731,7 +1731,7 @@ export const Inp: React.FC<InpProps> = ({ value, onChange, placeholder, disabled
     id={id} type={type} value={value} onChange={onChange} placeholder={placeholder}
     disabled={disabled} readOnly={readOnly}
     style={{ WebkitAppearance: 'none' }}
-    className={cn('h-8 px-3 text-sm border border-gray-200 rounded-md bg-white placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:bg-gray-50 disabled:text-gray-500 transition-colors', className)}
+    className={cn('h-8 px-3 text-sm border border-border rounded-md bg-background placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 disabled:bg-muted disabled:text-muted-foreground transition-colors', className)}
   />
 );
 
@@ -1747,7 +1747,7 @@ export const Sel: React.FC<SelProps> = ({ value, onChange, options, disabled, cl
   <select
     value={value} onChange={onChange} disabled={disabled}
     style={{ WebkitAppearance: 'none', backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center' }}
-    className={cn('h-8 px-2 pr-7 text-sm border border-gray-200 rounded-md bg-white text-gray-800 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:bg-gray-50 transition-colors', className)}
+    className={cn('h-8 px-2 pr-7 text-sm border border-border rounded-md bg-background text-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 disabled:bg-muted transition-colors', className)}
   >
     {(options as Array<{ value: string; label: string } | string>).map(o => {
       const v = typeof o === 'string' ? o : o.value;
@@ -1771,13 +1771,13 @@ export const Modal: React.FC<ModalProps> = ({ open, onClose, title, subtitle, ch
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 px-4" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="fixed inset-0 bg-black/25 backdrop-blur-sm" onClick={onClose} />
-      <div className={cn('relative bg-white rounded-xl shadow-2xl w-full flex flex-col max-h-[80vh]', width)} style={{ animation: 'fadeIn .15s ease-out' }}>
-        <div className="flex items-start justify-between p-5 pb-3 shrink-0 border-b border-gray-100">
+      <div className={cn('relative bg-card rounded-xl shadow-2xl w-full flex flex-col max-h-[80vh]', width)} style={{ animation: 'fadeIn .15s ease-out' }}>
+        <div className="flex items-start justify-between p-5 pb-3 shrink-0 border-b border-border">
           <div>
-            <h2 className="text-base font-semibold text-gray-900">{title}</h2>
-            {subtitle && <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>}
+            <h2 className="text-base font-semibold text-card-foreground">{title}</h2>
+            {subtitle && <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>}
           </div>
-          <button onClick={onClose} className="ml-3 p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100">
+          <button onClick={onClose} className="ml-3 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6 6 18M6 6l12 12" /></svg>
           </button>
         </div>
@@ -1790,7 +1790,7 @@ export const Modal: React.FC<ModalProps> = ({ open, onClose, title, subtitle, ch
 export const Toast: React.FC<{ msg: string; onDone: () => void }> = ({ msg, onDone }) => {
   useEffect(() => { const t = setTimeout(onDone, 3000); return () => clearTimeout(t); }, [onDone]);
   return (
-    <div className="fixed bottom-5 right-5 z-50 bg-gray-900 text-white text-sm px-4 py-2.5 rounded-xl shadow-xl flex items-center gap-2.5" style={{ animation: 'fadeIn .15s ease-out' }}>
+    <div className="fixed bottom-5 right-5 z-50 bg-foreground text-background text-sm px-4 py-2.5 rounded-xl shadow-xl flex items-center gap-2.5" style={{ animation: 'fadeIn .15s ease-out' }}>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ADE80" strokeWidth="2.5"><path d="M20 6 9 17l-5-5" /></svg>
       {msg}
     </div>
@@ -1880,15 +1880,15 @@ const NAV = [
 ];
 
 export const PrimarySidebar: React.FC<{ active: string; onSelect: (k: string) => void }> = ({ active, onSelect }) => (
-  <aside className="w-[64px] bg-white border-r border-gray-200 flex flex-col items-center py-3 shrink-0">
-    <div className="w-9 h-9 rounded-lg bg-gray-900 flex items-center justify-center mb-4">
-      <IC.Zap size={16} className="text-white" />
+  <aside className="w-[64px] bg-background border-r border-border flex flex-col items-center py-3 shrink-0">
+    <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center mb-4">
+      <IC.Zap size={16} className="text-primary-foreground" />
     </div>
     <div className="flex flex-col gap-1 flex-1 w-full px-2">
       {NAV.map(({ key, Icon, label }) => (
         <button key={key} onClick={() => onSelect(key)}
           className={cn('flex flex-col items-center gap-1 py-2 px-1 rounded-lg w-full transition-colors',
-            active === key ? 'bg-gray-100 text-gray-900' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50')}>
+            active === key ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-accent')}>
           <Icon size={18} />
           <span className="text-[10px] font-medium leading-none">{label}</span>
         </button>
@@ -1896,7 +1896,7 @@ export const PrimarySidebar: React.FC<{ active: string; onSelect: (k: string) =>
     </div>
     <div className="flex flex-col gap-1 w-full px-2">
       {[{ Icon: IC.Alerts, label: 'Alerts' }, { Icon: IC.Config, label: 'Settings' }].map(({ Icon, label }) => (
-        <button key={label} className="flex flex-col items-center gap-1 py-2 px-1 rounded-lg w-full text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors">
+        <button key={label} className="flex flex-col items-center gap-1 py-2 px-1 rounded-lg w-full text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
           <Icon size={18} /><span className="text-[10px] font-medium leading-none">{label}</span>
         </button>
       ))}
@@ -1937,37 +1937,36 @@ interface SecondarySidebarProps {
 }
 
 export const SecondarySidebar: React.FC<SecondarySidebarProps> = ({ active, onSelect, space, onSpaceClick }) => (
-  <aside className="w-[200px] bg-white border-r border-gray-200 flex flex-col shrink-0">
+  <aside className="w-[200px] bg-background border-r border-border flex flex-col shrink-0">
     <button onClick={onSpaceClick}
-      className="px-4 py-3.5 border-b border-gray-100 text-left hover:bg-gray-50 transition-colors group w-full">
+      className="px-4 py-3.5 border-b border-border text-left hover:bg-accent transition-colors group w-full">
       <div className="flex items-center justify-between">
         <div className="min-w-0">
-          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Space</p>
-          <p className="text-xs font-semibold text-gray-900 leading-tight truncate">{space.name}</p>
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-0.5">Space</p>
+          <p className="text-xs font-semibold text-foreground leading-tight truncate">{space.name}</p>
         </div>
-        <IC.ChevD size={12} className="text-gray-400 group-hover:text-gray-600 shrink-0 ml-1" />
+        <IC.ChevD size={12} className="text-muted-foreground group-hover:text-foreground shrink-0 ml-1" />
       </div>
     </button>
     <div className="flex flex-col gap-0 overflow-y-auto flex-1 py-2" style={{ scrollbarWidth: 'thin' }}>
-      {/* Spaces link */}
       <div className="mb-1">
         <button onClick={() => onSelect('spaces')}
           className={cn('flex items-center gap-2.5 w-full px-4 py-1.5 text-sm transition-colors text-left',
-            active === 'spaces' ? 'text-gray-900 font-medium' : 'text-gray-500 hover:text-gray-700')}>
+            active === 'spaces' ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground')}>
           {active === 'spaces'
-            ? <span className="flex items-center gap-2.5 bg-gray-100 rounded-lg px-2 py-1 w-full -mx-2"><IC.Globe size={15} />Spaces</span>
+            ? <span className="flex items-center gap-2.5 bg-primary/10 text-primary rounded-lg px-2 py-1 w-full -mx-2"><IC.Globe size={15} />Spaces</span>
             : <><IC.Globe size={15} />Spaces</>}
         </button>
       </div>
       {RULES_NAV.map(({ section, items }) => (
         <div key={section} className="mb-1">
-          <p className="px-4 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{section}</p>
+          <p className="px-4 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{section}</p>
           {items.map(({ key, Icon, label }) => (
             <button key={key} onClick={() => onSelect(key)}
               className={cn('flex items-center gap-2.5 w-full px-4 py-1.5 text-sm transition-colors text-left',
-                active === key ? 'text-gray-900 font-medium' : 'text-gray-500 hover:text-gray-700')}>
+                active === key ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground')}>
               {active === key
-                ? <span className="flex items-center gap-2.5 bg-gray-100 rounded-lg px-2 py-1 w-full -mx-2"><Icon size={15} />{label}</span>
+                ? <span className="flex items-center gap-2.5 bg-primary/10 text-primary rounded-lg px-2 py-1 w-full -mx-2"><Icon size={15} />{label}</span>
                 : <><Icon size={15} />{label}</>}
             </button>
           ))}

@@ -36,22 +36,22 @@ export const EditMetaModal: React.FC<EditMetaModalProps> = ({ rule, open, onClos
       subtitle="Note: To change rule logic, create a new version.">
       <div className="p-5 flex flex-col gap-4">
         <Field label="Rule Name">
-          <Inp value={rule.name} disabled className="bg-gray-50 text-gray-400 cursor-not-allowed" />
+          <Inp value={rule.name} disabled className="bg-muted text-muted-foreground cursor-not-allowed" />
         </Field>
         <Field label="Category">
           <Sel value={category} onChange={e => setCategory(e.target.value)}
             options={[{ value: '', label: 'Select…' }, ...CATEGORIES.map(c => ({ value: c, label: c }))]} />
         </Field>
         <Field label="Tags" hint="Press Enter to add">
-          <div className="flex flex-wrap gap-1.5 p-2 border border-gray-200 rounded-md bg-white min-h-[36px]">
+          <div className="flex flex-wrap gap-1.5 p-2 border border-border rounded-md bg-background min-h-[36px]">
             {tags.map(t => (
-              <span key={t} className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-md font-medium">
+              <span key={t} className="inline-flex items-center gap-1 px-2 py-0.5 bg-muted text-muted-foreground text-xs rounded-md font-medium">
                 {t}
-                <button type="button" onClick={() => setTags(ts => ts.filter(x => x !== t))} className="hover:text-gray-900 ml-0.5">×</button>
+                <button type="button" onClick={() => setTags(ts => ts.filter(x => x !== t))} className="hover:text-foreground ml-0.5">×</button>
               </span>
             ))}
             <input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={addTag}
-              placeholder="Add tag…" className="flex-1 text-sm outline-none min-w-[80px] placeholder:text-gray-400" />
+              placeholder="Add tag…" className="flex-1 text-sm outline-none min-w-[80px] placeholder:text-muted-foreground" />
           </div>
         </Field>
         <div className="flex gap-2 justify-end">
@@ -74,9 +74,9 @@ interface DeleteRuleModalProps {
 export const DeleteRuleModal: React.FC<DeleteRuleModalProps> = ({ rule, open, onClose, onConfirm }) => (
   <Modal open={open} onClose={onClose} title="Delete Rule" width="max-w-sm">
     <div className="p-5 flex flex-col gap-4">
-      <div className="p-3.5 bg-red-50 rounded-lg border border-red-100 text-sm text-red-700">
+      <div className="p-3.5 bg-destructive/10 rounded-lg border border-destructive/20 text-sm text-destructive">
         Soft-deleting <strong>{rule?.name}</strong> will make it inaccessible. All {rule?.versions?.length || 0} version(s) are retained for 7-year audit compliance.
-        Use <code className="font-mono text-xs bg-red-100 px-1 rounded">?hard=true</code> for permanent deletion.
+        Use <code className="font-mono text-xs bg-destructive/20 px-1 rounded">?hard=true</code> for permanent deletion.
       </div>
       <div className="flex gap-2 justify-end">
         <Btn variant="outline" onClick={onClose}>Cancel</Btn>
@@ -95,25 +95,25 @@ const DerivedSchemaCard: React.FC<{ ver: RuleVersion; type: 'input' | 'output' }
   const hint = type === 'input' ? 'Derived from WHEN conditions' : 'Derived from THEN actions';
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4">
+    <div className="bg-card rounded-xl border border-border p-4">
       <div className="flex items-center gap-2 mb-3">
         <div className={cn('w-2 h-2 rounded-full shrink-0', dotColor)} />
         <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{title}</p>
-          <p className="text-[10px] text-gray-400">{hint}</p>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{title}</p>
+          <p className="text-[10px] text-muted-foreground">{hint}</p>
         </div>
       </div>
       {schema.facts.length === 0 ? (
-        <p className="text-xs text-gray-400 italic text-center py-3">No {type === 'input' ? 'conditions' : 'write actions'} defined</p>
+        <p className="text-xs text-muted-foreground italic text-center py-3">No {type === 'input' ? 'conditions' : 'write actions'} defined</p>
       ) : (
         schema.facts.map((f, i) => (
           <div key={i} className="mb-3">
-            <p className="text-xs font-semibold text-gray-700 mb-1.5">{f.factType}</p>
+            <p className="text-xs font-semibold text-foreground mb-1.5">{f.factType}</p>
             {f.fields.map(fl => (
               <div key={fl.name} className="flex items-center gap-2 text-xs mb-1 pl-2">
                 <span className={cn('font-mono px-1 py-0.5 rounded', fieldColor)}>{fl.name}</span>
-                <span className="text-gray-300">:</span>
-                <span className="text-gray-500">{fl.dataType}</span>
+                <span className="text-muted-foreground/40">:</span>
+                <span className="text-muted-foreground">{fl.dataType}</span>
               </div>
             ))}
           </div>
@@ -158,7 +158,7 @@ const EditVersionModal: React.FC<EditVersionModalProps> = ({ ver, open, onClose,
         <Field label="Version Note">
           <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3}
             placeholder="Describe what this version does…"
-            className="px-3 py-2 text-sm border border-gray-200 rounded-md bg-white resize-none focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 placeholder:text-gray-400 w-full" />
+            className="px-3 py-2 text-sm border border-border rounded-md bg-background resize-none focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 placeholder:text-muted-foreground w-full" />
         </Field>
         <div className="grid grid-cols-2 gap-4">
           <Field label="Effective From">
@@ -229,14 +229,14 @@ const StatusDropdown: React.FC<{ current: string; onChange: (s: VersionStatus) =
         <IC.ChevD size={11} className="opacity-60" />
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-30 min-w-[160px] py-1">
+        <div className="absolute right-0 top-full mt-1 bg-card border border-border rounded-lg shadow-lg z-30 min-w-[160px] py-1">
           {VERSION_STATUSES.map(s => {
             const m = STATUS_META[s];
             return (
               <button key={s} onClick={() => { onChange(s); setOpen(false); }}
                 className={cn(
                   'w-full text-left flex items-center gap-2 px-3 py-2 text-xs transition-colors',
-                  current === s ? 'bg-gray-50 font-semibold' : 'hover:bg-gray-50',
+                  current === s ? 'bg-accent font-semibold' : 'hover:bg-accent',
                   m.text,
                 )}>
                 <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', m.dot)} />
@@ -282,12 +282,12 @@ const MoreMenu: React.FC<{
         </svg>
       </Btn>
       {open && (
-        <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-30 min-w-[160px] py-1">
+        <div className="absolute right-0 top-full mt-1 bg-card border border-border rounded-lg shadow-lg z-30 min-w-[160px] py-1">
           {items.map(item => (
             <button key={item.label} onClick={() => { item.action(); setOpen(false); }}
               className={cn(
                 'w-full text-left flex items-center gap-2.5 px-3 py-2 text-xs transition-colors',
-                item.danger ? 'text-red-600 hover:bg-red-50' : 'text-gray-700 hover:bg-gray-50',
+                item.danger ? 'text-destructive hover:bg-destructive/10' : 'text-foreground hover:bg-accent',
               )}>
               {item.icon}
               {item.label}
@@ -303,12 +303,12 @@ const MoreMenu: React.FC<{
 const CATEGORY_COLORS: Record<string, string> = {
   Underwriting: 'bg-indigo-50 text-indigo-700 border-indigo-200',
   Claims:       'bg-rose-50 text-rose-700 border-rose-200',
-  Pricing:      'bg-blue-50 text-blue-700 border-blue-200',
+  Pricing:      'bg-primary/5 text-primary border-primary/20',
   Compliance:   'bg-violet-50 text-violet-700 border-violet-200',
   Operations:   'bg-teal-50 text-teal-700 border-teal-200',
 };
 const CategoryBadge: React.FC<{ category: string }> = ({ category }) => {
-  const cls = CATEGORY_COLORS[category] || 'bg-gray-100 text-gray-600 border-gray-200';
+  const cls = CATEGORY_COLORS[category] || 'bg-muted text-muted-foreground border-border';
   return (
     <span className={cn('inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border', cls)}>
       {category}
@@ -384,16 +384,16 @@ const RightPanel: React.FC<{ rule: Rule; ver: RuleVersion | null }> = ({ rule, v
   const outputSchema = ver ? deriveOutputSchema(ver.rule) : null;
 
   return (
-    <div className="w-64 border-l border-gray-200 bg-gray-50 shrink-0 flex flex-col overflow-hidden">
+    <div className="w-64 border-l border-border bg-muted/30 shrink-0 flex flex-col overflow-hidden">
       {/* Tab bar */}
-      <div className="flex border-b border-gray-200 bg-white shrink-0">
+      <div className="flex border-b border-border bg-background shrink-0">
         {(['schema', 'activity'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={cn(
               'flex-1 py-2.5 text-xs font-semibold tracking-wide transition-colors capitalize',
               tab === t
-                ? 'text-blue-600 border-b-2 border-blue-600 bg-white'
-                : 'text-gray-400 hover:text-gray-600 border-b-2 border-transparent',
+                ? 'text-primary border-b-2 border-primary bg-background'
+                : 'text-muted-foreground hover:text-foreground border-b-2 border-transparent',
             )}>
             {t}
           </button>
@@ -404,29 +404,29 @@ const RightPanel: React.FC<{ rule: Rule; ver: RuleVersion | null }> = ({ rule, v
       {tab === 'schema' && (
         <div className="flex-1 overflow-y-auto p-4" style={{ scrollbarWidth: 'thin' }}>
           {!ver ? (
-            <p className="text-xs text-gray-400 italic text-center mt-6">Select a version to view schema</p>
+            <p className="text-xs text-muted-foreground italic text-center mt-6">Select a version to view schema</p>
           ) : (
             <>
               {/* Input Schema */}
               <div className="mb-5">
                 <div className="flex items-center gap-1.5 mb-2.5">
                   <div className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
-                  <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">Input Schema</p>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Input Schema</p>
                 </div>
-                <p className="text-[10px] text-gray-400 mb-2">Derived from WHEN conditions</p>
+                <p className="text-[10px] text-muted-foreground mb-2">Derived from WHEN conditions</p>
                 {inputSchema!.facts.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-gray-200 p-3 text-center">
-                    <p className="text-[10px] text-gray-400">No conditions defined</p>
+                  <div className="rounded-lg border border-dashed border-border p-3 text-center">
+                    <p className="text-[10px] text-muted-foreground">No conditions defined</p>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2">
                     {inputSchema!.facts.map(fact => (
-                      <div key={fact.factType} className="bg-white rounded-lg border border-gray-200 p-2.5">
-                        <p className="text-[10px] font-bold text-gray-700 mb-1.5">{fact.factType}</p>
+                      <div key={fact.factType} className="bg-card rounded-lg border border-border p-2.5">
+                        <p className="text-[10px] font-bold text-foreground mb-1.5">{fact.factType}</p>
                         {fact.fields.map(field => (
                           <div key={field.name} className="flex items-center gap-1.5 mb-1">
-                            <span className="font-mono text-[10px] text-blue-600 bg-blue-50 px-1 py-0.5 rounded">{field.name}</span>
-                            <span className="text-[10px] text-gray-400">{field.dataType}</span>
+                            <span className="font-mono text-[10px] text-primary bg-primary/10 px-1 py-0.5 rounded">{field.name}</span>
+                            <span className="text-[10px] text-muted-foreground">{field.dataType}</span>
                           </div>
                         ))}
                       </div>
@@ -435,28 +435,28 @@ const RightPanel: React.FC<{ rule: Rule; ver: RuleVersion | null }> = ({ rule, v
                 )}
               </div>
 
-              <div className="border-t border-gray-200 mb-5" />
+              <div className="border-t border-border mb-5" />
 
               {/* Output Schema */}
               <div>
                 <div className="flex items-center gap-1.5 mb-2.5">
                   <div className="w-2 h-2 rounded-full bg-green-400 shrink-0" />
-                  <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">Output Schema</p>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Output Schema</p>
                 </div>
-                <p className="text-[10px] text-gray-400 mb-2">Derived from THEN actions</p>
+                <p className="text-[10px] text-muted-foreground mb-2">Derived from THEN actions</p>
                 {outputSchema!.facts.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-gray-200 p-3 text-center">
-                    <p className="text-[10px] text-gray-400">No write actions defined</p>
+                  <div className="rounded-lg border border-dashed border-border p-3 text-center">
+                    <p className="text-[10px] text-muted-foreground">No write actions defined</p>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2">
                     {outputSchema!.facts.map(fact => (
-                      <div key={fact.factType} className="bg-white rounded-lg border border-gray-200 p-2.5">
-                        <p className="text-[10px] font-bold text-gray-700 mb-1.5">{fact.factType}</p>
+                      <div key={fact.factType} className="bg-card rounded-lg border border-border p-2.5">
+                        <p className="text-[10px] font-bold text-foreground mb-1.5">{fact.factType}</p>
                         {fact.fields.map(field => (
                           <div key={field.name} className="flex items-center gap-1.5 mb-1">
                             <span className="font-mono text-[10px] text-green-600 bg-green-50 px-1 py-0.5 rounded">{field.name}</span>
-                            <span className="text-[10px] text-gray-400">{field.dataType}</span>
+                            <span className="text-[10px] text-muted-foreground">{field.dataType}</span>
                           </div>
                         ))}
                       </div>
@@ -466,9 +466,9 @@ const RightPanel: React.FC<{ rule: Rule; ver: RuleVersion | null }> = ({ rule, v
               </div>
 
               {/* Legend */}
-              <div className="mt-5 pt-4 border-t border-gray-200">
-                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Legend</p>
-                <div className="space-y-1.5 text-[10px] text-gray-400">
+              <div className="mt-5 pt-4 border-t border-border">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Legend</p>
+                <div className="space-y-1.5 text-[10px] text-muted-foreground">
                   <p><span className="text-amber-500 font-medium">Input</span> — fields read in WHEN conditions</p>
                   <p><span className="text-green-500 font-medium">Output</span> — fields written by actions</p>
                 </div>
@@ -561,24 +561,24 @@ export const RuleDetailPage: React.FC<RuleDetailPageProps> = ({ rule, onBack, on
   return (
     <div className="flex flex-col h-full">
       {/* header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 shrink-0">
+      <div className="bg-background border-b border-border px-6 py-4 shrink-0">
         {/* Breadcrumb */}
         <div className="flex items-center gap-1.5 text-sm mb-3">
-          <button onClick={onBack} className="text-gray-500 hover:text-gray-700 transition-colors">Decisions</button>
-          <IC.ChevR size={13} className="text-gray-300" />
-          <button onClick={onBack} className="text-gray-500 hover:text-gray-700 transition-colors">Rules</button>
-          <IC.ChevR size={13} className="text-gray-300" />
-          <span className="text-gray-800 font-medium truncate max-w-xs">{rule.name}</span>
+          <button onClick={onBack} className="text-muted-foreground hover:text-foreground transition-colors">Rules</button>
+          <IC.ChevR size={13} className="text-muted-foreground/40" />
+          <button onClick={onBack} className="text-muted-foreground hover:text-foreground transition-colors">Decisions</button>
+          <IC.ChevR size={13} className="text-muted-foreground/40" />
+          <span className="text-foreground font-medium truncate max-w-xs">{rule.name}</span>
         </div>
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-lg font-semibold text-gray-900">{rule.name}</h1>
+              <h1 className="text-lg font-semibold text-foreground">{rule.name}</h1>
               {rule.category && <CategoryBadge category={rule.category} />}
             </div>
             <div className="flex gap-1.5 mt-1.5 flex-wrap">
               {rule.tags.map(t => (
-                <span key={t} className="inline-flex items-center px-2 py-0.5 bg-gray-100 text-gray-500 text-xs rounded-md font-medium">
+                <span key={t} className="inline-flex items-center px-2 py-0.5 bg-muted text-muted-foreground text-xs rounded-md font-medium">
                   {t}
                 </span>
               ))}
@@ -593,9 +593,9 @@ export const RuleDetailPage: React.FC<RuleDetailPageProps> = ({ rule, onBack, on
 
       <div className="flex flex-1 overflow-hidden">
         {/* Versions panel */}
-        <div className="w-56 border-r border-gray-200 bg-white flex flex-col shrink-0">
-          <div className="flex border-b border-gray-200 bg-white shrink-0">
-            <div className="flex-1 py-2.5 px-4 text-xs font-semibold tracking-wide text-blue-600 border-b-2 border-blue-600 bg-white">
+        <div className="w-56 border-r border-border bg-background flex flex-col shrink-0">
+          <div className="flex border-b border-border bg-background shrink-0">
+            <div className="flex-1 py-2.5 px-4 text-xs font-semibold tracking-wide text-primary border-b-2 border-primary bg-background">
               Versions ({rule.versions.length})
             </div>
           </div>
@@ -603,17 +603,17 @@ export const RuleDetailPage: React.FC<RuleDetailPageProps> = ({ rule, onBack, on
             {[...rule.versions].sort((a, b) => b.version - a.version).map(v => (
               <button key={v.version} onClick={() => setSelVer(v)}
                 className={cn('w-full text-left px-4 py-3 flex items-start gap-3 transition-colors border-l-2',
-                  selVer?.version === v.version ? 'bg-blue-50 border-blue-500' : 'border-transparent hover:bg-gray-50')}>
+                  selVer?.version === v.version ? 'bg-primary/5 border-primary' : 'border-transparent hover:bg-accent')}>
                 <div className={cn('w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5',
-                  selVer?.version === v.version ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600')}>
+                  selVer?.version === v.version ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>
                   V{v.version}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <VersionBadge status={v.status} />
                   </div>
-                  <p className="text-xs font-medium text-gray-700 mt-1 truncate">{v.changeSummary || `Version ${v.version}`}</p>
-                  {v.effectiveFrom && <p className="text-[10px] text-gray-400 mt-0.5">From {fmt(v.effectiveFrom)}</p>}
+                  <p className="text-xs font-medium text-foreground mt-1 truncate">{v.changeSummary || `Version ${v.version}`}</p>
+                  {v.effectiveFrom && <p className="text-[10px] text-muted-foreground mt-0.5">From {fmt(v.effectiveFrom)}</p>}
                 </div>
               </button>
             ))}
@@ -625,16 +625,16 @@ export const RuleDetailPage: React.FC<RuleDetailPageProps> = ({ rule, onBack, on
           <div className="flex-1 overflow-y-auto p-6" style={{ scrollbarWidth: 'thin' }}>
             <div className="max-w-3xl flex flex-col gap-5">
               {/* Version header */}
-              <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <div className="bg-card rounded-xl border border-border p-5">
                 <div className="flex items-start justify-between gap-4 mb-4">
                   <div>
                     <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="text-base font-semibold text-gray-900">Version {ver.version}</span>
+                      <span className="text-base font-semibold text-foreground">Version {ver.version}</span>
                       {['ACTIVE', 'INACTIVE', 'DEPRECATED'].includes(ver.status)
                         ? <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200">Approved</span>
                         : <VersionBadge status={ver.status} />}
                     </div>
-                    <p className="text-sm font-medium text-gray-700">{ver.changeSummary || `Version ${ver.version}`}</p>
+                    <p className="text-sm font-medium text-foreground">{ver.changeSummary || `Version ${ver.version}`}</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {ver.status === 'DRAFT' ? (
@@ -668,44 +668,44 @@ export const RuleDetailPage: React.FC<RuleDetailPageProps> = ({ rule, onBack, on
                 {/* Version Note — full width */}
                 {ver.description && (
                   <div className="mb-4">
-                    <span className="text-xs text-gray-400">Version Note</span>
-                    <p className="text-sm text-gray-700 mt-0.5">{ver.description}</p>
+                      <span className="text-xs text-muted-foreground">Version Note</span>
+                      <p className="text-sm text-foreground mt-0.5">{ver.description}</p>
                   </div>
                 )}
                 {/* Metadata grid */}
                 <div className="flex flex-col gap-3 text-sm">
                   <div className="grid grid-cols-2 gap-x-6">
                     <div>
-                      <span className="text-xs text-gray-400">Effective From</span>
-                      <p className="text-gray-700 font-medium mt-0.5">{fmt(ver.effectiveFrom)}</p>
+                      <span className="text-xs text-muted-foreground">Effective From</span>
+                      <p className="text-foreground font-medium mt-0.5">{fmt(ver.effectiveFrom)}</p>
                     </div>
                     <div>
-                      <span className="text-xs text-gray-400">Effective Until</span>
-                      <p className="text-gray-700 font-medium mt-0.5">{ver.effectiveUntil ? fmt(ver.effectiveUntil) : 'Open-ended'}</p>
+                      <span className="text-xs text-muted-foreground">Effective Until</span>
+                      <p className="text-foreground font-medium mt-0.5">{ver.effectiveUntil ? fmt(ver.effectiveUntil) : 'Open-ended'}</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-x-6">
                     <div>
-                      <span className="text-xs text-gray-400">Created By</span>
-                      <p className="text-gray-700 font-medium mt-0.5">{rule.createdBy}</p>
+                      <span className="text-xs text-muted-foreground">Created By</span>
+                      <p className="text-foreground font-medium mt-0.5">{rule.createdBy}</p>
                     </div>
                     <div>
-                      <span className="text-xs text-gray-400">Created On</span>
-                      <p className="text-gray-700 font-medium mt-0.5">{fmt(ver.effectiveFrom || rule.createdAt)}</p>
+                      <span className="text-xs text-muted-foreground">Created On</span>
+                      <p className="text-foreground font-medium mt-0.5">{fmt(ver.effectiveFrom || rule.createdAt)}</p>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Rule logic */}
-              <div className="bg-white rounded-xl border border-gray-200 p-5">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Rule Logic</p>
+              <div className="bg-card rounded-xl border border-border p-5">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">Rule Logic</p>
                 <RuleLogicDisplay content={ver.rule} />
               </div>
             </div>
           </div>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-sm text-gray-400">Select a version to view details</div>
+          <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">Select a version to view details</div>
         )}
 
         {/* Right panel: Schema + Activity tabs */}
@@ -723,7 +723,7 @@ export const RuleDetailPage: React.FC<RuleDetailPageProps> = ({ rule, onBack, on
       {/* Delete version confirm */}
       <Modal open={!!confirmDel} onClose={() => setConfirmDel(null)} title="Delete Version" width="max-w-sm">
         <div className="p-5 flex flex-col gap-4">
-          <div className="p-3.5 bg-red-50 rounded-lg border border-red-100 text-sm text-red-700">
+          <div className="p-3.5 bg-destructive/10 rounded-lg border border-destructive/20 text-sm text-destructive">
             Version {confirmDel?.version} will be soft-deleted and retained for audit compliance. You can restore it later.
           </div>
           <div className="flex gap-2 justify-end">

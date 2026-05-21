@@ -544,6 +544,125 @@ export const SchemaPanel: React.FC<SchemaPanelProps> = ({ content }) => {
   );
 };
 
+/* ── CONDITIONS PANEL ────────────────────────────── */
+interface ConditionsPanelProps {
+  content: RuleContent;
+}
+
+const condLabel = (cond: Condition): string => {
+  const op = OPERATORS.find(o => o.value === cond.operator)?.label || cond.operator;
+  if (['IS_NULL', 'IS_NOT_NULL'].includes(cond.operator)) return `${cond.field} ${op}`;
+  if (cond.operator === 'BETWEEN' || cond.operator === 'DATE_BETWEEN')
+    return `${cond.field} ${op} ${cond.value} … ${cond.secondValue}`;
+  return `${cond.field} ${op} ${cond.value || '—'}`;
+};
+
+const actionLabel = (a: RuleAction): string => {
+  switch (a.type) {
+    case 'ASSIGN': return `= ${a.field}${a.value ? ` → "${a.value}"` : ''}`;
+    case 'COMPUTE': return `∑ ${a.field}`;
+    case 'ADD_MESSAGE': return `✉ ${a.value || a.field}`;
+    default: return `${a.type}${a.field ? ` ${a.field}` : ''}`;
+  }
+};
+
+const blockTypeStyle: Record<BlockType, string> = {
+  IF:      'bg-primary/10 text-primary',
+  ELSE_IF: 'bg-amber-50 text-amber-700',
+  ELSE:    'bg-muted text-muted-foreground',
+};
+
+const CondTree: React.FC<{ blocks: ConditionalBlock[]; depth?: number }> = ({ blocks, depth = 0 }) => (
+  <div className={cn('flex flex-col gap-2', depth > 0 && 'ml-3 pl-2 border-l-2 border-border/60 mt-1')}>
+    {blocks.map(block => (
+      <div key={block.id}>
+        {/* Block type badge */}
+        <span className={cn('inline-block text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded mb-1', blockTypeStyle[block.type])}>
+          {block.type === 'ELSE_IF' ? 'ELSE IF' : block.type}
+        </span>
+
+        {/* Conditions */}
+        {block.type !== 'ELSE' && (
+          <div className="ml-0.5 mb-1">
+            {block.when.conditions.length === 0 ? (
+              <p className="text-[10px] text-muted-foreground/50 ml-1 italic">no conditions yet</p>
+            ) : (
+              <>
+                <p className="text-[10px] text-muted-foreground mb-0.5">
+                  {block.when.match === 'and' ? 'ALL of:' : 'ANY of:'}
+                </p>
+                {block.when.conditions.map(c => (
+                  <div key={c.id} className="flex items-start gap-1 ml-1 mb-0.5">
+                    <span className="text-muted-foreground/50 shrink-0 mt-0.5">·</span>
+                    <span className="text-[10px] text-foreground/80 break-all leading-snug">{condLabel(c)}</span>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Actions */}
+        {block.actions.length > 0 && (
+          <div className="ml-1 mb-1">
+            {block.actions.slice(0, 4).map(a => (
+              <div key={a.id} className="flex items-start gap-1 mb-0.5">
+                <span className="text-primary/50 shrink-0 mt-0.5">→</span>
+                <span className="text-[10px] text-primary/80 break-all leading-snug">{actionLabel(a)}</span>
+              </div>
+            ))}
+            {block.actions.length > 4 && (
+              <p className="text-[10px] text-muted-foreground ml-2">+{block.actions.length - 4} more actions</p>
+            )}
+          </div>
+        )}
+
+        {/* Nested blocks */}
+        {block.nested.length > 0 && block.nested.map(ng => (
+          <CondTree key={ng.id} blocks={ng.blocks} depth={(depth || 0) + 1} />
+        ))}
+      </div>
+    ))}
+  </div>
+);
+
+export const ConditionsPanel: React.FC<ConditionsPanelProps> = ({ content }) => {
+  const isEmpty = content.topGroups.every(g =>
+    g.blocks.every(b => b.when.conditions.length === 0 && b.actions.length === 0 && b.nested.length === 0)
+  );
+
+  return (
+    <div className="w-56 border-r border-border bg-muted/20 shrink-0 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
+      <div className="px-4 py-3 sticky top-0 bg-muted/30 border-b border-border z-10 backdrop-blur-sm">
+        <p className="text-[10px] font-bold text-foreground uppercase tracking-wider">Conditions Trail</p>
+        <p className="text-[10px] text-muted-foreground mt-0.5">Live logic tree</p>
+      </div>
+      <div className="p-3">
+        {isEmpty ? (
+          <div className="rounded-lg border border-dashed border-border p-3 text-center mt-1">
+            <p className="text-[10px] text-muted-foreground leading-relaxed">
+              Add conditions and actions to see the logic tree here
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {content.topGroups.map((group, gi) => (
+              <div key={group.id}>
+                {gi > 0 && (
+                  <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider font-semibold mb-2 mt-1">
+                    Block {gi + 1}
+                  </p>
+                )}
+                <CondTree blocks={group.blocks} />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 /* ── RULE LOGIC DISPLAY (read-only) ──────────────── */
 interface RuleLogicDisplayProps {
   content: RuleContent;

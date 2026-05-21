@@ -186,7 +186,7 @@ export default function App() {
 
   /* ── RENDER ────────────────────────────────────── */
   return (
-    <div className="h-screen flex overflow-hidden bg-gray-50" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
+      <div className="h-screen flex overflow-hidden bg-background" style={{ fontFamily: "'Poppins', system-ui, sans-serif" }}>
       <style>{`
         @keyframes fadeIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
         * { box-sizing: border-box; }
