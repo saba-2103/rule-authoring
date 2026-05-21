@@ -1,8 +1,8 @@
 import React, { useState, useCallback } from 'react';
 import {
   uid, IC, PrimarySidebar, SecondarySidebar, Toast,
-  SEED_SPACES, SEED_RULES, SEED_TABLES, SEED_FLOWS, SEED_FACTS, SEED_FACT_FIELDS,
-  Space, Rule, Table, Flow, Fact, FactField,
+  SEED_SPACES, SEED_RULES, SEED_TABLES, SEED_FLOWS, SEED_FACTS, SEED_FACT_FIELDS, SEED_LOOKUP_TABLES,
+  Space, Rule, Table, Flow, Fact, FactField, LookupTable,
 } from './components/shared';
 import { SpacesPage, SpacePickerModal } from './components/spaces';
 import { DecisionsPage } from './components/decisions-list';
@@ -11,6 +11,8 @@ import { RuleCreatePage, RuleForm } from './components/rule-create';
 import { TableDetailPage } from './components/table-detail';
 import { FlowDetailPage } from './components/flow-detail';
 import { FieldsPage } from './components/fields';
+import { SandboxPage } from './components/sandbox';
+import { LookupListPage, LookupTableDetail, LookupTableCreate } from './components/lookup';
 
 type Page =
   | 'decisions'
@@ -20,7 +22,12 @@ type Page =
   | 'table-detail'
   | 'flow-detail'
   | 'spaces'
-  | 'fields';
+  | 'fields'
+  | 'sandbox'
+  | 'lookup'
+  | 'lookup-detail'
+  | 'lookup-create'
+  | 'lookup-new-version';
 
 export default function App() {
   /* ── STATE ─────────────────────────────────────── */
@@ -29,7 +36,9 @@ export default function App() {
   const [spaces, setSpaces] = useState<Space[]>(SEED_SPACES);
   const [currentSpaceId, setCurrentSpaceId] = useState(SEED_SPACES[0].id);
   const [rules, setRules] = useState<Rule[]>(SEED_RULES);
-  const [tables] = useState<Table[]>(SEED_TABLES);
+  const [tables, setTables] = useState<Table[]>(SEED_TABLES);
+  const [lookupTables, setLookupTables] = useState<LookupTable[]>(SEED_LOOKUP_TABLES);
+  const [selectedLookupTable, setSelectedLookupTable] = useState<LookupTable | null>(null);
   const [flows] = useState<Flow[]>(SEED_FLOWS);
   const [facts, setFacts] = useState<Fact[]>(SEED_FACTS);
   const [factFields, setFactFields] = useState<FactField[]>(SEED_FACT_FIELDS);
@@ -53,6 +62,8 @@ export default function App() {
     if (key === 'decisions') { setPage('decisions'); setSelectedRule(null); }
     else if (key === 'spaces') setPage('spaces');
     else if (key === 'fields' || key === 'facts') setPage('fields');
+    else if (key === 'sandbox') setPage('sandbox');
+    else if (key === 'lookup') { setPage('lookup'); setSelectedLookupTable(null); }
   };
 
   const handleBack = () => {
@@ -60,6 +71,16 @@ export default function App() {
     setSelectedRule(null);
     setSelectedTable(null);
     setSelectedFlow(null);
+  };
+
+  /* ── LOOKUP HANDLERS ───────────────────────────── */
+  const handleViewLookup = (tbl: LookupTable) => { setSelectedLookupTable(tbl); setPage('lookup-detail'); };
+  const handleSaveLookupTable = (tbl: LookupTable) => {
+    const isNew = !lookupTables.find(t => t.id === tbl.id);
+    setLookupTables(ts => isNew ? [...ts, tbl] : ts.map(t => t.id === tbl.id ? tbl : t));
+    setSelectedLookupTable(tbl);
+    setPage('lookup-detail');
+    showToast(isNew ? `"${tbl.name}" created` : `New version added to "${tbl.name}"`);
   };
 
   /* ── RULE HANDLERS ─────────────────────────────── */
@@ -290,6 +311,46 @@ export default function App() {
         {/* Flow Detail */}
         {page === 'flow-detail' && selectedFlow && (
           <FlowDetailPage flow={selectedFlow} onBack={handleBack} />
+        )}
+
+        {/* Sandbox */}
+        {page === 'sandbox' && (
+          <SandboxPage rules={rules} />
+        )}
+
+        {/* Lookup List */}
+        {page === 'lookup' && (
+          <LookupListPage
+            tables={lookupTables}
+            onView={handleViewLookup}
+            onCreateNew={() => setPage('lookup-create')}
+          />
+        )}
+
+        {/* Lookup Detail */}
+        {page === 'lookup-detail' && selectedLookupTable && (
+          <LookupTableDetail
+            tbl={selectedLookupTable}
+            onBack={() => { setPage('lookup'); setSecondaryNav('lookup'); }}
+            onNewVersion={tbl => { setSelectedLookupTable(tbl); setPage('lookup-new-version'); }}
+          />
+        )}
+
+        {/* Lookup Create */}
+        {page === 'lookup-create' && (
+          <LookupTableCreate
+            onSave={handleSaveLookupTable}
+            onCancel={() => setPage('lookup')}
+          />
+        )}
+
+        {/* Lookup New Version */}
+        {page === 'lookup-new-version' && selectedLookupTable && (
+          <LookupTableCreate
+            existingTable={selectedLookupTable}
+            onSave={handleSaveLookupTable}
+            onCancel={() => setPage('lookup-detail')}
+          />
         )}
       </main>
 

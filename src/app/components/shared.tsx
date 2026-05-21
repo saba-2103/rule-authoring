@@ -15,11 +15,13 @@ export interface Condition {
   operator: string;
   value: string;
   secondValue: string;
+  dataType: string;
 }
 
 export interface WhenClause {
   match: 'and' | 'or';
   conditions: Condition[];
+  groups: WhenClause[];
 }
 
 export interface RuleAction {
@@ -27,6 +29,7 @@ export interface RuleAction {
   type: string;
   field: string;
   value: string;
+  dataType: string;
   config: Record<string, unknown>;
 }
 
@@ -36,7 +39,7 @@ export interface ConditionalBlock {
   id: string;
   type: BlockType;
   when: WhenClause;
-  actions: RuleAction[];
+  then: RuleAction[];
   nested: BlockGroup[];
 }
 
@@ -46,7 +49,7 @@ export interface BlockGroup {
 }
 
 export interface RuleContent {
-  topGroups: BlockGroup[];
+  blocks: BlockGroup[];
 }
 
 export interface DerivedSchema {
@@ -124,6 +127,43 @@ export interface Flow {
   stopOnError: boolean;
   createdAt: string;
   versions: FlowVersion[];
+}
+
+/* ── LOOKUP TABLE TYPES ──────────────────────────── */
+export interface LookupValueColumn {
+  id: string;
+  field: string;     // machine name, e.g. "state_name"
+  label: string;     // display label, e.g. "State Name"
+  dataType: 'string' | 'number' | 'boolean';
+}
+
+export interface LookupRow {
+  id: string;
+  key: string;       // the lookup key value
+  values: string[];  // one value per valueColumn
+  isEnabled: boolean;
+}
+
+export interface LookupVersion {
+  id: string;
+  version: number;
+  status: string;
+  description: string;
+  changeSummary: string;
+  effectiveFrom: string;
+  effectiveUntil: string | null;
+  keyColumn: { field: string; label: string; dataType: string };
+  valueColumns: LookupValueColumn[];
+  rows: LookupRow[];
+}
+
+export interface LookupTable {
+  id: string;
+  name: string;
+  category: string;
+  tags: string[];
+  createdAt: string;
+  versions: LookupVersion[];
 }
 
 export interface SpaceMember {
@@ -234,23 +274,23 @@ export const ROLES = ['ADMIN', 'RULE_AUTHOR', 'RULE_APPROVER', 'RULE_EXECUTOR', 
 /* ── BLOCK FACTORY HELPERS ───────────────────────── */
 export const mkIfBlock = (): ConditionalBlock => ({
   id: uid(), type: 'IF',
-  when: { match: 'and', conditions: [] },
-  actions: [], nested: [],
+  when: { match: 'and', conditions: [], groups: [] },
+  then: [], nested: [],
 });
 export const mkElseIfBlock = (): ConditionalBlock => ({
   id: uid(), type: 'ELSE_IF',
-  when: { match: 'and', conditions: [] },
-  actions: [], nested: [],
+  when: { match: 'and', conditions: [], groups: [] },
+  then: [], nested: [],
 });
 export const mkElseBlock = (): ConditionalBlock => ({
   id: uid(), type: 'ELSE',
-  when: { match: 'and', conditions: [] },
-  actions: [], nested: [],
+  when: { match: 'and', conditions: [], groups: [] },
+  then: [], nested: [],
 });
 export const mkBlockGroup = (): BlockGroup => ({ id: uid(), blocks: [mkIfBlock()] });
 
-const mkBlockRule = (when: WhenClause, actions: RuleAction[]): RuleContent => ({
-  topGroups: [{ id: uid(), blocks: [{ id: uid(), type: 'IF', when, actions, nested: [] }] }],
+const mkBlockRule = (when: Omit<WhenClause, 'groups'> & { groups?: WhenClause[] }, then: RuleAction[]): RuleContent => ({
+  blocks: [{ id: uid(), blocks: [{ id: uid(), type: 'IF', when: { groups: [], ...when }, then, nested: [] }] }],
 });
 
 /* ── SCHEMA DERIVATION ───────────────────────────── */
@@ -275,7 +315,7 @@ function walkGroupForInput(group: BlockGroup, fields: Map<string, { factType: st
 
 function walkGroupForOutput(group: BlockGroup, fields: Map<string, { factType: string; name: string; dataType: string }>) {
   for (const block of group.blocks) {
-    for (const action of block.actions) {
+    for (const action of block.then) {
       if (WRITE_TYPES.includes(action.type) && action.field) {
         const parts = action.field.split('.');
         if (parts.length >= 2) {
@@ -299,13 +339,13 @@ function groupByFact(fields: Map<string, { factType: string; name: string; dataT
 
 export function deriveInputSchema(content: RuleContent): DerivedSchema {
   const fields = new Map<string, { factType: string; name: string; dataType: string }>();
-  for (const g of content.topGroups) walkGroupForInput(g, fields);
+  for (const g of content.blocks) walkGroupForInput(g, fields);
   return groupByFact(fields);
 }
 
 export function deriveOutputSchema(content: RuleContent): DerivedSchema {
   const fields = new Map<string, { factType: string; name: string; dataType: string }>();
-  for (const g of content.topGroups) walkGroupForOutput(g, fields);
+  for (const g of content.blocks) walkGroupForOutput(g, fields);
   return groupByFact(fields);
 }
 
@@ -471,8 +511,8 @@ const mkVer = (
 });
 
 // ── local seed helpers (not exported) ──────────────
-const _c = (field: string, op: string, val = '', val2 = ''): Condition => ({ id: uid(), field, operator: op, value: val, secondValue: val2 });
-const _a = (type: string, field: string, val = '', cfg: Record<string, unknown> = {}): RuleAction => ({ id: uid(), type, field, value: val, config: cfg });
+const _c = (field: string, op: string, val = '', val2 = ''): Condition => ({ id: uid(), field, operator: op, value: val, secondValue: val2, dataType: '' });
+const _a = (type: string, field: string, val = '', cfg: Record<string, unknown> = {}): RuleAction => ({ id: uid(), type, field, value: val, dataType: '', config: cfg });
 
 export const SEED_RULES: Rule[] = [
   /* ── UC-A · Motor Pricing ─────────────────────── */
@@ -1647,6 +1687,113 @@ export const SEED_FLOWS: Flow[] = [
         },
       },
     ],
+  },
+];
+
+export const SEED_LOOKUP_TABLES: LookupTable[] = [
+  {
+    id: 'lkp-state-codes',
+    name: 'Australian State Codes',
+    category: 'Compliance',
+    tags: ['geo', 'state', 'reference'],
+    createdAt: '2026-01-10T09:00:00',
+    versions: [{
+      id: uid(), version: 1, status: 'ACTIVE',
+      description: 'Maps Australian state/territory codes to full names and GST rate.',
+      changeSummary: 'Initial version',
+      effectiveFrom: '2026-01-01T00:00:00',
+      effectiveUntil: null,
+      keyColumn: { field: 'state_code', label: 'State Code', dataType: 'string' },
+      valueColumns: [
+        { id: uid(), field: 'state_name',  label: 'State Name',  dataType: 'string' },
+        { id: uid(), field: 'gst_rate_pct', label: 'GST Rate %',  dataType: 'number' },
+      ],
+      rows: [
+        { id: uid(), key: 'NSW', values: ['New South Wales',        '10'], isEnabled: true },
+        { id: uid(), key: 'VIC', values: ['Victoria',               '10'], isEnabled: true },
+        { id: uid(), key: 'QLD', values: ['Queensland',             '10'], isEnabled: true },
+        { id: uid(), key: 'SA',  values: ['South Australia',        '10'], isEnabled: true },
+        { id: uid(), key: 'WA',  values: ['Western Australia',      '10'], isEnabled: true },
+        { id: uid(), key: 'TAS', values: ['Tasmania',               '10'], isEnabled: true },
+        { id: uid(), key: 'NT',  values: ['Northern Territory',     '10'], isEnabled: true },
+        { id: uid(), key: 'ACT', values: ['Australian Capital Territory', '10'], isEnabled: true },
+      ],
+    }],
+  },
+  {
+    id: 'lkp-ncb-rates',
+    name: 'NCB Discount Rates',
+    category: 'Pricing',
+    tags: ['motor', 'ncb', 'discount'],
+    createdAt: '2026-01-15T10:00:00',
+    versions: [
+      {
+        id: uid(), version: 1, status: 'ARCHIVED',
+        description: 'Legacy NCB discount schedule — 5 tiers.',
+        changeSummary: 'Initial version',
+        effectiveFrom: '2025-01-01T00:00:00',
+        effectiveUntil: '2025-12-31T23:59:59',
+        keyColumn: { field: 'ncb_years', label: 'NCB Years', dataType: 'number' },
+        valueColumns: [
+          { id: uid(), field: 'discount_pct', label: 'Discount %', dataType: 'number' },
+          { id: uid(), field: 'tier_label',   label: 'Tier',       dataType: 'string' },
+        ],
+        rows: [
+          { id: uid(), key: '0', values: ['0',  'No Bonus'],  isEnabled: true },
+          { id: uid(), key: '1', values: ['10', 'Bronze'],    isEnabled: true },
+          { id: uid(), key: '2', values: ['20', 'Silver'],    isEnabled: true },
+          { id: uid(), key: '3', values: ['30', 'Gold'],      isEnabled: true },
+          { id: uid(), key: '4', values: ['40', 'Platinum'],  isEnabled: true },
+        ],
+      },
+      {
+        id: uid(), version: 2, status: 'ACTIVE',
+        description: 'Updated NCB schedule — 6 tiers with enhanced Platinum.',
+        changeSummary: 'Added 5+ year tier with 50% discount',
+        effectiveFrom: '2026-01-01T00:00:00',
+        effectiveUntil: null,
+        keyColumn: { field: 'ncb_years', label: 'NCB Years', dataType: 'number' },
+        valueColumns: [
+          { id: uid(), field: 'discount_pct', label: 'Discount %', dataType: 'number' },
+          { id: uid(), field: 'tier_label',   label: 'Tier',       dataType: 'string' },
+        ],
+        rows: [
+          { id: uid(), key: '0', values: ['0',  'No Bonus'],  isEnabled: true },
+          { id: uid(), key: '1', values: ['10', 'Bronze'],    isEnabled: true },
+          { id: uid(), key: '2', values: ['20', 'Silver'],    isEnabled: true },
+          { id: uid(), key: '3', values: ['30', 'Gold'],      isEnabled: true },
+          { id: uid(), key: '4', values: ['40', 'Platinum'],  isEnabled: true },
+          { id: uid(), key: '5', values: ['50', 'Platinum+'], isEnabled: true },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'lkp-vehicle-risk',
+    name: 'Vehicle Risk Classification',
+    category: 'Underwriting',
+    tags: ['motor', 'vehicle', 'risk'],
+    createdAt: '2026-02-01T08:00:00',
+    versions: [{
+      id: uid(), version: 1, status: 'ACTIVE',
+      description: 'Maps vehicle types to their underwriting risk category and base premium multiplier.',
+      changeSummary: 'Initial version',
+      effectiveFrom: '2026-01-01T00:00:00',
+      effectiveUntil: null,
+      keyColumn: { field: 'vehicle_type', label: 'Vehicle Type', dataType: 'string' },
+      valueColumns: [
+        { id: uid(), field: 'risk_category',    label: 'Risk Category',    dataType: 'string' },
+        { id: uid(), field: 'base_multiplier',  label: 'Base Multiplier',  dataType: 'number' },
+      ],
+      rows: [
+        { id: uid(), key: 'sedan',      values: ['Standard',  '1.00'], isEnabled: true },
+        { id: uid(), key: 'suv',        values: ['Standard',  '1.05'], isEnabled: true },
+        { id: uid(), key: 'sports',     values: ['High Risk',  '1.45'], isEnabled: true },
+        { id: uid(), key: 'van',        values: ['Commercial', '1.20'], isEnabled: true },
+        { id: uid(), key: 'truck',      values: ['Commercial', '1.35'], isEnabled: true },
+        { id: uid(), key: 'motorcycle', values: ['High Risk',  '1.60'], isEnabled: true },
+      ],
+    }],
   },
 ];
 

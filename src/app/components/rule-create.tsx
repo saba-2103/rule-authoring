@@ -8,7 +8,7 @@ import { BlockBuilder, SchemaPanel, ConditionsPanel } from './block-builder';
 
 /* ── EMPTY STATE ─────────────────────────────────── */
 const emptyRuleContent = (): RuleContent => ({
-  topGroups: [mkBlockGroup()],
+  blocks: [mkBlockGroup()],
 });
 
 /* ── RULE CREATE PAGE ────────────────────────────── */

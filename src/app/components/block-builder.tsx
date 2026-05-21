@@ -177,17 +177,17 @@ const WhenSection: React.FC<WhenSectionProps> = ({ when, blockType, onChange }) 
 
 /* ── THEN SECTION ────────────────────────────────── */
 interface ThenSectionProps {
-  actions: RuleAction[];
+  then: RuleAction[];
   nested: BlockGroup[];
   depth: number;
-  onChange: (actions: RuleAction[]) => void;
+  onChange: (then: RuleAction[]) => void;
   onNestedChange: (nested: BlockGroup[]) => void;
 }
 
-const ThenSection: React.FC<ThenSectionProps> = ({ actions, nested, depth, onChange, onNestedChange }) => {
-  const addAction = () => onChange([...actions, { id: uid(), type: 'ASSIGN', field: '', value: '', config: {} }]);
-  const updAction = (i: number, a: RuleAction) => { const na = [...actions]; na[i] = a; onChange(na); };
-  const delAction = (i: number) => onChange(actions.filter((_, j) => j !== i));
+const ThenSection: React.FC<ThenSectionProps> = ({ then, nested, depth, onChange, onNestedChange }) => {
+  const addAction = () => onChange([...then, { id: uid(), type: 'ASSIGN', field: '', value: '', dataType: '', config: {} }]);
+  const updAction = (i: number, a: RuleAction) => { const na = [...then]; na[i] = a; onChange(na); };
+  const delAction = (i: number) => onChange(then.filter((_, j) => j !== i));
 
   const addNestedGroup = () => onNestedChange([...nested, mkBlockGroup()]);
   const updNestedGroup = (i: number, g: BlockGroup) => { const ng = [...nested]; ng[i] = g; onNestedChange(ng); };
@@ -196,10 +196,10 @@ const ThenSection: React.FC<ThenSectionProps> = ({ actions, nested, depth, onCha
   return (
     <div>
       <div className="flex flex-col gap-2.5">
-        {actions.length === 0 && nested.length === 0 && (
+        {then.length === 0 && nested.length === 0 && (
           <p className="text-sm text-muted-foreground/50 italic text-center py-2">No actions defined</p>
         )}
-        {actions.map((a, i) => (
+        {then.map((a, i) => (
           <ActionRow key={a.id} action={a} onChange={na => updAction(i, na)} onRemove={() => delAction(i)} />
         ))}
         <button type="button" onClick={addAction}
@@ -307,10 +307,10 @@ const BlockComponent: React.FC<BlockComponentProps> = ({ block, onChange, onRemo
         <div>
           <p className="text-[10px] font-bold text-foreground/50 uppercase tracking-wider mb-2">THEN</p>
           <ThenSection
-            actions={block.actions}
+            then={block.then}
             nested={block.nested}
             depth={depth}
-            onChange={actions => onChange({ ...block, actions })}
+            onChange={then => onChange({ ...block, then })}
             onNestedChange={nested => onChange({ ...block, nested })}
           />
         </div>
@@ -419,19 +419,19 @@ export const BlockBuilder: React.FC<BlockBuilderProps> = ({ content, onChange, f
   const fieldOptions: FieldOption[] = factFields && factFields.length > 0
     ? factFields.map(f => ({ value: f.path, label: f.displayName, dataType: f.dataType }))
     : FACT_FIELDS;
-  const addTopGroup = () => onChange({ ...content, topGroups: [...content.topGroups, mkBlockGroup()] });
+  const addTopGroup = () => onChange({ ...content, blocks: [...content.blocks, mkBlockGroup()] });
 
   const updTopGroup = (i: number, g: BlockGroup) => {
-    const ng = [...content.topGroups]; ng[i] = g;
-    onChange({ ...content, topGroups: ng });
+    const ng = [...content.blocks]; ng[i] = g;
+    onChange({ ...content, blocks: ng });
   };
 
-  const delTopGroup = (i: number) => onChange({ ...content, topGroups: content.topGroups.filter((_, j) => j !== i) });
+  const delTopGroup = (i: number) => onChange({ ...content, blocks: content.blocks.filter((_, j) => j !== i) });
 
   return (
     <FactFieldsCtx.Provider value={fieldOptions}>
       <div className="flex flex-col gap-5">
-        {content.topGroups.map((group, i) => (
+        {content.blocks.map((group, i) => (
           <div key={group.id}>
             {i > 0 && (
               <div className="flex items-center gap-2 mb-4">
@@ -445,7 +445,7 @@ export const BlockBuilder: React.FC<BlockBuilderProps> = ({ content, onChange, f
               onChange={g => updTopGroup(i, g)}
               onRemove={() => delTopGroup(i)}
               depth={0}
-              canRemove={content.topGroups.length > 1}
+              canRemove={content.blocks.length > 1}
             />
           </div>
         ))}
@@ -627,16 +627,16 @@ const CondTree: React.FC<{ blocks: ConditionalBlock[]; depth?: number }> = ({ bl
         )}
 
         {/* Actions */}
-        {block.actions.length > 0 && (
+        {block.then.length > 0 && (
           <div className="ml-1 mb-1">
-            {block.actions.slice(0, 4).map(a => (
+            {block.then.slice(0, 4).map(a => (
               <div key={a.id} className="flex items-start gap-1 mb-0.5">
                 <span className="text-primary/50 shrink-0 mt-0.5">→</span>
                 <span className="text-[10px] text-primary/80 break-all leading-snug">{actionLabel(a)}</span>
               </div>
             ))}
-            {block.actions.length > 4 && (
-              <p className="text-[10px] text-muted-foreground ml-2">+{block.actions.length - 4} more actions</p>
+            {block.then.length > 4 && (
+              <p className="text-[10px] text-muted-foreground ml-2">+{block.then.length - 4} more actions</p>
             )}
           </div>
         )}
@@ -651,8 +651,8 @@ const CondTree: React.FC<{ blocks: ConditionalBlock[]; depth?: number }> = ({ bl
 );
 
 export const ConditionsPanel: React.FC<ConditionsPanelProps> = ({ content }) => {
-  const isEmpty = content.topGroups.every(g =>
-    g.blocks.every(b => b.when.conditions.length === 0 && b.actions.length === 0 && b.nested.length === 0)
+  const isEmpty = content.blocks.every(g =>
+    g.blocks.every(b => b.when.conditions.length === 0 && b.then.length === 0 && b.nested.length === 0)
   );
 
   return (
@@ -670,7 +670,7 @@ export const ConditionsPanel: React.FC<ConditionsPanelProps> = ({ content }) => 
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            {content.topGroups.map((group, gi) => (
+            {content.blocks.map((group, gi) => (
               <div key={group.id}>
                 {gi > 0 && (
                   <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider font-semibold mb-2 mt-1">
@@ -723,10 +723,10 @@ export const RuleLogicDisplay: React.FC<RuleLogicDisplayProps> = ({ content }) =
           {!isElse && block.when.conditions.length === 0 && (
             <p className="text-xs text-gray-400 italic mb-2 pl-2">Always executes</p>
           )}
-          {block.actions.length > 0 && (
+          {block.then.length > 0 && (
             <div>
               <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-1.5">THEN</p>
-              {block.actions.map((a, i) => (
+              {block.then.map((a, i) => (
                 <div key={a.id} className="flex items-center gap-1.5 text-xs mb-1 pl-2 flex-wrap">
                   <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-700 rounded font-mono font-medium">{a.type}</span>
                   {a.field && <><span className="text-gray-400">→</span><span className="font-mono text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">{a.field}</span></>}
@@ -750,7 +750,7 @@ export const RuleLogicDisplay: React.FC<RuleLogicDisplayProps> = ({ content }) =
 
   return (
     <div>
-      {content.topGroups.map((group, gi) => (
+      {content.blocks.map((group, gi) => (
         <div key={group.id}>
           {gi > 0 && <div className="flex items-center gap-2 my-3"><div className="h-px flex-1 bg-gray-200" /><span className="text-[10px] text-gray-400 uppercase tracking-wider">Sequential</span><div className="h-px flex-1 bg-gray-200" /></div>}
           {group.blocks.map(block => renderBlock(block))}

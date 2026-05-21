@@ -1,10 +1,50 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   cn, fmt, activeVer, Btn, Inp, Sel, Modal, Field, Tag, StatusBadge, IC,
-  STATUS_META, CATEGORIES, Rule, RuleVersion,
+  STATUS_META, CATEGORIES, Rule, RuleVersion, RuleContent,
   deriveInputSchema, deriveOutputSchema,
 } from './shared';
 import { RuleLogicDisplay } from './block-builder';
+
+/* ── CODE-VIEW SERIALIZER ────────────────────────── */
+/** Converts internal RuleContent → tech-team API format (strips ids, casts values) */
+const buildCodePayload = (ruleName: string, content: RuleContent) => {
+  const castVal = (value: string, dataType: string) => {
+    if (!value && value !== '0') return value;
+    if (dataType === 'number') { const n = Number(value); return isNaN(n) ? value : n; }
+    if (dataType === 'boolean') return value === 'true';
+    return value;
+  };
+  const serCond = (c: { field: string; operator: string; value: string; secondValue: string; dataType: string }) => ({
+    field: c.field,
+    operator: c.operator,
+    value: castVal(c.value, c.dataType),
+    ...(c.secondValue ? { secondValue: castVal(c.secondValue, c.dataType) } : {}),
+    dataType: c.dataType || 'string',
+  });
+  const serWhen = (w: { match: string; conditions: { field: string; operator: string; value: string; secondValue: string; dataType: string }[]; groups: unknown[] }) => ({
+    match: w.match,
+    conditions: w.conditions.map(serCond),
+    groups: [],
+  });
+  const serAction = (a: { type: string; field: string; value: string; dataType: string; config: Record<string, unknown> }) => ({
+    type: a.type,
+    ...(a.field ? { field: a.field } : {}),
+    ...(a.value !== '' ? { value: castVal(a.value, a.dataType) } : {}),
+    ...(a.dataType ? { dataType: a.dataType } : {}),
+    ...(Object.keys(a.config ?? {}).length > 0 ? { config: a.config } : {}),
+  });
+  const allBlocks = content.blocks.flatMap(g => g.blocks);
+  const serBlock = (b: typeof allBlocks[0]) => ({
+    type: b.type,
+    ...(b.type !== 'ELSE' ? { when: serWhen(b.when) } : {}),
+    then: b.then.map(serAction),
+  });
+  const ruleBody = allBlocks.length === 1 && allBlocks[0].type === 'IF'
+    ? { when: serWhen(allBlocks[0].when), then: allBlocks[0].then.map(serAction) }
+    : { blocks: allBlocks.map(serBlock) };
+  return { name: ruleName, kind: 'rule', rule: ruleBody };
+};
 
 /* ── EDIT METADATA MODAL ─────────────────────────── */
 interface EditMetaModalProps {
@@ -521,6 +561,7 @@ export const RuleDetailPage: React.FC<RuleDetailPageProps> = ({ rule, onBack, on
   });
   const [confirmDel, setConfirmDel] = useState<RuleVersion | null>(null);
   const [editVerOpen, setEditVerOpen] = useState(false);
+  const [logicView, setLogicView] = useState<'preview' | 'code'>('preview');
 
   const handleStatusChange = (ver: RuleVersion, status: VersionStatus) => {
     const patch: Partial<RuleVersion> = { status };
@@ -700,8 +741,36 @@ export const RuleDetailPage: React.FC<RuleDetailPageProps> = ({ rule, onBack, on
 
               {/* Rule logic */}
               <div className="bg-card rounded-xl border border-border p-5">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">Rule Logic</p>
-                <RuleLogicDisplay content={ver.rule} />
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Rule Logic</p>
+                  <div className="flex items-center bg-muted rounded-lg p-0.5">
+                    {(['preview', 'code'] as const).map(v => (
+                      <button key={v} type="button" onClick={() => setLogicView(v)}
+                        className={cn('px-2.5 py-1 text-xs font-medium rounded-md transition-colors capitalize',
+                          logicView === v ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
+                        {v}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {logicView === 'preview'
+                  ? <RuleLogicDisplay content={ver.rule} />
+                  : (
+                    <div className="rounded-lg border border-border overflow-hidden">
+                      <div className="flex items-center justify-between px-4 py-2 bg-muted border-b border-border">
+                        <span className="text-[10px] font-mono text-muted-foreground">rule.json</span>
+                        <button type="button"
+                          onClick={() => navigator.clipboard?.writeText(JSON.stringify(buildCodePayload(rule.name, ver.rule), null, 2))}
+                          className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors">
+                          <IC.Copy size={11} />Copy
+                        </button>
+                      </div>
+                      <pre className="p-4 text-xs font-mono text-foreground/80 bg-muted/30 overflow-x-auto leading-relaxed" style={{ scrollbarWidth: 'thin', tabSize: 2 }}>
+                        <code>{JSON.stringify(buildCodePayload(rule.name, ver.rule), null, 2)}</code>
+                      </pre>
+                    </div>
+                  )
+                }
               </div>
             </div>
           </div>
