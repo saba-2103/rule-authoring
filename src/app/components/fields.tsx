@@ -282,9 +282,9 @@ export const FieldsPage: React.FC<FieldsPageProps> = ({
   };
 
   const SortIcon: React.FC<{ col: typeof sortKey }> = ({ col }) => (
-    <span className="ml-1 inline-flex flex-col" style={{ lineHeight: 0 }}>
-      <IC.ChevU size={8} className={sortKey === col && sortDir === 'asc' ? 'text-primary' : 'text-muted-foreground/30'} />
-      <IC.ChevD size={8} className={sortKey === col && sortDir === 'desc' ? 'text-primary' : 'text-muted-foreground/30'} />
+    <span className="ml-1 inline-flex flex-col items-center" style={{ lineHeight: 0 }}>
+      <IC.ChevU size={9} className={sortKey === col && sortDir === 'asc' ? 'text-primary' : 'text-muted-foreground/25'} />
+      <IC.ChevD size={9} className={sortKey === col && sortDir === 'desc' ? 'text-primary' : 'text-muted-foreground/25'} />
     </span>
   );
 

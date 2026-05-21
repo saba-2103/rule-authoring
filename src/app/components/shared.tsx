@@ -1300,7 +1300,7 @@ export const SEED_TABLES: Table[] = [
   /* ── UC-A · Motor Pricing ── */
   {
     id: 't-mpc', name: 'Motor Premium Cap', category: 'Pricing',
-    tags: ['motor', 'cap', 'regulatory'], createdAt: '2024-10-10T08:00:00',
+    tags: ['motor', 'cap', 'regulatory'], createdAt: '2026-04-15T08:00:00',
     versions: [{
       id: uid(), version: 1, status: 'ACTIVE',
       description: 'Enforces regulatory caps on motor discounts (max 60%) and loadings (max 100%). Uses priority-order hit policy.',
@@ -1327,7 +1327,7 @@ export const SEED_TABLES: Table[] = [
   /* ── UC-D · Claims Fraud ── */
   {
     id: 't-cfst', name: 'Claims Fraud Signal Detection', category: 'Claims',
-    tags: ['fraud', 'detection', 'collect-all'], createdAt: '2025-01-15T08:00:00',
+    tags: ['fraud', 'detection', 'collect-all'], createdAt: '2026-01-08T08:00:00',
     versions: [
       {
         id: uid(), version: 1, status: 'INACTIVE',
@@ -1380,7 +1380,7 @@ export const SEED_TABLES: Table[] = [
   /* ── UC-F · Claims STP ── */
   {
     id: 't-clibc', name: 'Claims Line Item Benefit Cap', category: 'Claims',
-    tags: ['stp', 'benefit-cap', 'line-item'], createdAt: '2025-03-05T08:00:00',
+    tags: ['stp', 'benefit-cap', 'line-item'], createdAt: '2026-02-10T08:00:00',
     versions: [
       {
         id: uid(), version: 1, status: 'ACTIVE',
@@ -1435,7 +1435,7 @@ export const SEED_FLOWS: Flow[] = [
   /* ── UC-A · Motor Pricing ── */
   {
     id: 'f-mpof', name: 'Motor Pricing Orchestration', category: 'Pricing',
-    tags: ['motor', 'pricing', 'orchestration'], stopOnError: false, createdAt: '2024-10-20T08:00:00',
+    tags: ['motor', 'pricing', 'orchestration'], stopOnError: false, createdAt: '2026-03-10T08:00:00',
     versions: [{
       id: uid(), version: 1, status: 'ACTIVE',
       description: 'Sequential flow for motor premium calculation: base lookup → NCB discount → young driver surcharge → cap enforcement.',
@@ -1461,7 +1461,7 @@ export const SEED_FLOWS: Flow[] = [
   /* ── UC-E · Renewal Loyalty ── */
   {
     id: 'f-rdf', name: 'Renewal Loyalty Decision', category: 'Operations',
-    tags: ['renewal', 'loyalty', 'parallel'], stopOnError: true, createdAt: '2025-02-05T08:00:00',
+    tags: ['renewal', 'loyalty', 'parallel'], stopOnError: true, createdAt: '2025-12-20T08:00:00',
     versions: [
       {
         id: uid(), version: 1, status: 'ACTIVE',
@@ -1653,7 +1653,7 @@ export const SEED_FLOWS: Flow[] = [
 /* ── UI PRIMITIVES ───────────────────────────────── */
 interface BtnProps {
   children: React.ReactNode;
-  variant?: 'default' | 'outline' | 'ghost' | 'destructive' | 'secondary';
+  variant?: 'default' | 'outline' | 'ghost' | 'destructive' | 'secondary' | 'ghost-destructive';
   size?: 'default' | 'sm' | 'lg' | 'icon';
   className?: string;
   onClick?: () => void;
@@ -1669,6 +1669,7 @@ export const Btn: React.FC<BtnProps> = ({ children, variant = 'default', size = 
     outline: 'border border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground',
     ghost: 'text-foreground hover:bg-accent hover:text-accent-foreground',
     destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+    'ghost-destructive': 'text-destructive hover:bg-destructive/10 hover:text-destructive',
     secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
   };
   const s = { default: 'h-8 px-3.5 text-sm gap-2', sm: 'h-7 px-2.5 text-xs gap-1.5', lg: 'h-9 px-4 text-sm gap-2', icon: 'h-8 w-8 p-0 text-sm' };
@@ -1932,32 +1933,18 @@ const RULES_NAV = [
 interface SecondarySidebarProps {
   active: string;
   onSelect: (k: string) => void;
-  space: Space;
-  onSpaceClick: () => void;
 }
 
-export const SecondarySidebar: React.FC<SecondarySidebarProps> = ({ active, onSelect, space, onSpaceClick }) => (
+export const SecondarySidebar: React.FC<SecondarySidebarProps> = ({ active, onSelect }) => (
   <aside className="w-[200px] bg-background border-r border-border flex flex-col shrink-0">
-    <button onClick={onSpaceClick}
-      className="px-4 py-3.5 border-b border-border text-left hover:bg-accent transition-colors group w-full">
-      <div className="flex items-center justify-between">
-        <div className="min-w-0">
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-0.5">Space</p>
-          <p className="text-xs font-semibold text-foreground leading-tight truncate">{space.name}</p>
-        </div>
-        <IC.ChevD size={12} className="text-muted-foreground group-hover:text-foreground shrink-0 ml-1" />
+    {/* Wordmark — aligned to primary sidebar logo */}
+    <div className="px-4 flex items-center shrink-0" style={{ height: '64px' }}>
+      <div>
+        <p className="text-base font-bold tracking-tight text-foreground leading-none">AXA</p>
+        <p className="text-[9px] font-semibold tracking-[0.18em] uppercase text-muted-foreground mt-0.5">Motor Insurance</p>
       </div>
-    </button>
-    <div className="flex flex-col gap-0 overflow-y-auto flex-1 py-2" style={{ scrollbarWidth: 'thin' }}>
-      <div className="mb-1">
-        <button onClick={() => onSelect('spaces')}
-          className={cn('flex items-center gap-2.5 w-full px-4 py-1.5 text-sm transition-colors text-left',
-            active === 'spaces' ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground')}>
-          {active === 'spaces'
-            ? <span className="flex items-center gap-2.5 bg-primary/10 text-primary rounded-lg px-2 py-1 w-full -mx-2"><IC.Globe size={15} />Spaces</span>
-            : <><IC.Globe size={15} />Spaces</>}
-        </button>
-      </div>
+    </div>
+    <div className="flex flex-col gap-0 overflow-y-auto flex-1 py-2 border-t border-border" style={{ scrollbarWidth: 'thin' }}>
       {RULES_NAV.map(({ section, items }) => (
         <div key={section} className="mb-1">
           <p className="px-4 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{section}</p>

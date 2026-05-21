@@ -50,12 +50,13 @@ export const SpacePickerModal: React.FC<SpacePickerModalProps> = ({ open, spaces
             </div>
           </div>
           {s.id === currentSpaceId && <IC.Check size={14} className="text-primary shrink-0 mt-1" />}
+          {s.id !== currentSpaceId && <span className="w-[14px] shrink-0" />}
         </button>
       ))}
       <div className="border-t border-gray-100 pt-2 mt-1">
-        <button onClick={onManage} className="w-full px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors flex items-center justify-center gap-2">
-          <IC.Globe size={14} className="text-muted-foreground" /> Manage all spaces
-        </button>
+        <Btn variant="secondary" onClick={onManage} className="w-full justify-center">
+          <IC.Globe size={14} /> Manage all spaces
+        </Btn>
       </div>
     </div>
   </Modal>

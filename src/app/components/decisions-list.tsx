@@ -245,8 +245,9 @@ const SortTh: React.FC<{ col: SortCol; label: string; sort: SortState; onSort: (
       onClick={() => onSort(col)}>
       <span className="inline-flex items-center gap-1">
         {label}
-        <span className={cn('text-[10px]', active ? 'text-primary' : 'text-muted-foreground/50 group-hover:text-muted-foreground')}>
-          {active ? (sort.dir === 'asc' ? '↑' : '↓') : '↕'}
+        <span className="inline-flex flex-col items-center" style={{ lineHeight: 0 }}>
+          <IC.ChevU size={9} className={active && sort.dir === 'asc' ? 'text-primary' : 'text-muted-foreground/25 group-hover:text-muted-foreground/50'} />
+          <IC.ChevD size={9} className={active && sort.dir === 'desc' ? 'text-primary' : 'text-muted-foreground/25 group-hover:text-muted-foreground/50'} />
         </span>
       </span>
     </th>

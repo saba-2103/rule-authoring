@@ -516,7 +516,8 @@ interface RuleDetailPageProps {
 export const RuleDetailPage: React.FC<RuleDetailPageProps> = ({ rule, onBack, onUpdate, onNewVersion, onEditMeta, initialVersion }) => {
   const [selVer, setSelVer] = useState<RuleVersion | null>(() => {
     if (initialVersion != null) return rule.versions.find(v => v.version === initialVersion) ?? null;
-    return activeVer(rule) || rule.versions[0] || null;
+    // Default to the highest version number (latest created)
+    return [...rule.versions].sort((a, b) => b.version - a.version)[0] || null;
   });
   const [confirmDel, setConfirmDel] = useState<RuleVersion | null>(null);
   const [editVerOpen, setEditVerOpen] = useState(false);

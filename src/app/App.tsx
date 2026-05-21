@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import {
-  uid, PrimarySidebar, SecondarySidebar, Toast,
+  uid, IC, PrimarySidebar, SecondarySidebar, Toast,
   SEED_SPACES, SEED_RULES, SEED_TABLES, SEED_FLOWS, SEED_FACTS, SEED_FACT_FIELDS,
   Space, Rule, Table, Flow, Fact, FactField,
 } from './components/shared';
@@ -199,11 +199,18 @@ export default function App() {
       <SecondarySidebar
         active={secondaryNav}
         onSelect={handleSecNav}
-        space={currentSpace}
-        onSpaceClick={() => setSpacePickerOpen(true)}
       />
 
-      <main className="flex-1 overflow-hidden flex flex-col">
+      <main className="flex-1 overflow-hidden flex flex-col relative">
+        {/* Space selector — top-right corner */}
+        <button
+          onClick={() => setSpacePickerOpen(true)}
+          className="absolute top-3 right-4 z-10 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg hover:bg-accent transition-colors"
+        >
+          <span className="text-muted-foreground font-normal">Space</span>
+          <span className="truncate max-w-[160px] text-foreground font-semibold">{currentSpace.name}</span>
+          <IC.ChevD size={12} className="text-muted-foreground shrink-0" />
+        </button>
         {/* Spaces Page */}
         {page === 'spaces' && (
           <SpacesPage

@@ -31,7 +31,7 @@ const ConditionRow: React.FC<ConditionRowProps> = ({ cond, index, matchLabel, on
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
-      <span className="text-xs text-gray-400 w-8 text-right shrink-0 font-medium">
+      <span className="text-xs text-muted-foreground/60 w-8 text-right shrink-0 font-medium">
         {index === 0 ? '' : matchLabel.toUpperCase()}
       </span>
       <Sel value={cond.field}
@@ -53,7 +53,7 @@ const ConditionRow: React.FC<ConditionRowProps> = ({ cond, index, matchLabel, on
             placeholder="end" className="w-24" />
         </>
       )}
-      <Btn size="icon" variant="ghost" onClick={onRemove} className="shrink-0 hover:bg-red-50 hover:text-red-500">
+      <Btn size="icon" variant="ghost" onClick={onRemove} className="shrink-0 hover:bg-destructive/10 hover:text-destructive">
         <IC.Trash size={12} />
       </Btn>
     </div>
@@ -112,7 +112,7 @@ const ActionRow: React.FC<ActionRowProps> = ({ action, onChange, onRemove }) => 
           onChange={e => onChange({ ...action, config: { message: e.target.value } })}
           placeholder="Log message…" className="flex-1 min-w-[240px]" />
       )}
-      <Btn size="icon" variant="ghost" onClick={onRemove} className="hover:bg-red-50 hover:text-red-500 shrink-0">
+      <Btn size="icon" variant="ghost" onClick={onRemove} className="hover:bg-destructive/10 hover:text-destructive shrink-0">
         <IC.Trash size={12} />
       </Btn>
     </div>
@@ -137,21 +137,21 @@ const WhenSection: React.FC<WhenSectionProps> = ({ when, blockType, onChange }) 
   };
   const delCond = (i: number) => onChange({ ...when, conditions: when.conditions.filter((_, j) => j !== i) });
 
-  const headerBg = blockType === 'IF' ? 'bg-amber-50 border-amber-100' : 'bg-purple-50 border-purple-100';
-  const headerText = blockType === 'IF' ? 'text-amber-700' : 'text-purple-700';
-  const matchBtnActive = blockType === 'IF' ? 'bg-amber-500 text-white' : 'bg-purple-500 text-white';
-  const matchBtnHover = blockType === 'IF' ? 'hover:bg-amber-50' : 'hover:bg-purple-50';
-  const addBtnColor = blockType === 'IF' ? 'text-amber-600 hover:text-amber-700' : 'text-purple-600 hover:text-purple-700';
+  const headerBg = blockType === 'IF' ? 'bg-primary/5 border-primary/15' : 'bg-muted/50 border-border/60';
+  const headerText = blockType === 'IF' ? 'text-primary/70' : 'text-muted-foreground';
+  const matchBtnActive = 'bg-primary text-primary-foreground';
+  const matchBtnHover = blockType === 'IF' ? 'hover:bg-primary/10' : 'hover:bg-accent';
+  const addBtnColor = blockType === 'IF' ? 'text-primary/80 hover:text-primary' : 'text-muted-foreground hover:text-foreground';
 
   return (
     <div>
       <div className={cn('flex items-center gap-3 pb-2 mb-3 border-b', headerBg.split(' ')[1] ? '' : '')}>
-        <div className="flex items-center bg-white border border-gray-200 rounded-md overflow-hidden text-xs">
+        <div className="flex items-center bg-background border border-border rounded overflow-hidden">
           {(['and', 'or'] as const).map(m => (
             <button key={m} type="button"
               onClick={() => onChange({ ...when, match: m })}
-              className={cn('px-2.5 py-1 font-medium uppercase transition-colors',
-                when.match === m ? matchBtnActive : `text-gray-500 ${matchBtnHover}`)}>
+              className={cn('px-2 py-1 text-xs font-semibold uppercase tracking-wide transition-colors',
+                when.match === m ? matchBtnActive : `text-muted-foreground ${matchBtnHover}`)}>
               {m}
             </button>
           ))}
@@ -160,7 +160,7 @@ const WhenSection: React.FC<WhenSectionProps> = ({ when, blockType, onChange }) 
       </div>
       <div className="flex flex-col gap-2.5">
         {when.conditions.length === 0 && (
-          <p className="text-sm text-gray-400 italic text-center py-2">No conditions — block will always execute</p>
+          <p className="text-sm text-muted-foreground/50 italic text-center py-2">No conditions — block will always execute</p>
         )}
         {when.conditions.map((c, i) => (
           <ConditionRow key={c.id} cond={c} index={i} matchLabel={when.match}
@@ -197,13 +197,13 @@ const ThenSection: React.FC<ThenSectionProps> = ({ actions, nested, depth, onCha
     <div>
       <div className="flex flex-col gap-2.5">
         {actions.length === 0 && nested.length === 0 && (
-          <p className="text-sm text-gray-400 italic text-center py-2">No actions defined</p>
+          <p className="text-sm text-muted-foreground/50 italic text-center py-2">No actions defined</p>
         )}
         {actions.map((a, i) => (
           <ActionRow key={a.id} action={a} onChange={na => updAction(i, na)} onRemove={() => delAction(i)} />
         ))}
         <button type="button" onClick={addAction}
-          className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 mt-1">
+          className="flex items-center gap-1.5 text-xs font-medium text-primary/70 hover:text-primary mt-1">
           <IC.Plus size={13} />Add Action
         </button>
       </div>
@@ -223,7 +223,7 @@ const ThenSection: React.FC<ThenSectionProps> = ({ actions, nested, depth, onCha
             </div>
           ))}
           <button type="button" onClick={addNestedGroup}
-            className="flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-700 mt-3 border border-dashed border-indigo-200 rounded-md px-2.5 py-1.5 hover:bg-indigo-50 transition-colors">
+            className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground mt-3 border border-dashed border-border rounded-md px-2.5 py-1.5 hover:bg-accent transition-colors">
             <IC.Plus size={12} />Add Nested IF Block
           </button>
         </div>
@@ -244,22 +244,22 @@ interface BlockComponentProps {
 
 const blockColors = {
   IF: {
-    border: 'border-amber-200',
-    header: 'bg-amber-50 border-amber-100',
-    label: 'text-amber-700',
-    badge: 'bg-amber-100 text-amber-700',
+    border: 'border-primary/20',
+    header: 'bg-primary/5 border-primary/15',
+    label: 'text-primary/70',
+    badge: 'bg-primary/10 text-primary',
   },
   ELSE_IF: {
-    border: 'border-purple-200',
-    header: 'bg-purple-50 border-purple-100',
-    label: 'text-purple-700',
-    badge: 'bg-purple-100 text-purple-700',
+    border: 'border-amber-100',
+    header: 'bg-amber-50/60 border-amber-100/70',
+    label: 'text-amber-600/80',
+    badge: 'bg-amber-50 text-amber-600',
   },
   ELSE: {
-    border: 'border-gray-200',
-    header: 'bg-gray-50 border-gray-100',
-    label: 'text-gray-600',
-    badge: 'bg-gray-100 text-gray-600',
+    border: 'border-border',
+    header: 'bg-muted/30 border-border/50',
+    label: 'text-muted-foreground',
+    badge: 'bg-muted text-muted-foreground',
   },
 };
 
@@ -283,7 +283,7 @@ const BlockComponent: React.FC<BlockComponentProps> = ({ block, onChange, onRemo
         <div className="ml-auto flex gap-1">
           {canRemove && !isOnly && (
             <button type="button" onClick={onRemove}
-              className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors" title="Remove this block">
+              className="p-1 rounded text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 transition-colors" title="Remove this block">
               <IC.Trash size={12} />
             </button>
           )}
@@ -294,7 +294,7 @@ const BlockComponent: React.FC<BlockComponentProps> = ({ block, onChange, onRemo
         {/* WHEN section (not for ELSE) */}
         {!isElse && (
           <div>
-            <p className={cn('text-[10px] font-bold uppercase tracking-wider mb-2', colors.label)}>WHEN</p>
+          <p className={cn('text-[10px] font-bold uppercase tracking-wider mb-2', colors.label)}>WHEN</p>
             <WhenSection
               when={block.when}
               blockType={block.type}
@@ -305,7 +305,7 @@ const BlockComponent: React.FC<BlockComponentProps> = ({ block, onChange, onRemo
 
         {/* THEN section */}
         <div>
-          <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-2">THEN</p>
+          <p className="text-[10px] font-bold text-foreground/50 uppercase tracking-wider mb-2">THEN</p>
           <ThenSection
             actions={block.actions}
             nested={block.nested}
@@ -355,14 +355,14 @@ const BlockGroupComponent: React.FC<BlockGroupProps> = ({ group, onChange, onRem
 
   const depthIndicator = depth > 0 ? (
     <div className="flex items-center gap-1.5 mb-2">
-      <div className="h-px flex-1 bg-gray-200" />
-      <span className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Nested Block</span>
-      <div className="h-px flex-1 bg-gray-200" />
+      <div className="h-px flex-1 bg-border" />
+      <span className="text-[10px] text-muted-foreground/60 uppercase tracking-wider font-semibold">Nested Block</span>
+      <div className="h-px flex-1 bg-border" />
     </div>
   ) : null;
 
   return (
-    <div className={cn('rounded-xl', depth > 0 ? 'border border-dashed border-gray-300 p-3' : '')}>
+    <div className={cn('rounded-xl', depth > 0 ? 'border border-dashed border-border/60 p-3' : '')}>
       {depthIndicator}
       <div className="flex flex-col gap-2">
         {group.blocks.map((block, i) => (
@@ -381,17 +381,17 @@ const BlockGroupComponent: React.FC<BlockGroupProps> = ({ group, onChange, onRem
       {/* Add else-if / else */}
       <div className="flex items-center gap-2 mt-3 flex-wrap">
         <button type="button" onClick={addElseIf}
-          className="flex items-center gap-1.5 text-xs font-medium text-purple-600 hover:text-purple-700 px-2.5 py-1.5 border border-dashed border-purple-200 rounded-md hover:bg-purple-50 transition-colors">
+          className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground px-2.5 py-1.5 border border-dashed border-border rounded-md hover:bg-accent transition-colors">
           <IC.Plus size={12} />ELSE IF
         </button>
         {!hasElse && (
           <button type="button" onClick={addElse}
-            className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 px-2.5 py-1.5 border border-dashed border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
+            className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground/70 hover:text-foreground px-2.5 py-1.5 border border-dashed border-border/60 rounded-md hover:bg-accent transition-colors">
             <IC.Plus size={12} />ELSE
           </button>
         )}
         {(elseIfCount > 0 || hasElse) && (
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-muted-foreground/60">
             {elseIfCount > 0 && `${elseIfCount} ELSE IF`}
             {elseIfCount > 0 && hasElse && ' · '}
             {hasElse && 'ELSE'}
@@ -399,7 +399,7 @@ const BlockGroupComponent: React.FC<BlockGroupProps> = ({ group, onChange, onRem
         )}
         {canRemove && depth > 0 && (
           <button type="button" onClick={onRemove}
-            className="ml-auto flex items-center gap-1 text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50 transition-colors">
+            className="ml-auto flex items-center gap-1 text-xs text-muted-foreground/60 hover:text-destructive px-2 py-1 rounded hover:bg-destructive/10 transition-colors">
             <IC.Trash size={11} />Remove block
           </button>
         )}
@@ -435,9 +435,9 @@ export const BlockBuilder: React.FC<BlockBuilderProps> = ({ content, onChange, f
           <div key={group.id}>
             {i > 0 && (
               <div className="flex items-center gap-2 mb-4">
-                <div className="h-px flex-1 bg-gray-200" />
-                <span className="text-xs text-gray-400 uppercase tracking-wider font-semibold px-2">Sequential Block {i + 1}</span>
-                <div className="h-px flex-1 bg-gray-200" />
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-xs text-muted-foreground/60 uppercase tracking-wider font-semibold px-2">Sequential Block {i + 1}</span>
+                <div className="h-px flex-1 bg-border" />
               </div>
             )}
             <BlockGroupComponent
@@ -450,7 +450,7 @@ export const BlockBuilder: React.FC<BlockBuilderProps> = ({ content, onChange, f
           </div>
         ))}
         <button type="button" onClick={addTopGroup}
-          className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 px-4 py-3 border-2 border-dashed border-blue-200 rounded-xl hover:bg-blue-50 transition-colors justify-center">
+          className="flex items-center gap-2 text-sm font-medium text-primary/70 hover:text-primary px-4 py-3 border-2 border-dashed border-primary/20 rounded-xl hover:bg-primary/5 transition-colors justify-center">
           <IC.Plus size={15} />Add Sequential IF Block
         </button>
       </div>
@@ -468,32 +468,32 @@ export const SchemaPanel: React.FC<SchemaPanelProps> = ({ content }) => {
   const outputSchema = deriveOutputSchema(content);
 
   return (
-    <div className="w-60 border-l border-gray-200 bg-gray-50 shrink-0 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
-      <div className="p-4 sticky top-0 bg-gray-50 border-b border-gray-100 z-10">
-        <p className="text-xs font-bold text-gray-700 uppercase tracking-wider">Auto Schema</p>
-        <p className="text-[10px] text-gray-400 mt-0.5">Derived from rule logic</p>
+    <div className="w-60 border-l border-border bg-background shrink-0 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
+      <div className="p-4 sticky top-0 bg-background border-b border-border z-10">
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">What this rule reads &amp; writes</p>
+        <p className="text-[10px] text-muted-foreground/60 mt-0.5">Auto-detected from your logic</p>
       </div>
 
       <div className="p-4">
         {/* Input Schema */}
         <div className="mb-5">
           <div className="flex items-center gap-1.5 mb-2.5">
-            <div className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
-            <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">Input Schema</p>
+            <div className="w-2 h-2 rounded-full bg-primary/50 shrink-0" />
+            <p className="text-[10px] font-semibold text-foreground/60 uppercase tracking-wider">Needs to know</p>
           </div>
           {inputSchema.facts.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-gray-200 p-3 text-center">
-              <p className="text-[10px] text-gray-400 leading-relaxed">Add conditions to IF blocks to auto-populate</p>
+            <div className="rounded-lg border border-dashed border-border/60 p-3 text-center">
+              <p className="text-[10px] text-muted-foreground leading-relaxed">Fields used in your conditions will appear here</p>
             </div>
           ) : (
             <div className="flex flex-col gap-2">
               {inputSchema.facts.map(fact => (
-                <div key={fact.factType} className="bg-white rounded-lg border border-gray-200 p-2.5">
-                  <p className="text-[10px] font-bold text-gray-700 mb-1.5">{fact.factType}</p>
+                <div key={fact.factType} className="bg-background rounded-lg border border-border p-2.5">
+                  <p className="text-[10px] font-bold text-foreground/70 mb-1.5">{fact.factType}</p>
                   {fact.fields.map(field => (
                     <div key={field.name} className="flex items-center gap-1.5 mb-1">
-                      <span className="font-mono text-[10px] text-blue-600 bg-blue-50 px-1 py-0.5 rounded">{field.name}</span>
-                      <span className="text-[10px] text-gray-400">{field.dataType}</span>
+                      <span className="font-mono text-[10px] text-primary/80 bg-primary/8 px-1 py-0.5 rounded">{field.name}</span>
+                      <span className="text-[10px] text-muted-foreground">{field.dataType}</span>
                     </div>
                   ))}
                 </div>
@@ -502,27 +502,27 @@ export const SchemaPanel: React.FC<SchemaPanelProps> = ({ content }) => {
           )}
         </div>
 
-        <div className="border-t border-gray-200 mb-5" />
+        <div className="border-t border-border mb-5" />
 
         {/* Output Schema */}
         <div>
           <div className="flex items-center gap-1.5 mb-2.5">
-            <div className="w-2 h-2 rounded-full bg-green-400 shrink-0" />
-            <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">Output Schema</p>
+            <div className="w-2 h-2 rounded-full bg-emerald-400/70 shrink-0" />
+            <p className="text-[10px] font-semibold text-foreground/60 uppercase tracking-wider">Produces</p>
           </div>
           {outputSchema.facts.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-gray-200 p-3 text-center">
-              <p className="text-[10px] text-gray-400 leading-relaxed">Add ASSIGN / COMPUTE actions to auto-populate</p>
+            <div className="rounded-lg border border-dashed border-border/60 p-3 text-center">
+              <p className="text-[10px] text-muted-foreground leading-relaxed">Fields set in your actions will appear here</p>
             </div>
           ) : (
             <div className="flex flex-col gap-2">
               {outputSchema.facts.map(fact => (
-                <div key={fact.factType} className="bg-white rounded-lg border border-gray-200 p-2.5">
-                  <p className="text-[10px] font-bold text-gray-700 mb-1.5">{fact.factType}</p>
+                <div key={fact.factType} className="bg-background rounded-lg border border-border p-2.5">
+                  <p className="text-[10px] font-bold text-foreground/70 mb-1.5">{fact.factType}</p>
                   {fact.fields.map(field => (
                     <div key={field.name} className="flex items-center gap-1.5 mb-1">
-                      <span className="font-mono text-[10px] text-green-600 bg-green-50 px-1 py-0.5 rounded">{field.name}</span>
-                      <span className="text-[10px] text-gray-400">{field.dataType}</span>
+                      <span className="font-mono text-[10px] text-emerald-700/80 bg-emerald-50/60 px-1 py-0.5 rounded">{field.name}</span>
+                      <span className="text-[10px] text-muted-foreground">{field.dataType}</span>
                     </div>
                   ))}
                 </div>
@@ -532,11 +532,11 @@ export const SchemaPanel: React.FC<SchemaPanelProps> = ({ content }) => {
         </div>
 
         {/* Legend */}
-        <div className="mt-5 pt-4 border-t border-gray-200">
-          <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Legend</p>
-          <div className="space-y-1.5 text-[10px] text-gray-400">
-            <p><span className="text-amber-500 font-medium">Input</span> — fields read in WHEN conditions</p>
-            <p><span className="text-green-500 font-medium">Output</span> — fields written in ASSIGN / COMPUTE / MULTIPLY / % actions</p>
+        <div className="mt-5 pt-4 border-t border-border">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Legend</p>
+          <div className="space-y-1.5 text-[10px] text-muted-foreground">
+            <p><span className="text-primary/80 font-medium">Needs to know</span> — data this rule checks</p>
+            <p><span className="text-emerald-600/80 font-medium">Produces</span> — values this rule sets or calculates</p>
           </div>
         </div>
       </div>
@@ -551,24 +551,48 @@ interface ConditionsPanelProps {
 
 const condLabel = (cond: Condition): string => {
   const op = OPERATORS.find(o => o.value === cond.operator)?.label || cond.operator;
-  if (['IS_NULL', 'IS_NOT_NULL'].includes(cond.operator)) return `${cond.field} ${op}`;
+  // Humanise field: take last segment of dot path and convert camelCase to words
+  const fieldName = cond.field
+    ? cond.field.split('.').pop()!.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase()).trim()
+    : 'field';
+  if (['IS_NULL', 'IS_EMPTY'].includes(cond.operator)) return `${fieldName} is not provided`;
+  if (['IS_NOT_NULL', 'IS_NOT_EMPTY'].includes(cond.operator)) return `${fieldName} is provided`;
   if (cond.operator === 'BETWEEN' || cond.operator === 'DATE_BETWEEN')
-    return `${cond.field} ${op} ${cond.value} … ${cond.secondValue}`;
-  return `${cond.field} ${op} ${cond.value || '—'}`;
+    return `${fieldName} is between ${cond.value} and ${cond.secondValue}`;
+  const opMap: Record<string, string> = {
+    EQUALS: 'is', NOT_EQUALS: 'is not', GREATER_THAN: 'is more than',
+    LESS_THAN: 'is less than', GREATER_THAN_OR_EQUAL: 'is at least',
+    LESS_THAN_OR_EQUAL: 'is at most', CONTAINS: 'contains', IN: 'is one of',
+  };
+  const friendlyOp = opMap[cond.operator] || op.toLowerCase();
+  return `${fieldName} ${friendlyOp}${cond.value ? ` ${cond.value}` : ''}`;
 };
 
 const actionLabel = (a: RuleAction): string => {
+  const fieldName = a.field
+    ? a.field.split('.').pop()!.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase()).trim()
+    : '';
   switch (a.type) {
-    case 'ASSIGN': return `= ${a.field}${a.value ? ` → "${a.value}"` : ''}`;
-    case 'COMPUTE': return `∑ ${a.field}`;
-    case 'ADD_MESSAGE': return `✉ ${a.value || a.field}`;
-    default: return `${a.type}${a.field ? ` ${a.field}` : ''}`;
+    case 'ASSIGN': return `Set ${fieldName}${a.value ? ` to "${a.value}"` : ''}`;
+    case 'COMPUTE': return `Calculate ${fieldName}`;
+    case 'MULTIPLY': return `Multiply ${fieldName}`;
+    case 'APPLY_PERCENTAGE': return `Apply % to ${fieldName}`;
+    case 'LOOKUP': return `Look up ${fieldName}`;
+    case 'ADD_MESSAGE': return `Send message${a.config?.template ? `: "${String(a.config.template).slice(0, 40)}${String(a.config.template).length > 40 ? '…' : ''}"` : ''}`;
+    case 'LOG': return `Log: ${a.config?.message ? String(a.config.message).slice(0, 40) : ''}`;
+    default: return `${a.type}${fieldName ? ` ${fieldName}` : ''}`;
   }
+};
+
+const blockTypeLabel: Record<BlockType, string> = {
+  IF: 'When',
+  ELSE_IF: 'Or when',
+  ELSE: 'Otherwise',
 };
 
 const blockTypeStyle: Record<BlockType, string> = {
   IF:      'bg-primary/10 text-primary',
-  ELSE_IF: 'bg-amber-50 text-amber-700',
+  ELSE_IF: 'bg-amber-50/80 text-amber-600',
   ELSE:    'bg-muted text-muted-foreground',
 };
 
@@ -578,18 +602,18 @@ const CondTree: React.FC<{ blocks: ConditionalBlock[]; depth?: number }> = ({ bl
       <div key={block.id}>
         {/* Block type badge */}
         <span className={cn('inline-block text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded mb-1', blockTypeStyle[block.type])}>
-          {block.type === 'ELSE_IF' ? 'ELSE IF' : block.type}
+          {blockTypeLabel[block.type]}
         </span>
 
         {/* Conditions */}
         {block.type !== 'ELSE' && (
           <div className="ml-0.5 mb-1">
             {block.when.conditions.length === 0 ? (
-              <p className="text-[10px] text-muted-foreground/50 ml-1 italic">no conditions yet</p>
+              <p className="text-[10px] text-muted-foreground/50 ml-1 italic">always applies</p>
             ) : (
               <>
                 <p className="text-[10px] text-muted-foreground mb-0.5">
-                  {block.when.match === 'and' ? 'ALL of:' : 'ANY of:'}
+                  {block.when.match === 'and' ? 'All must be true:' : 'Any one is true:'}
                 </p>
                 {block.when.conditions.map(c => (
                   <div key={c.id} className="flex items-start gap-1 ml-1 mb-0.5">
@@ -632,16 +656,16 @@ export const ConditionsPanel: React.FC<ConditionsPanelProps> = ({ content }) => 
   );
 
   return (
-    <div className="w-56 border-r border-border bg-muted/20 shrink-0 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
-      <div className="px-4 py-3 sticky top-0 bg-muted/30 border-b border-border z-10 backdrop-blur-sm">
-        <p className="text-[10px] font-bold text-foreground uppercase tracking-wider">Conditions Trail</p>
-        <p className="text-[10px] text-muted-foreground mt-0.5">Live logic tree</p>
+    <div className="w-56 border-r border-border bg-background shrink-0 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
+      <div className="px-4 py-3 sticky top-0 bg-background border-b border-border z-10">
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Rule Summary</p>
+        <p className="text-[10px] text-muted-foreground/60 mt-0.5">How this rule will behave</p>
       </div>
       <div className="p-3">
         {isEmpty ? (
-          <div className="rounded-lg border border-dashed border-border p-3 text-center mt-1">
+          <div className="rounded-lg border border-dashed border-border/60 p-3 text-center mt-1">
             <p className="text-[10px] text-muted-foreground leading-relaxed">
-              Add conditions and actions to see the logic tree here
+              Start adding conditions and actions to see a plain-language summary here
             </p>
           </div>
         ) : (
