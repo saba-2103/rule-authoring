@@ -110,7 +110,7 @@ export const RuleCreatePage: React.FC<RuleCreatePageProps> = ({ onSave, onCancel
         </div>
       </Modal>
       {/* breadcrumb */}
-      <div className="bg-background border-b border-border px-6 py-3 flex items-center gap-1.5 shrink-0">
+      <div className="bg-background border-b border-border px-6 py-3 flex items-center gap-1.5 font-medium shrink-0">
         <button onClick={onCancel} className="text-sm text-muted-foreground hover:text-foreground transition-colors">Rules</button>
         <IC.ChevR size={13} className="text-muted-foreground/40" />
         <button onClick={onCancel} className="text-sm text-muted-foreground hover:text-foreground transition-colors">Decisions</button>

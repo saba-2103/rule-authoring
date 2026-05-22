@@ -19,7 +19,7 @@ export const FlowDetailPage: React.FC<{ flow: Flow; onBack: () => void }> = ({ f
   return (
     <div className="flex flex-col h-full">
       <div className="bg-background border-b border-border px-6 py-4 shrink-0">
-        <div className="flex items-center gap-1.5 text-sm mb-3">
+        <div className="flex items-center gap-1.5 text-sm font-medium mb-3">
           <button onClick={onBack} className="text-muted-foreground hover:text-foreground transition-colors">Rules</button>
           <IC.ChevR size={13} className="text-muted-foreground/40" />
           <button onClick={onBack} className="text-muted-foreground hover:text-foreground transition-colors">Decisions</button>

@@ -59,7 +59,8 @@ export default function App() {
   /* ── NAVIGATION ────────────────────────────────── */
   const handleSecNav = (key: string) => {
     setSecondaryNav(key);
-    if (key === 'decisions') { setPage('decisions'); setSelectedRule(null); }
+    if (key === 'dashboard') handleGoToDashboard();
+    else if (key === 'decisions') { setPage('decisions'); setSelectedRule(null); }
     else if (key === 'spaces') setPage('spaces');
     else if (key === 'fields' || key === 'facts') setPage('fields');
     else if (key === 'sandbox') setPage('sandbox');
@@ -71,6 +72,15 @@ export default function App() {
     setSelectedRule(null);
     setSelectedTable(null);
     setSelectedFlow(null);
+  };
+
+  const handleGoToDashboard = () => {
+    setPage('decisions');
+    setSecondaryNav('decisions');
+    setSelectedRule(null);
+    setSelectedTable(null);
+    setSelectedFlow(null);
+    setSelectedLookupTable(null);
   };
 
   /* ── LOOKUP HANDLERS ───────────────────────────── */
@@ -244,6 +254,7 @@ export default function App() {
             onDelete={handleDeleteSpace}
             facts={facts}
             factFields={factFields}
+            onHome={handleGoToDashboard}
           />
         )}
 
@@ -260,6 +271,7 @@ export default function App() {
             onUpdateField={handleUpdateField}
             onDeleteField={handleDeleteField}
             initialTab={secondaryNav === 'facts' ? 'facts' : 'facts'}
+            onHome={handleGoToDashboard}
           />
         )}
 
@@ -273,6 +285,7 @@ export default function App() {
             onDeleteRule={handleDeleteRuleRequest}
             onViewTable={handleViewTable}
             onViewFlow={handleViewFlow}
+            onHome={handleGoToDashboard}
           />
         )}
 
@@ -315,7 +328,7 @@ export default function App() {
 
         {/* Sandbox */}
         {page === 'sandbox' && (
-          <SandboxPage rules={rules} />
+          <SandboxPage rules={rules} onHome={handleGoToDashboard} />
         )}
 
         {/* Lookup List */}
@@ -324,6 +337,7 @@ export default function App() {
             tables={lookupTables}
             onView={handleViewLookup}
             onCreateNew={() => setPage('lookup-create')}
+            onHome={handleGoToDashboard}
           />
         )}
 
@@ -332,6 +346,7 @@ export default function App() {
           <LookupTableDetail
             tbl={selectedLookupTable}
             onBack={() => { setPage('lookup'); setSecondaryNav('lookup'); }}
+            onHome={handleGoToDashboard}
             onNewVersion={tbl => { setSelectedLookupTable(tbl); setPage('lookup-new-version'); }}
           />
         )}
@@ -341,6 +356,7 @@ export default function App() {
           <LookupTableCreate
             onSave={handleSaveLookupTable}
             onCancel={() => setPage('lookup')}
+            onHome={handleGoToDashboard}
           />
         )}
 
@@ -350,6 +366,7 @@ export default function App() {
             existingTable={selectedLookupTable}
             onSave={handleSaveLookupTable}
             onCancel={() => setPage('lookup-detail')}
+            onHome={handleGoToDashboard}
           />
         )}
       </main>

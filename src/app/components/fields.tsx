@@ -231,6 +231,7 @@ export interface FieldsPageProps {
   onUpdateField: (field: FactField) => void;
   onDeleteField: (fieldId: string) => void;
   initialTab?: 'facts' | 'fields';
+  onHome?: () => void;
 }
 
 export const FieldsPage: React.FC<FieldsPageProps> = ({
@@ -238,6 +239,7 @@ export const FieldsPage: React.FC<FieldsPageProps> = ({
   onCreateFact, onUpdateFact, onDeleteFact,
   onCreateField, onUpdateField, onDeleteField,
   initialTab = 'facts',
+  onHome,
 }) => {
   const [tab, setTab] = useState<'facts' | 'fields'>(initialTab);
   const [selectedFactId, setSelectedFactId] = useState<string | null>(facts[0]?.id || null);
@@ -314,8 +316,8 @@ export const FieldsPage: React.FC<FieldsPageProps> = ({
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="bg-background border-b border-border px-6 py-4 shrink-0">
-        <div className="flex items-center gap-1.5 text-sm mb-3">
-          <span className="text-muted-foreground">Rules</span>
+        <div className="flex items-center gap-1.5 text-sm font-medium mb-3">
+          <button onClick={onHome} className="text-muted-foreground hover:text-foreground transition-colors">Rules</button>
           <IC.ChevR size={13} className="text-muted-foreground/40" />
           <span className="text-foreground font-medium">Fields &amp; Facts</span>
         </div>

@@ -371,7 +371,7 @@ const UnifiedTable: React.FC<UnifiedTableProps> = ({
               <React.Fragment key={item.id}>
                 <tr className="hover:bg-accent/50 transition-colors cursor-pointer" onClick={() => onToggle(item.id)}>
                   {/* Name */}
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-2">
                     {isRule ? (
                       <button onClick={e => { e.stopPropagation(); onViewRule(item.raw as Rule); }}
                         className="text-sm font-medium text-primary hover:text-primary/80 hover:underline text-left leading-snug">
@@ -385,21 +385,21 @@ const UnifiedTable: React.FC<UnifiedTableProps> = ({
                     )}
                   </td>
                   {/* Kind */}
-                  <td className="px-4 py-3"><KindBadge kind={item.kind} /></td>
+                  <td className="px-4 py-2"><KindBadge kind={item.kind} /></td>
                   {/* Category */}
-                  <td className="px-4 py-3 text-sm text-muted-foreground">
+                  <td className="px-4 py-2 text-sm text-muted-foreground">
                     {item.category || <span className="text-muted-foreground/40">—</span>}
                   </td>
                   {/* Versions count */}
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-2">
                     <span className="text-sm text-foreground font-medium">{item.versionsCount}</span>
                   </td>
                   {/* Status chips */}
-                  <td className="px-4 py-3"><StatusChips counts={item.statusCounts} /></td>
+                  <td className="px-4 py-2"><StatusChips counts={item.statusCounts} /></td>
                   {/* Last Updated */}
-                  <td className="px-4 py-3 text-xs text-muted-foreground">{fmt(item.updatedAt)}</td>
+                  <td className="px-4 py-2 text-xs text-muted-foreground">{fmt(item.updatedAt)}</td>
                   {/* Actions */}
-                  <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                  <td className="px-4 py-2" onClick={e => e.stopPropagation()}>
                     <div className="flex items-center gap-0.5">
                       <Btn size="icon" variant="ghost" onClick={() => handleView(item)} title="View">
                         <IC.Eye size={13} className="text-muted-foreground" />
@@ -451,10 +451,11 @@ interface DecisionsPageProps {
   onDeleteRule: (rule: Rule) => void;
   onViewTable: (tbl: Table) => void;
   onViewFlow: (flow: Flow) => void;
+  onHome?: () => void;
 }
 
 export const DecisionsPage: React.FC<DecisionsPageProps> = ({
-  rules, tables, flows, onViewRule, onCreateRule, onEditRule, onDeleteRule, onViewTable, onViewFlow,
+  rules, tables, flows, onViewRule, onCreateRule, onEditRule, onDeleteRule, onViewTable, onViewFlow, onHome,
 }) => {
   const [newDecisionOpen, setNewDecisionOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('all');
@@ -513,8 +514,8 @@ export const DecisionsPage: React.FC<DecisionsPageProps> = ({
       <NewDecisionModal open={newDecisionOpen} onClose={() => setNewDecisionOpen(false)} onCreateRule={onCreateRule} />
       {/* header */}
       <div className="bg-background border-b border-border px-6 py-4">
-        <div className="flex items-center gap-1.5 text-sm mb-3">
-          <span className="text-muted-foreground">Rules</span>
+        <div className="flex items-center gap-1.5 text-sm font-medium mb-3">
+          <button onClick={onHome} className="text-muted-foreground hover:text-foreground transition-colors">Rules</button>
           <IC.ChevR size={13} className="text-muted-foreground/40" />
           <span className="text-foreground font-medium">Decisions</span>
         </div>

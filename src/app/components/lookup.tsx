@@ -7,6 +7,9 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from './ui/select';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from './ui/dropdown-menu';
 
 const DATA_TYPES: ('string' | 'number' | 'boolean')[] = ['string', 'number', 'boolean'];
 const CATEGORIES = ['Pricing', 'Claims', 'Underwriting', 'Compliance', 'Fraud', 'Operations', 'Other'];
@@ -51,9 +54,10 @@ interface LookupListPageProps {
   tables: LookupTable[];
   onView: (tbl: LookupTable) => void;
   onCreateNew: () => void;
+  onHome?: () => void;
 }
 
-export const LookupListPage: React.FC<LookupListPageProps> = ({ tables, onView, onCreateNew }) => {
+export const LookupListPage: React.FC<LookupListPageProps> = ({ tables, onView, onCreateNew, onHome }) => {
   const [search, setSearch]       = useState('');
   const [categoryF, setCategoryF] = useState('');
   const [statusF, setStatusF]     = useState('');
@@ -130,8 +134,8 @@ export const LookupListPage: React.FC<LookupListPageProps> = ({ tables, onView, 
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="bg-background border-b border-border px-6 py-4">
-        <div className="flex items-center gap-1.5 text-sm mb-3">
-          <span className="text-muted-foreground">Rules</span>
+        <div className="flex items-center gap-1.5 text-sm font-medium mb-3">
+          <button onClick={onHome} className="text-muted-foreground hover:text-foreground transition-colors">Rules</button>
           <IC.ChevR size={13} className="text-muted-foreground/40" />
           <span className="text-foreground font-medium">Lookup</span>
         </div>
@@ -188,7 +192,7 @@ export const LookupListPage: React.FC<LookupListPageProps> = ({ tables, onView, 
                   <th className="text-left px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Versions</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status</th>
                   <SortTh col="created" label="Created" />
-                  <th className="px-3 py-2.5 w-8" />
+                  <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground text-right w-24">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/50">
@@ -199,20 +203,14 @@ export const LookupListPage: React.FC<LookupListPageProps> = ({ tables, onView, 
                   return (
                     <React.Fragment key={tbl.id}>
                       <tr onClick={() => toggleExpand(tbl.id)} className="hover:bg-accent/50 cursor-pointer transition-colors">
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-2">
                           <button onClick={e => { e.stopPropagation(); onView(tbl); }}
                             className="text-sm font-medium text-primary hover:text-primary/80 hover:underline text-left leading-snug">
                             {tbl.name}
                           </button>
-                          {tbl.tags.length > 0 && (
-                            <div className="flex gap-1 flex-wrap mt-0.5">
-                              {tbl.tags.slice(0, 3).map(t => <Tag key={t} label={t} />)}
-                              {tbl.tags.length > 3 && <span className="text-[10px] text-muted-foreground">+{tbl.tags.length - 3}</span>}
-                            </div>
-                          )}
                         </td>
-                        <td className="px-4 py-3 text-sm text-muted-foreground">{tbl.category}</td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-2 text-sm text-muted-foreground">{tbl.category}</td>
+                        <td className="px-4 py-2">
                           {ver ? (
                             <div className="flex flex-col">
                               <span className="font-mono text-xs text-foreground">{ver.keyColumn.field}</span>
@@ -220,7 +218,7 @@ export const LookupListPage: React.FC<LookupListPageProps> = ({ tables, onView, 
                             </div>
                           ) : <span className="text-muted-foreground/40">—</span>}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-2">
                           {ver ? (
                             <div className="flex gap-1 flex-wrap">
                               {ver.valueColumns.map(vc => (
@@ -229,18 +227,42 @@ export const LookupListPage: React.FC<LookupListPageProps> = ({ tables, onView, 
                             </div>
                           ) : <span className="text-muted-foreground/40">—</span>}
                         </td>
-                        <td className="px-4 py-3 text-sm text-muted-foreground text-center">
+                        <td className="px-4 py-2 text-sm text-muted-foreground text-center">
                           {ver ? ver.rows.filter(r => r.isEnabled).length : '—'}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-2">
                           <span className="text-sm text-foreground font-medium">{tbl.versions.length}</span>
                         </td>
-                        <td className="px-4 py-3">{ver ? <StatusBadge status={ver.status} /> : '—'}</td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground">{fmt(tbl.createdAt)}</td>
-                        <td className="px-3 py-3">
-                          <span className={cn('text-muted-foreground transition-transform duration-150 block', isExpanded && 'rotate-180')}>
-                            <IC.ChevD size={13} />
-                          </span>
+                        <td className="px-4 py-2">{ver ? <StatusBadge status={ver.status} /> : '—'}</td>
+                        <td className="px-4 py-2 text-xs text-muted-foreground">{fmt(tbl.createdAt)}</td>
+                        <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={() => onView(tbl)}
+                              className="h-7 w-7 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                              title="View">
+                              <IC.Eye size={14} />
+                            </button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  className="h-7 w-7 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                                  title="More options">
+                                  <IC.MoreVert size={14} />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => onView(tbl)}>
+                                  <IC.Edit size={13} />
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="text-destructive focus:text-destructive">
+                                  <IC.Trash size={13} />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         </td>
                       </tr>
                       {isExpanded && sortedVersForRow.map(v => (
@@ -258,6 +280,7 @@ export const LookupListPage: React.FC<LookupListPageProps> = ({ tables, onView, 
                           <td className="px-4 py-2"><StatusBadge status={v.status} /></td>
                           <td className="px-4 py-2 text-xs text-muted-foreground">{fmt(v.effectiveFrom)}</td>
                           <td className="px-4 py-2" colSpan={2} />
+
                         </tr>
                       ))}
                     </React.Fragment>
@@ -288,10 +311,11 @@ export const LookupListPage: React.FC<LookupListPageProps> = ({ tables, onView, 
 interface LookupTableDetailProps {
   tbl: LookupTable;
   onBack: () => void;
+  onHome: () => void;
   onNewVersion: (tbl: LookupTable) => void;
 }
 
-export const LookupTableDetail: React.FC<LookupTableDetailProps> = ({ tbl, onBack, onNewVersion }) => {
+export const LookupTableDetail: React.FC<LookupTableDetailProps> = ({ tbl, onBack, onHome, onNewVersion }) => {
   const sortedVers = [...tbl.versions].sort((a, b) => b.version - a.version);
   const [selVer, setSelVer] = useState(sortedVers[0] ?? null);
   const ver = selVer;
@@ -308,8 +332,8 @@ export const LookupTableDetail: React.FC<LookupTableDetailProps> = ({ tbl, onBac
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="bg-background border-b border-border px-6 py-4 shrink-0">
-        <div className="flex items-center gap-1.5 text-sm mb-3">
-          <button onClick={onBack} className="text-muted-foreground hover:text-foreground transition-colors">Rules</button>
+        <div className="flex items-center gap-1.5 text-sm font-medium mb-3">
+          <button onClick={onHome} className="text-muted-foreground hover:text-foreground transition-colors">Rules</button>
           <IC.ChevR size={13} className="text-muted-foreground/40" />
           <button onClick={onBack} className="text-muted-foreground hover:text-foreground transition-colors">Lookup</button>
           <IC.ChevR size={13} className="text-muted-foreground/40" />
@@ -376,7 +400,7 @@ export const LookupTableDetail: React.FC<LookupTableDetailProps> = ({ tbl, onBac
         {/* Version detail */}
         {ver ? (
           <div className="flex-1 overflow-y-auto p-6" style={{ scrollbarWidth: 'thin' }}>
-            <div className="max-w-3xl flex flex-col gap-5">
+            <div className="flex flex-col gap-5">
 
               {/* Meta card */}
               <div className="bg-card rounded-xl border border-border p-5">
@@ -434,18 +458,19 @@ export const LookupTableDetail: React.FC<LookupTableDetailProps> = ({ tbl, onBac
                 </div>
               </div>
 
+              {/* Search bar */}
+              <div className="flex items-center gap-3">
+                <div className="relative flex-1">
+                  <IC.Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <Inp value={search} onChange={e => setSearch(e.target.value)} placeholder="Filter entries…" className="pl-8 w-full" />
+                </div>
+                {search && (
+                  <span className="text-xs text-muted-foreground shrink-0">{visibleRows.length}/{ver.rows.length} entries</span>
+                )}
+              </div>
+
               {/* Entries table */}
               <div className="bg-card rounded-xl border border-border overflow-hidden">
-                <div className="px-5 py-3.5 border-b border-border flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold text-foreground shrink-0">Entries</p>
-                  <div className="relative flex-1 max-w-xs">
-                    <IC.Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                    <Inp value={search} onChange={e => setSearch(e.target.value)} placeholder="Filter entries…" className="pl-8 text-xs h-7" />
-                  </div>
-                  {search && (
-                    <span className="text-xs text-muted-foreground shrink-0">{visibleRows.length}/{ver.rows.length}</span>
-                  )}
-                </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
@@ -523,10 +548,11 @@ const STEPS = ['Info', 'Schema', 'Data'];
 interface LookupTableCreateProps {
   onSave: (tbl: LookupTable) => void;
   onCancel: () => void;
+  onHome: () => void;
   existingTable?: LookupTable;
 }
 
-export const LookupTableCreate: React.FC<LookupTableCreateProps> = ({ onSave, onCancel, existingTable }) => {
+export const LookupTableCreate: React.FC<LookupTableCreateProps> = ({ onSave, onCancel, onHome, existingTable }) => {
   const isNewVersion = !!existingTable;
   const today = new Date().toISOString().slice(0, 10);
   const [step, setStep] = useState(0);
@@ -751,8 +777,8 @@ export const LookupTableCreate: React.FC<LookupTableCreateProps> = ({ onSave, on
       </Modal>
 
       {/* Breadcrumb */}
-      <div className="bg-background border-b border-border px-6 py-3 flex items-center gap-1.5 shrink-0">
-        <button onClick={onCancel} className="text-sm text-muted-foreground hover:text-foreground transition-colors">Rules</button>
+      <div className="bg-background border-b border-border px-6 py-3 flex items-center gap-1.5 font-medium shrink-0">
+        <button onClick={onHome} className="text-sm text-muted-foreground hover:text-foreground transition-colors">Rules</button>
         <IC.ChevR size={13} className="text-muted-foreground/40" />
         <button onClick={onCancel} className="text-sm text-muted-foreground hover:text-foreground transition-colors">Lookup</button>
         <IC.ChevR size={13} className="text-muted-foreground/40" />

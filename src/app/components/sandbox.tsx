@@ -4,6 +4,7 @@ import {
   Rule, RuleVersion, RuleContent, Condition, RuleAction,
   deriveInputSchema, OPERATORS,
 } from './shared';
+import { Tabs, TabsList, TabsTrigger } from './ui/tabs';
 
 /* ── CLIENT-SIDE RULE EVALUATOR ──────────────────── */
 type InputValues = Record<string, string>;
@@ -183,9 +184,10 @@ function JsonBlock({ label, value }: { label: string; value: object }) {
 /* ── SANDBOX PAGE ────────────────────────────────── */
 interface SandboxPageProps {
   rules: Rule[];
+  onHome?: () => void;
 }
 
-export const SandboxPage: React.FC<SandboxPageProps> = ({ rules }) => {
+export const SandboxPage: React.FC<SandboxPageProps> = ({ rules, onHome }) => {
   const [selectedRuleId, setSelectedRuleId] = useState<string>('__custom__');
   const [selectedVerNum, setSelectedVerNum] = useState<number | null>(null);
   const [inputs, setInputs]                = useState<InputValues>({});
@@ -344,8 +346,8 @@ export const SandboxPage: React.FC<SandboxPageProps> = ({ rules }) => {
     <div className="flex flex-col h-full">
       {/* ── Header ── */}
       <div className="bg-background border-b border-border px-6 py-4 shrink-0">
-        <div className="flex items-center gap-1.5 text-sm mb-2">
-          <span className="text-muted-foreground">Rules</span>
+        <div className="flex items-center gap-1.5 text-sm font-medium mb-2">
+          <button onClick={onHome} className="text-muted-foreground hover:text-foreground transition-colors">Rules</button>
           <IC.ChevR size={13} className="text-muted-foreground/40" />
           <span className="text-foreground font-medium">Sandbox</span>
         </div>
@@ -472,25 +474,16 @@ export const SandboxPage: React.FC<SandboxPageProps> = ({ rules }) => {
           {/* Input mode toggle + label */}
           <div className="px-4 pt-3 pb-2 flex items-center justify-between">
             <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Input Values</p>
-            <div className={cn(
-              'flex items-center border border-border rounded overflow-hidden',
-              isCustom && 'opacity-40 pointer-events-none'
-            )}>
-              <button
-                onClick={switchToForm}
-                className={cn(
-                  'px-2.5 py-1 text-[11px] font-semibold transition-colors',
-                  inputMode === 'form' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                )}
-              >Form</button>
-              <button
-                onClick={switchToJson}
-                className={cn(
-                  'px-2.5 py-1 text-[11px] font-semibold transition-colors border-l border-border',
-                  inputMode === 'json' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                )}
-              >JSON</button>
-            </div>
+            <Tabs
+              value={inputMode}
+              onValueChange={v => v === 'form' ? switchToForm() : switchToJson()}
+              className={cn(isCustom && 'opacity-40 pointer-events-none')}
+            >
+              <TabsList>
+                <TabsTrigger value="form">Form</TabsTrigger>
+                <TabsTrigger value="json">JSON</TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
 
           {/* Input content */}

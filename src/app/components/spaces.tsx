@@ -177,6 +177,7 @@ interface SpaceDetailProps {
   space: Space;
   isCurrentSpace: boolean;
   onBack: () => void;
+  onHome: () => void;
   onUpdate: (space: Space) => void;
   onDelete: (space: Space) => void;
   onSwitchSpace: (space: Space) => void;
@@ -185,7 +186,7 @@ interface SpaceDetailProps {
 }
 
 const SpaceDetail: React.FC<SpaceDetailProps> = ({
-  space, isCurrentSpace, onBack, onUpdate, onDelete, onSwitchSpace, facts, factFields,
+  space, isCurrentSpace, onBack, onHome, onUpdate, onDelete, onSwitchSpace, facts, factFields,
 }) => {
   const [editOpen, setEditOpen] = useState(false);
   const [addMemberOpen, setAddMemberOpen] = useState(false);
@@ -237,8 +238,8 @@ const SpaceDetail: React.FC<SpaceDetailProps> = ({
       {/* Header */}
       <div className="bg-background border-b border-border px-6 py-4 shrink-0">
         {/* Breadcrumb */}
-        <div className="flex items-center gap-1.5 text-sm mb-3">
-          <button onClick={onBack} className="text-muted-foreground hover:text-foreground transition-colors">Rules</button>
+        <div className="flex items-center gap-1.5 text-sm font-medium mb-3">
+          <button onClick={onHome} className="text-muted-foreground hover:text-foreground transition-colors">Rules</button>
           <IC.ChevR size={13} className="text-muted-foreground/40" />
           <button onClick={onBack} className="text-muted-foreground hover:text-foreground transition-colors">Spaces</button>
           <IC.ChevR size={13} className="text-muted-foreground/40" />
@@ -503,10 +504,11 @@ interface SpacesPageProps {
   onDelete: (space: Space) => void;
   facts: Fact[];
   factFields: FactField[];
+  onHome?: () => void;
 }
 
 export const SpacesPage: React.FC<SpacesPageProps> = (props) => {
-  const { spaces, currentSpaceId, onSelectSpace, onOpenSpace, onCreate, onUpdate, onDelete } = props;
+  const { spaces, currentSpaceId, onSelectSpace, onOpenSpace, onCreate, onUpdate, onDelete, onHome } = props;
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedSpace, setSelectedSpace] = useState<Space | null>(null);
 
@@ -532,6 +534,7 @@ export const SpacesPage: React.FC<SpacesPageProps> = (props) => {
         space={current}
         isCurrentSpace={current.id === currentSpaceId}
         onBack={() => setSelectedSpace(null)}
+        onHome={onHome ?? (() => {})}
         onUpdate={s => { onUpdate(s); setSelectedSpace(s); }}
         onDelete={handleDelete}
         onSwitchSpace={s => { onSelectSpace(s); }}
@@ -544,8 +547,8 @@ export const SpacesPage: React.FC<SpacesPageProps> = (props) => {
   return (
     <div className="flex flex-col h-full">
       <div className="bg-background border-b border-border px-6 py-4">
-        <div className="flex items-center gap-1.5 text-sm mb-3">
-          <span className="text-muted-foreground">Rules</span>
+        <div className="flex items-center gap-1.5 text-sm font-medium mb-3">
+          <button onClick={onHome} className="text-muted-foreground hover:text-foreground transition-colors">Rules</button>
           <IC.ChevR size={13} className="text-muted-foreground/40" />
           <span className="text-foreground font-medium">Spaces</span>
         </div>
