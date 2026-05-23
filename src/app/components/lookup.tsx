@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   cn, uid, fmt, activeVer,
-  Btn, Inp, IC, StatusBadge, Tag, Modal, SearchBanner, STATUS_META,
-  LookupTable, LookupVersion, LookupValueColumn,
+  Btn, Inp, Sel, DSel, IC, StatusBadge, Tag, Modal, SearchBanner, STATUS_META,
+  LookupTable, LookupVersion, LookupValueColumn, FactField,
 } from './shared';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -13,6 +13,22 @@ import {
 
 const DATA_TYPES: ('string' | 'number' | 'boolean')[] = ['string', 'number', 'boolean'];
 const CATEGORIES = ['Pricing', 'Claims', 'Underwriting', 'Compliance', 'Fraud', 'Operations', 'Other'];
+
+const LOOKUP_CATEGORY_COLORS: Record<string, string> = {
+  Underwriting: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  Claims:       'bg-rose-50 text-rose-700 border-rose-200',
+  Pricing:      'bg-primary/5 text-primary border-primary/20',
+  Compliance:   'bg-violet-50 text-violet-700 border-violet-200',
+  Operations:   'bg-teal-50 text-teal-700 border-teal-200',
+};
+const LookupCategoryBadge: React.FC<{ category: string }> = ({ category }) => {
+  const cls = LOOKUP_CATEGORY_COLORS[category] || 'bg-muted text-muted-foreground border-border';
+  return (
+    <span className={cn('inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border', cls)}>
+      {category}
+    </span>
+  );
+};
 
 function lookupActiveVer(tbl: LookupTable): LookupVersion | null {
   return activeVer(tbl);
@@ -144,7 +160,10 @@ export const LookupListPage: React.FC<LookupListPageProps> = ({ tables, onView, 
             <h1 className="text-lg font-semibold text-foreground">Lookup Tables</h1>
             <p className="text-sm text-muted-foreground">Key–value reference tables used by rules at evaluation time</p>
           </div>
-          <Btn onClick={onCreateNew}><IC.Plus size={14} />New Lookup Table</Btn>
+          <div className="flex items-center gap-2">
+            <Btn variant="secondary"><IC.Upload size={14} />Import</Btn>
+            <Btn onClick={onCreateNew}><IC.Plus size={14} />New Lookup Table</Btn>
+          </div>
         </div>
       </div>
 
@@ -308,18 +327,191 @@ export const LookupListPage: React.FC<LookupListPageProps> = ({ tables, onView, 
   );
 };
 
+/* ── LOOKUP VERSION BADGE ────────────────────────── */
+const LKP_VERSION_BADGE: Record<string, { label: string; cls: string }> = {
+  DRAFT:             { label: 'Draft',            cls: 'bg-slate-100 text-slate-600 border-slate-200' },
+  PEER_REVIEW:       { label: 'Pending Approval', cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+  BUSINESS_REVIEW:   { label: 'Pending Approval', cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+  COMPLIANCE_REVIEW: { label: 'Pending Approval', cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+  APPROVED:          { label: 'Approved',         cls: 'bg-teal-50 text-teal-700 border-teal-200' },
+  ACTIVE:            { label: 'Active',           cls: 'bg-green-50 text-green-700 border-green-200' },
+  INACTIVE:          { label: 'Inactive',         cls: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
+  DEPRECATED:        { label: 'Deprecated',       cls: 'bg-orange-50 text-orange-700 border-orange-200' },
+  ARCHIVE:           { label: 'Archived',         cls: 'bg-red-50 text-red-400 border-red-200' },
+};
+const LookupVersionBadge: React.FC<{ status: string }> = ({ status }) => {
+  const b = LKP_VERSION_BADGE[status] || LKP_VERSION_BADGE.DRAFT;
+  return <span className={cn('inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border', b.cls)}>{b.label}</span>;
+};
+const IS_LKP_PENDING = (s: string) => ['PEER_REVIEW', 'BUSINESS_REVIEW', 'COMPLIANCE_REVIEW'].includes(s);
+const LKP_VER_STATUSES = ['ACTIVE', 'INACTIVE', 'DEPRECATED'] as const;
+type LkpVerStatus = typeof LKP_VER_STATUSES[number];
+
+/* ── LOOKUP STATUS DROPDOWN ──────────────────────── */
+const LookupStatusDropdown: React.FC<{ current: string; onChange: (s: LkpVerStatus) => void }> = ({ current, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+  const meta = STATUS_META[current] || STATUS_META.DRAFT;
+  return (
+    <div className="relative" ref={ref}>
+      <button onClick={() => setOpen(o => !o)}
+        className={cn('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border transition-colors', meta.bg, meta.text, 'border-transparent hover:opacity-80')}>
+        <span className={cn('w-1.5 h-1.5 rounded-full', meta.dot)} />
+        {meta.label}
+        <IC.ChevD size={11} className="opacity-60" />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 bg-card border border-border rounded-lg shadow-lg z-30 min-w-[160px] py-1">
+          {LKP_VER_STATUSES.map(s => {
+            const m = STATUS_META[s];
+            return (
+              <button key={s} onClick={() => { onChange(s); setOpen(false); }}
+                className={cn('w-full text-left flex items-center gap-2 px-3 py-2 text-xs transition-colors', current === s ? 'bg-accent font-semibold' : 'hover:bg-accent', m.text)}>
+                <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', m.dot)} />
+                {m.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ── LOOKUP MORE MENU ────────────────────────────── */
+const LookupMoreMenu: React.FC<{ onEdit: () => void; onDelete: () => void }> = ({ onEdit, onDelete }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+  return (
+    <div className="relative" ref={ref}>
+      <Btn size="icon" variant="ghost" onClick={() => setOpen(o => !o)} title="More options">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="5" r="1" fill="currentColor" /><circle cx="12" cy="12" r="1" fill="currentColor" /><circle cx="12" cy="19" r="1" fill="currentColor" />
+        </svg>
+      </Btn>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 bg-card border border-border rounded-lg shadow-lg z-30 min-w-[150px] py-1">
+          <button onClick={() => { onEdit(); setOpen(false); }} className="w-full text-left flex items-center gap-2.5 px-3 py-2 text-xs text-foreground hover:bg-accent transition-colors">
+            <IC.Edit size={13} />Edit version
+          </button>
+          <button onClick={() => { onDelete(); setOpen(false); }} className="w-full text-left flex items-center gap-2.5 px-3 py-2 text-xs text-destructive hover:bg-destructive/10 transition-colors">
+            <IC.Trash size={13} />Delete
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ── EDIT LOOKUP TABLE MODAL ─────────────────────── */
+export interface EditLookupTableModalProps {
+  tbl: LookupTable;
+  open: boolean;
+  onClose: () => void;
+  onSave: (data: { name: string; category: string; tags: string[] }) => void;
+}
+export const EditLookupTableModal: React.FC<EditLookupTableModalProps> = ({ tbl, open, onClose, onSave }) => {
+  const [name, setName]         = useState(tbl.name);
+  const [category, setCategory] = useState(tbl.category);
+  const [tags, setTags]         = useState<string[]>(tbl.tags);
+  const [tagInput, setTagInput] = useState('');
+  useEffect(() => {
+    if (open) { setName(tbl.name); setCategory(tbl.category); setTags(tbl.tags); setTagInput(''); }
+  }, [open, tbl]);
+  const addTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && tagInput.trim()) { e.preventDefault(); setTags(t => [...t, tagInput.trim()]); setTagInput(''); }
+  };
+  return (
+    <Modal open={open} onClose={onClose} title="Edit Table" subtitle="Metadata only — to change schema or data, create a new version.">
+      <div className="p-5 flex flex-col gap-4">
+        <div>
+          <label className="text-xs font-semibold text-foreground mb-1 block">Table Name</label>
+          <Inp value={name} onChange={e => setName(e.target.value)} placeholder="e.g. NCB Discount Rates" className="w-full" />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-foreground mb-1 block">Category</label>
+          <Sel value={category} onChange={e => setCategory(e.target.value)}
+            options={[{ value: '', label: 'Select…' }, ...CATEGORIES.map(c => ({ value: c, label: c }))]} className="w-full" />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-foreground mb-1 block">
+            Tags <span className="text-muted-foreground font-normal text-[10px]">Press Enter to add</span>
+          </label>
+          <div className="flex flex-wrap gap-1.5 p-2 border border-border rounded-md bg-background min-h-[36px]">
+            {tags.map(t => (
+              <span key={t} className="inline-flex items-center gap-1 px-2 py-0.5 bg-muted text-muted-foreground text-xs rounded-md font-medium">
+                {t}<button type="button" onClick={() => setTags(ts => ts.filter(x => x !== t))} className="hover:text-foreground ml-0.5">×</button>
+              </span>
+            ))}
+            <input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={addTag}
+              placeholder="Add tag…" className="flex-1 text-sm outline-none min-w-[80px] placeholder:text-muted-foreground" />
+          </div>
+        </div>
+        <div className="flex gap-2 justify-end">
+          <Btn variant="outline" onClick={onClose}>Cancel</Btn>
+          <Btn onClick={() => onSave({ name: name.trim(), category, tags })}>Save Changes</Btn>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
+/* ── LOOKUP TABLE DETAIL ─────────────────────────── */
 interface LookupTableDetailProps {
   tbl: LookupTable;
   onBack: () => void;
   onHome: () => void;
   onNewVersion: (tbl: LookupTable) => void;
+  onUpdate?: (tbl: LookupTable) => void;
+  onEditMeta?: () => void;
 }
 
-export const LookupTableDetail: React.FC<LookupTableDetailProps> = ({ tbl, onBack, onHome, onNewVersion }) => {
+export const LookupTableDetail: React.FC<LookupTableDetailProps> = ({ tbl, onBack, onHome, onNewVersion, onUpdate, onEditMeta }) => {
   const sortedVers = [...tbl.versions].sort((a, b) => b.version - a.version);
   const [selVer, setSelVer] = useState(sortedVers[0] ?? null);
   const ver = selVer;
   const [search, setSearch] = useState('');
+  const [editVerOpen, setEditVerOpen]     = useState(false);
+  const [confirmDelVer, setConfirmDelVer] = useState(false);
+  const [editVerForm, setEditVerForm]     = useState({ description: '', changeSummary: '' });
+
+  const handleStatusChange = (newStatus: LkpVerStatus) => {
+    if (!ver || !onUpdate) return;
+    const updatedVer = { ...ver, status: newStatus };
+    const updatedTbl = { ...tbl, versions: tbl.versions.map(v => v.id === ver.id ? updatedVer : v) };
+    onUpdate(updatedTbl);
+    setSelVer(updatedVer);
+  };
+
+  const activity = useMemo(() => {
+    const events: { label: string; sub: string; date: string; dot: string }[] = [];
+    events.push({ label: 'Table created', sub: '', date: tbl.createdAt, dot: 'bg-blue-600' });
+    const sorted = [...tbl.versions].sort((a, b) => a.version - b.version);
+    for (const v of sorted) {
+      events.push({ label: `Version ${v.version} created`, sub: v.changeSummary || 'No summary', date: v.effectiveFrom || tbl.createdAt, dot: 'bg-gray-400' });
+      if (v.status !== 'DRAFT') {
+        const statusLabels: Record<string, { label: string; dot: string }> = {
+          ACTIVE:     { label: 'activated',   dot: 'bg-green-500' },
+          INACTIVE:   { label: 'deactivated', dot: 'bg-yellow-400' },
+          DEPRECATED: { label: 'deprecated',  dot: 'bg-orange-400' },
+          APPROVED:   { label: 'approved',    dot: 'bg-teal-400' },
+        };
+        const m = statusLabels[v.status];
+        if (m) events.push({ label: `Version ${v.version} ${m.label}`, sub: '', date: v.effectiveFrom || tbl.createdAt, dot: m.dot });
+      }
+    }
+    return events.sort((a, b) => b.date.localeCompare(a.date));
+  }, [tbl]);
 
   const visibleRows = useMemo(() => {
     if (!ver) return [];
@@ -330,6 +522,46 @@ export const LookupTableDetail: React.FC<LookupTableDetailProps> = ({ tbl, onBac
 
   return (
     <div className="flex flex-col h-full">
+      {/* Edit version modal */}
+      <Modal open={editVerOpen} onClose={() => setEditVerOpen(false)} title="Edit Version" subtitle="Update version metadata.">
+        <div className="p-5 flex flex-col gap-4">
+          <div>
+            <label className="text-xs font-semibold text-foreground mb-1 block">Change Summary</label>
+            <Inp value={editVerForm.changeSummary} onChange={e => setEditVerForm(f => ({ ...f, changeSummary: e.target.value }))} placeholder="What changed?" className="w-full" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-foreground mb-1 block">Version Note</label>
+            <textarea value={editVerForm.description} onChange={e => setEditVerForm(f => ({ ...f, description: e.target.value }))}
+              rows={3} placeholder="Optional notes…"
+              className="w-full px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-none text-foreground placeholder:text-muted-foreground" />
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Btn variant="outline" onClick={() => setEditVerOpen(false)}>Cancel</Btn>
+            <Btn onClick={() => {
+              if (!ver || !onUpdate) return;
+              const updatedVer = { ...ver, description: editVerForm.description, changeSummary: editVerForm.changeSummary };
+              const updatedTbl = { ...tbl, versions: tbl.versions.map(v => v.id === ver.id ? updatedVer : v) };
+              onUpdate(updatedTbl); setSelVer(updatedVer); setEditVerOpen(false);
+            }}>Save</Btn>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete version confirm */}
+      <Modal open={confirmDelVer} onClose={() => setConfirmDelVer(false)} title="Delete version?" subtitle="This cannot be undone." width="max-w-sm">
+        <div className="p-5 flex flex-col gap-3">
+          <Btn variant="ghost-destructive" className="w-full justify-center" onClick={() => {
+            if (!ver || !onUpdate) return;
+            const remaining = tbl.versions.filter(v => v.id !== ver.id);
+            const updatedTbl = { ...tbl, versions: remaining };
+            onUpdate(updatedTbl);
+            setSelVer(remaining.length > 0 ? [...remaining].sort((a, b) => b.version - a.version)[0] : null);
+            setConfirmDelVer(false);
+          }}>Delete Version {ver?.version}</Btn>
+          <Btn variant="outline" className="w-full justify-center" onClick={() => setConfirmDelVer(false)}>Cancel</Btn>
+        </div>
+      </Modal>
+
       {/* Header */}
       <div className="bg-background border-b border-border px-6 py-4 shrink-0">
         <div className="flex items-center gap-1.5 text-sm font-medium mb-3">
@@ -341,17 +573,24 @@ export const LookupTableDetail: React.FC<LookupTableDetailProps> = ({ tbl, onBac
         </div>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-lg font-semibold text-foreground">{tbl.name}</h1>
-            <div className="flex items-center gap-2 mt-1 flex-wrap">
-              <span className="text-xs text-muted-foreground">{tbl.category}</span>
-              {tbl.tags.map(t => <Tag key={t} label={t} />)}
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-lg font-semibold text-foreground">{tbl.name}</h1>
+              {tbl.category && <LookupCategoryBadge category={tbl.category} />}
+            </div>
+            <div className="flex gap-1.5 mt-1.5 flex-wrap">
+              {tbl.tags.map(t => (
+                <span key={t} className="inline-flex items-center px-2 py-0.5 bg-muted text-muted-foreground text-xs rounded-md font-medium">{t}</span>
+              ))}
             </div>
           </div>
-          <Btn size="sm" onClick={() => onNewVersion(tbl)}><IC.Plus size={14} />New Version</Btn>
+          <div className="flex items-center gap-2 shrink-0">
+            {onEditMeta && <Btn size="sm" variant="secondary" onClick={onEditMeta}><IC.Edit size={14} />Edit Table</Btn>}
+            <Btn size="sm" onClick={() => onNewVersion(tbl)}><IC.Plus size={14} />New Version</Btn>
+          </div>
         </div>
       </div>
 
-      {/* Body: sidebar + content */}
+      {/* Body: versions sidebar + main + activity panel */}
       <div className="flex flex-1 overflow-hidden">
 
         {/* Versions sidebar */}
@@ -382,7 +621,7 @@ export const LookupTableDetail: React.FC<LookupTableDetailProps> = ({ tbl, onBac
                   V{v.version}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <StatusBadge status={v.status} />
+                  <LookupVersionBadge status={v.status} />
                   <p className="text-xs font-medium text-foreground mt-1 truncate">
                     {v.changeSummary || `Version ${v.version}`}
                   </p>
@@ -398,134 +637,183 @@ export const LookupTableDetail: React.FC<LookupTableDetailProps> = ({ tbl, onBac
         </div>
 
         {/* Version detail */}
-        {ver ? (
-          <div className="flex-1 overflow-y-auto p-6" style={{ scrollbarWidth: 'thin' }}>
-            <div className="flex flex-col gap-5">
+        <div className="flex-1 overflow-hidden flex flex-col">
+          {ver ? (
+            <div className="flex-1 overflow-y-auto p-6" style={{ scrollbarWidth: 'thin' }}>
+              <div className="flex flex-col gap-5">
 
-              {/* Meta card */}
-              <div className="bg-card rounded-xl border border-border p-5">
-                <div className="flex items-start justify-between gap-4 mb-4">
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="text-base font-semibold text-foreground">Version {ver.version}</span>
-                      <StatusBadge status={ver.status} />
-                    </div>
-                    <p className="text-sm font-medium text-foreground">{ver.changeSummary || `Version ${ver.version}`}</p>
-                  </div>
-                </div>
-                {ver.description && (
-                  <div className="mb-4">
-                    <span className="text-xs text-muted-foreground">Version Note</span>
-                    <p className="text-sm text-foreground mt-0.5">{ver.description}</p>
-                  </div>
-                )}
-                <div className="flex flex-col gap-3 text-sm">
-                  <div className="grid grid-cols-2 gap-x-6">
+                {/* Meta card */}
+                <div className="bg-card rounded-xl border border-border p-5">
+                  <div className="flex items-start justify-between gap-4 mb-3">
                     <div>
-                      <span className="text-xs text-muted-foreground">Key Column</span>
-                      <p className="text-foreground font-medium font-mono mt-0.5">
-                        {ver.keyColumn.field}
-                        <span className="text-muted-foreground font-sans font-normal text-xs ml-1.5">({ver.keyColumn.dataType})</span>
-                      </p>
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <span className="text-base font-semibold text-foreground">Version {ver.version}</span>
+                        {['ACTIVE', 'INACTIVE', 'DEPRECATED'].includes(ver.status)
+                          ? <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200">Approved</span>
+                          : <LookupVersionBadge status={ver.status} />}
+                      </div>
+                      <p className="text-sm font-medium text-foreground">{ver.changeSummary || `Version ${ver.version}`}</p>
                     </div>
-                    <div>
-                      <span className="text-xs text-muted-foreground">Active Entries</span>
-                      <p className="text-foreground font-medium mt-0.5">
-                        {ver.rows.filter(r => r.isEnabled).length}
-                        <span className="text-muted-foreground font-normal">/{ver.rows.length}</span>
-                      </p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-x-6">
-                    <div>
-                      <span className="text-xs text-muted-foreground">Effective From</span>
-                      <p className="text-foreground font-medium mt-0.5">{fmt(ver.effectiveFrom)}</p>
-                    </div>
-                    <div>
-                      <span className="text-xs text-muted-foreground">Effective Until</span>
-                      <p className="text-foreground font-medium mt-0.5">{ver.effectiveUntil ? fmt(ver.effectiveUntil) : 'Open-ended'}</p>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {ver.status === 'DRAFT' ? (
+                        <Btn size="sm" variant="secondary" onClick={() => handleStatusChange('ACTIVE')}>Submit for Review</Btn>
+                      ) : IS_LKP_PENDING(ver.status) ? (
+                        (() => {
+                          const m = STATUS_META[ver.status];
+                          return (
+                            <span className={cn('inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold', m.bg, m.text)}>
+                              <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', m.dot)} />{m.label}
+                            </span>
+                          );
+                        })()
+                      ) : (
+                        <LookupStatusDropdown current={ver.status} onChange={handleStatusChange} />
+                      )}
+                      <LookupMoreMenu
+                        onEdit={() => { setEditVerForm({ description: ver.description || '', changeSummary: ver.changeSummary || '' }); setEditVerOpen(true); }}
+                        onDelete={() => setConfirmDelVer(true)}
+                      />
                     </div>
                   </div>
-                </div>
-                <div className="mt-4 pt-4 border-t border-border flex items-center gap-2 flex-wrap">
-                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Value columns:</span>
-                  {ver.valueColumns.map(vc => (
-                    <span key={vc.id} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                      <span className="font-mono font-semibold">{vc.field}</span>
-                      <span className="text-primary/50 text-[10px]">{vc.dataType}</span>
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Search bar */}
-              <div className="flex items-center gap-3">
-                <div className="relative flex-1">
-                  <IC.Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                  <Inp value={search} onChange={e => setSearch(e.target.value)} placeholder="Filter entries…" className="pl-8 w-full" />
-                </div>
-                {search && (
-                  <span className="text-xs text-muted-foreground shrink-0">{visibleRows.length}/{ver.rows.length} entries</span>
-                )}
-              </div>
-
-              {/* Entries table */}
-              <div className="bg-card rounded-xl border border-border overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-muted/60 border-b border-border">
-                        <th className="px-4 py-2.5 text-left">
-                          <div className="text-xs font-semibold text-foreground">{ver.keyColumn.label}</div>
-                          <div className="text-[10px] text-muted-foreground font-mono font-normal mt-0.5">
-                            {ver.keyColumn.field} · {ver.keyColumn.dataType}
-                          </div>
-                        </th>
-                        {ver.valueColumns.map(vc => (
-                          <th key={vc.id} className="px-4 py-2.5 text-left">
-                            <div className="text-xs font-semibold text-primary">{vc.label}</div>
-                            <div className="text-[10px] text-muted-foreground font-mono font-normal mt-0.5">
-                              {vc.field} · {vc.dataType}
-                            </div>
-                          </th>
-                        ))}
-                        <th className="px-4 py-2.5 w-12 text-xs font-semibold text-muted-foreground">On</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/50">
-                      {visibleRows.map(row => (
-                        <tr key={row.id} className={cn('transition-colors hover:bg-accent/30', !row.isEnabled && 'opacity-40 bg-muted/20')}>
-                          <td className="px-4 py-2.5">
-                            <span className="font-mono text-sm font-semibold text-foreground bg-muted px-2 py-0.5 rounded">{row.key}</span>
-                          </td>
-                          {row.values.map((val, i) => (
-                            <td key={i} className="px-4 py-2.5">
-                              <span className="font-mono text-xs text-primary">
-                                {val !== '' ? val : <span className="text-muted-foreground/40">—</span>}
-                              </span>
-                            </td>
-                          ))}
-                          <td className="px-4 py-2.5 text-center">
-                            <span className={cn('inline-block w-2 h-2 rounded-full', row.isEnabled ? 'bg-emerald-500' : 'bg-muted-foreground/30')} />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {visibleRows.length === 0 && (
-                    <div className="text-center py-10 text-sm text-muted-foreground">
-                      {search ? 'No entries match your filter' : 'No entries in this version'}
+                  {ver.description && (
+                    <div className="mb-4">
+                      <span className="text-xs text-muted-foreground">Version Note</span>
+                      <p className="text-sm text-foreground mt-0.5">{ver.description}</p>
                     </div>
                   )}
+                  <div className="flex flex-col gap-3 text-sm">
+                    <div className="grid grid-cols-2 gap-x-6">
+                      <div>
+                        <span className="text-xs text-muted-foreground">Key Column</span>
+                        <p className="text-foreground font-medium font-mono mt-0.5">
+                          {ver.keyColumn.field}
+                          <span className="text-muted-foreground font-sans font-normal text-xs ml-1.5">({ver.keyColumn.dataType})</span>
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-xs text-muted-foreground">Active Entries</span>
+                        <p className="text-foreground font-medium mt-0.5">
+                          {ver.rows.filter(r => r.isEnabled).length}
+                          <span className="text-muted-foreground font-normal">/{ver.rows.length}</span>
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-6">
+                      <div>
+                        <span className="text-xs text-muted-foreground">Effective From</span>
+                        <p className="text-foreground font-medium mt-0.5">{fmt(ver.effectiveFrom)}</p>
+                      </div>
+                      <div>
+                        <span className="text-xs text-muted-foreground">Effective Until</span>
+                        <p className="text-foreground font-medium mt-0.5">{ver.effectiveUntil ? fmt(ver.effectiveUntil) : 'Open-ended'}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-border flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Value columns:</span>
+                    {ver.valueColumns.map(vc => (
+                      <span key={vc.id} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                        <span className="font-mono font-semibold">{vc.field}</span>
+                        <span className="text-primary/50 text-[10px]">{vc.dataType}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Search bar */}
+                <div className="flex items-center gap-3">
+                  <div className="relative flex-1">
+                    <IC.Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <Inp value={search} onChange={e => setSearch(e.target.value)} placeholder="Filter entries…" className="pl-8 w-full" />
+                  </div>
+                  {search && (
+                    <span className="text-xs text-muted-foreground shrink-0">{visibleRows.length}/{ver.rows.length} entries</span>
+                  )}
+                </div>
+
+                {/* Entries table */}
+                <div className="bg-card rounded-xl border border-border overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-muted/60 border-b border-border">
+                          <th className="px-4 py-2.5 text-left">
+                            <div className="text-xs font-semibold text-foreground">{ver.keyColumn.label}</div>
+                            <div className="text-[10px] text-muted-foreground font-mono font-normal mt-0.5">
+                              {ver.keyColumn.field} · {ver.keyColumn.dataType}
+                            </div>
+                          </th>
+                          {ver.valueColumns.map(vc => (
+                            <th key={vc.id} className="px-4 py-2.5 text-left">
+                              <div className="text-xs font-semibold text-primary">{vc.label}</div>
+                              <div className="text-[10px] text-muted-foreground font-mono font-normal mt-0.5">
+                                {vc.field} · {vc.dataType}
+                              </div>
+                            </th>
+                          ))}
+                          <th className="px-4 py-2.5 w-12 text-xs font-semibold text-muted-foreground">On</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/50">
+                        {visibleRows.map(row => (
+                          <tr key={row.id} className={cn('transition-colors hover:bg-accent/30', !row.isEnabled && 'opacity-40 bg-muted/20')}>
+                            <td className="px-4 py-2.5">
+                              <span className="font-mono text-sm font-semibold text-foreground bg-muted px-2 py-0.5 rounded">{row.key}</span>
+                            </td>
+                            {row.values.map((val, i) => (
+                              <td key={i} className="px-4 py-2.5">
+                                <span className="font-mono text-xs text-primary">
+                                  {val !== '' ? val : <span className="text-muted-foreground/40">—</span>}
+                                </span>
+                              </td>
+                            ))}
+                            <td className="px-4 py-2.5 text-center">
+                              <span className={cn('inline-block w-2 h-2 rounded-full', row.isEnabled ? 'bg-emerald-500' : 'bg-muted-foreground/30')} />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {visibleRows.length === 0 && (
+                      <div className="text-center py-10 text-sm text-muted-foreground">
+                        {search ? 'No entries match your filter' : 'No entries in this version'}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
+              Select a version
+            </div>
+          )}
+        </div>
+
+        {/* Right activity panel */}
+        <div className="w-64 border-l border-border bg-muted/30 shrink-0 flex flex-col overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-border bg-background shrink-0">
+            <span className="text-xs font-semibold text-primary tracking-wide">Activity</span>
           </div>
-        ) : (
-          <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
-            Select a version
+          <div className="flex-1 overflow-y-auto p-4" style={{ scrollbarWidth: 'thin' }}>
+            <div className="relative">
+              <div className="absolute left-[7px] top-2 bottom-2 w-px bg-gray-200" />
+              <div className="flex flex-col gap-0">
+                {activity.map((ev, i) => (
+                  <div key={i} className="flex gap-3 pb-5 relative">
+                    <div className={cn('w-3.5 h-3.5 rounded-full border-2 border-white shrink-0 mt-0.5 z-10', ev.dot)} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-gray-700 leading-snug">{ev.label}</p>
+                      {ev.sub && <p className="text-[10px] text-gray-400 mt-0.5 truncate">{ev.sub}</p>}
+                      <p className="text-[10px] text-gray-300 mt-0.5">{fmt(ev.date)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-        )}
+        </div>
+
       </div>
     </div>
   );
@@ -537,22 +825,93 @@ type RowDraft = { id: string; key: string; values: string[]; isEnabled: boolean 
 interface CreateForm {
   name: string; category: string; tags: string; description: string; changeSummary: string;
   keyField: string; keyLabel: string; keyDataType: 'string' | 'number' | 'boolean';
-  valueColumns: ValueColDraft[]; rows: RowDraft[]; effectiveFrom: string;
+  valueColumns: ValueColDraft[]; rows: RowDraft[]; effectiveFrom: string; effectiveUntil: string;
 }
 
 function emptyValueCol(): ValueColDraft { return { id: uid(), field: '', label: '', dataType: 'string' }; }
 function emptyRow(n: number): RowDraft { return { id: uid(), key: '', values: Array(n).fill(''), isEnabled: true }; }
 
-const STEPS = ['Info', 'Schema', 'Data'];
+const STEPS = ['Table Info', 'Version Info', 'Schema', 'Data'];
+
+/* ── FIELD PICKER ────────────────────────────────── */
+type FieldSuggestion = { name: string; displayName: string; dataType: string; path: string };
+const FieldPicker: React.FC<{
+  fields: FieldSuggestion[];
+  value: string;
+  onSelect: (name: string, dataType?: string, displayName?: string) => void;
+  placeholder?: string;
+  className?: string;
+}> = ({ fields, value, onSelect, placeholder, className }) => {
+  const [query, setQuery] = useState(value);
+  const [open, setOpen]   = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => { setQuery(value); }, [value]);
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+  const filtered = query
+    ? fields.filter(f => f.name.toLowerCase().includes(query.toLowerCase()) || f.displayName.toLowerCase().includes(query.toLowerCase()))
+    : fields;
+  const showCustom = query.trim().length > 0 && !fields.find(f => f.name === query.trim());
+  return (
+    <div className={cn('relative', className)} ref={ref}>
+      <input
+        value={query}
+        onChange={e => { setQuery(e.target.value); onSelect(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        placeholder={placeholder}
+        className="h-8 w-full pl-3 pr-7 font-mono text-xs border border-border rounded-md bg-background placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 transition-colors"
+      />
+      <button type="button" onClick={() => setOpen(o => !o)}
+        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+        <IC.ChevD size={11} />
+      </button>
+      {open && (
+        <div className="absolute top-full mt-1 left-0 right-0 bg-card border border-border rounded-lg shadow-lg z-30 overflow-hidden min-w-[220px]">
+          {filtered.length > 0 && (
+            <div className="max-h-48 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
+              <p className="px-3 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider border-b border-border/50 bg-muted/40">Existing fields</p>
+              {filtered.map(f => (
+                <button key={f.path} type="button"
+                  onClick={() => { onSelect(f.name, f.dataType, f.displayName); setQuery(f.name); setOpen(false); }}
+                  className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent transition-colors">
+                  <span className="font-mono text-foreground flex-1 truncate">{f.name}</span>
+                  <span className="text-muted-foreground truncate max-w-[100px] text-[10px]">{f.displayName}</span>
+                  <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground shrink-0">{f.dataType}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {fields.length === 0 && !showCustom && (
+            <p className="px-3 py-2.5 text-xs text-muted-foreground">No fields available. Type a custom name.</p>
+          )}
+          {filtered.length === 0 && fields.length > 0 && !showCustom && (
+            <p className="px-3 py-2.5 text-xs text-muted-foreground">No matches — type to add custom.</p>
+          )}
+          {showCustom && (
+            <button type="button" onClick={() => { onSelect(query.trim()); setQuery(query.trim()); setOpen(false); }}
+              className="w-full text-left flex items-center gap-2 px-3 py-2.5 text-xs hover:bg-accent border-t border-border/50 transition-colors">
+              <IC.Plus size={12} className="text-primary shrink-0" />
+              <span className="text-foreground">Custom: <span className="font-mono font-semibold">{query.trim()}</span></span>
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 interface LookupTableCreateProps {
   onSave: (tbl: LookupTable) => void;
   onCancel: () => void;
   onHome: () => void;
   existingTable?: LookupTable;
+  factFields?: FactField[];
 }
 
-export const LookupTableCreate: React.FC<LookupTableCreateProps> = ({ onSave, onCancel, onHome, existingTable }) => {
+export const LookupTableCreate: React.FC<LookupTableCreateProps> = ({ onSave, onCancel, onHome, existingTable, factFields = [] }) => {
   const isNewVersion = !!existingTable;
   const today = new Date().toISOString().slice(0, 10);
   const [step, setStep] = useState(0);
@@ -562,10 +921,13 @@ export const LookupTableCreate: React.FC<LookupTableCreateProps> = ({ onSave, on
     name: existingTable?.name ?? '', category: existingTable?.category ?? '',
     tags: existingTable?.tags.join(', ') ?? '', description: '', changeSummary: '',
     keyField: '', keyLabel: '', keyDataType: 'string',
-    valueColumns: [emptyValueCol()], rows: [emptyRow(1)], effectiveFrom: today,
+    valueColumns: [emptyValueCol()], rows: [emptyRow(1)], effectiveFrom: today, effectiveUntil: '',
   }));
 
   const set = <K extends keyof CreateForm>(k: K, v: CreateForm[K]) => setForm(f => ({ ...f, [k]: v }));
+  const fieldSuggestions: FieldSuggestion[] = [...factFields]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(f => ({ name: f.name, displayName: f.displayName, dataType: f.dataType, path: f.path }));
 
   const addValueCol = () => {
     const updated = [...form.valueColumns, emptyValueCol()];
@@ -590,10 +952,13 @@ export const LookupTableCreate: React.FC<LookupTableCreateProps> = ({ onSave, on
   const toggleRowEnabled = (idx: number) =>
     setForm(f => ({ ...f, rows: f.rows.map((r, i) => i === idx ? { ...r, isEnabled: !r.isEnabled } : r) }));
 
+  const nextVerNum = isNewVersion ? Math.max(...existingTable!.versions.map(v => v.version)) + 1 : 1;
+
   const canProceed = [
     form.name.trim().length > 0 && form.category.trim().length > 0,
+    form.effectiveFrom.length > 0,
     form.keyField.trim().length > 0 && form.valueColumns.every(vc => vc.field.trim().length > 0),
-    form.rows.length > 0 && form.effectiveFrom.length > 0,
+    true,
   ];
 
   const handleSubmit = () => {
@@ -602,10 +967,10 @@ export const LookupTableCreate: React.FC<LookupTableCreateProps> = ({ onSave, on
       id: uid(), version: nextVer, status: 'DRAFT',
       description: form.description,
       changeSummary: form.changeSummary || (isNewVersion ? `Version ${nextVer}` : 'Initial version'),
-      effectiveFrom: form.effectiveFrom + 'T00:00:00', effectiveUntil: null,
+      effectiveFrom: form.effectiveFrom + 'T00:00:00', effectiveUntil: form.effectiveUntil ? form.effectiveUntil + 'T00:00:00' : null,
       keyColumn: { field: form.keyField.trim(), label: form.keyLabel.trim() || form.keyField.trim(), dataType: form.keyDataType },
       valueColumns: form.valueColumns.map(vc => ({ id: vc.id, field: vc.field.trim(), label: vc.label.trim() || vc.field.trim(), dataType: vc.dataType })),
-      rows: form.rows.map(r => ({ id: r.id, key: r.key, values: r.values, isEnabled: r.isEnabled })),
+      rows: form.rows.map(r => ({ id: r.id, key: r.key, values: r.values, isEnabled: true })),
     };
     const tbl: LookupTable = isNewVersion
       ? { ...existingTable!, versions: [...existingTable!.versions, newVersion] }
@@ -617,21 +982,19 @@ export const LookupTableCreate: React.FC<LookupTableCreateProps> = ({ onSave, on
     <div className="flex flex-col gap-4">
       <div>
         <label className="text-xs font-semibold text-foreground mb-1 block">Table Name <span className="text-destructive">*</span></label>
-        <Inp value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. NCB Discount Rates" disabled={isNewVersion} className={isNewVersion ? 'opacity-60' : ''} />
+        <Inp value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. NCB Discount Rates" disabled={isNewVersion} className={cn('w-full', isNewVersion && 'opacity-60')} />
         {isNewVersion && <p className="text-[10px] text-muted-foreground mt-1">Name is locked when adding a new version.</p>}
       </div>
       <div>
         <label className="text-xs font-semibold text-foreground mb-1 block">Category <span className="text-destructive">*</span></label>
-        <select value={form.category} onChange={e => set('category', e.target.value)} disabled={isNewVersion}
-          className="w-full px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring text-foreground disabled:opacity-60">
-          <option value="">Select a category…</option>
-          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
+        <DSel value={form.category} onChange={v => set('category', v)} disabled={isNewVersion}
+          className="w-full"
+          options={[{ value: '', label: 'Select a category…' }, ...CATEGORIES.map(c => ({ value: c, label: c }))]} />
       </div>
       {!isNewVersion && (
         <div>
           <label className="text-xs font-semibold text-foreground mb-1 block">Tags</label>
-          <Inp value={form.tags} onChange={e => set('tags', e.target.value)} placeholder="pricing, motor, reference  (comma-separated)" />
+          <Inp value={form.tags} onChange={e => set('tags', e.target.value)} placeholder="pricing, motor, reference  (comma-separated)" className="w-full" />
         </div>
       )}
       <div>
@@ -654,17 +1017,28 @@ export const LookupTableCreate: React.FC<LookupTableCreateProps> = ({ onSave, on
       <div>
         <p className="text-xs font-semibold text-foreground mb-1">Key Column <span className="text-destructive">*</span></p>
         <p className="text-[11px] text-muted-foreground mb-3">The unique key used to look up values.</p>
-        <div className="rounded-xl border border-border overflow-hidden">
-          <div className="flex items-center gap-2 px-3 py-2 bg-muted/40 border-b border-border text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+        <div className="rounded-xl border border-border">
+          <div className="flex items-center gap-2 px-3 py-2 bg-muted/40 border-b border-border text-[10px] font-semibold text-muted-foreground uppercase tracking-wide rounded-t-xl">
             <span className="flex-[2]">Field name</span><span className="flex-1">Display label</span><span className="w-28">Data type</span>
           </div>
           <div className="flex items-center gap-2 px-3 py-3">
-            <Inp value={form.keyField} onChange={e => set('keyField', e.target.value)} placeholder="e.g. state_code" className="font-mono text-xs flex-[2]" />
+            <FieldPicker
+              fields={fieldSuggestions}
+              value={form.keyField}
+              onSelect={(name, dataType, displayName) => {
+                set('keyField', name);
+                if (dataType && (DATA_TYPES as string[]).includes(dataType)) set('keyDataType', dataType as CreateForm['keyDataType']);
+                if (displayName) set('keyLabel', displayName);
+                else if (!form.keyLabel) set('keyLabel', name);
+              }}
+              placeholder="e.g. state_code"
+              className="flex-[2]"
+            />
             <Inp value={form.keyLabel} onChange={e => set('keyLabel', e.target.value)} placeholder="e.g. State Code" className="text-xs flex-1" />
-            <select value={form.keyDataType} onChange={e => set('keyDataType', e.target.value as CreateForm['keyDataType'])}
-              className="w-28 px-2 py-1.5 text-xs border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring text-foreground">
-              {DATA_TYPES.map(dt => <option key={dt} value={dt}>{dt}</option>)}
-            </select>
+            <DSel value={form.keyDataType} onChange={v => set('keyDataType', v as CreateForm['keyDataType'])}
+              options={DATA_TYPES.map(dt => ({ value: dt, label: dt }))}
+              disabled
+              className="w-28 opacity-60" />
           </div>
         </div>
       </div>
@@ -676,20 +1050,31 @@ export const LookupTableCreate: React.FC<LookupTableCreateProps> = ({ onSave, on
           </div>
           <Btn variant="outline" size="sm" onClick={addValueCol}><IC.Plus size={12} />Add column</Btn>
         </div>
-        <div className="rounded-xl border border-border overflow-hidden">
-          <div className="flex items-center gap-2 px-3 py-2 bg-muted/40 border-b border-border text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+        <div className="rounded-xl border border-border">
+          <div className="flex items-center gap-2 px-3 py-2 bg-muted/40 border-b border-border text-[10px] font-semibold text-muted-foreground uppercase tracking-wide rounded-t-xl">
             <span className="w-5" /><span className="flex-[2]">Field name</span><span className="flex-1">Display label</span><span className="w-28">Data type</span><span className="w-4" />
           </div>
           <div className="flex flex-col divide-y divide-border/50">
             {form.valueColumns.map((vc, i) => (
               <div key={vc.id} className="flex items-center gap-2 px-3 py-2.5 group">
                 <span className="w-5 text-[10px] text-muted-foreground/50 text-right shrink-0">{i + 1}</span>
-                <Inp value={vc.field} onChange={e => updateValueCol(i, 'field', e.target.value)} placeholder="e.g. state_name" className="font-mono text-xs flex-[2]" />
+                <FieldPicker
+                  fields={fieldSuggestions}
+                  value={vc.field}
+                  onSelect={(name, dataType, displayName) => {
+                    updateValueCol(i, 'field', name);
+                    if (dataType && (DATA_TYPES as string[]).includes(dataType)) updateValueCol(i, 'dataType', dataType);
+                    if (displayName) updateValueCol(i, 'label', displayName);
+                    else if (!vc.label) updateValueCol(i, 'label', name);
+                  }}
+                  placeholder="e.g. state_name"
+                  className="flex-[2]"
+                />
                 <Inp value={vc.label} onChange={e => updateValueCol(i, 'label', e.target.value)} placeholder="e.g. State Name" className="text-xs flex-1" />
-                <select value={vc.dataType} onChange={e => updateValueCol(i, 'dataType', e.target.value)}
-                  className="w-28 px-2 py-1.5 text-xs border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring text-foreground">
-                  {DATA_TYPES.map(dt => <option key={dt} value={dt}>{dt}</option>)}
-                </select>
+                <DSel value={vc.dataType} onChange={v => updateValueCol(i, 'dataType', v)}
+                  options={DATA_TYPES.map(dt => ({ value: dt, label: dt }))}
+                  disabled
+                  className="w-28 opacity-60" />
                 <button onClick={() => removeValueCol(i)} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive">
                   <IC.X size={13} />
                 </button>
@@ -701,12 +1086,41 @@ export const LookupTableCreate: React.FC<LookupTableCreateProps> = ({ onSave, on
     </div>
   );
 
+  /* ── Step 2 — Version Info ───────────────────────── */
+  const StepVersionInfo = (
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="text-xs font-semibold text-foreground mb-1 block">Version Name</label>
+          <Inp value={form.changeSummary} onChange={e => set('changeSummary', e.target.value)}
+            placeholder={isNewVersion ? 'e.g. Added new state codes' : 'Initial version'} className="w-full" />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-foreground mb-1 block">Version Number</label>
+          <Inp value={`v${nextVerNum}`} disabled className="opacity-60 bg-muted w-full" />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="text-xs font-semibold text-foreground mb-1 block">Effective From <span className="text-destructive">*</span></label>
+          <Inp type="date" value={form.effectiveFrom} onChange={e => set('effectiveFrom', e.target.value)} className="w-full" />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-foreground mb-1 block">Effective Until <span className="text-muted-foreground font-normal text-[10px]">(optional)</span></label>
+          <Inp type="date" value={form.effectiveUntil} onChange={e => set('effectiveUntil', e.target.value)} className="w-full" />
+        </div>
+      </div>
+      <div>
+        <label className="text-xs font-semibold text-foreground mb-1 block">Version Note</label>
+        <textarea value={form.description} onChange={e => set('description', e.target.value)}
+          placeholder="Describe what this version maps or what changed…" rows={3}
+          className="w-full px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-none text-foreground placeholder:text-muted-foreground" />
+      </div>
+    </div>
+  );
+
   const StepData = (
     <div className="flex flex-col gap-4">
-      <div className="max-w-xs">
-        <label className="text-xs font-semibold text-foreground mb-1 block">Effective From <span className="text-destructive">*</span></label>
-        <Inp type="date" value={form.effectiveFrom} onChange={e => set('effectiveFrom', e.target.value)} />
-      </div>
       <div>
         <div className="flex items-center justify-between mb-2">
           <div>
@@ -725,13 +1139,12 @@ export const LookupTableCreate: React.FC<LookupTableCreateProps> = ({ onSave, on
                 {form.valueColumns.map((vc, i) => (
                   <th key={i} className="px-3 py-2 text-left text-primary font-semibold min-w-[120px]">{vc.label || vc.field || `Value ${i + 1}`}</th>
                 ))}
-                <th className="px-2 py-2 text-muted-foreground font-semibold w-10 text-center">On</th>
                 <th className="px-2 py-2 w-8" />
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
               {form.rows.map((row, ri) => (
-                <tr key={row.id} className={cn(!row.isEnabled && 'opacity-50 bg-muted/20')}>
+                <tr key={row.id}>
                   <td className="px-2 py-1.5">
                     <input value={row.key} onChange={e => updateRowKey(ri, e.target.value)} placeholder="key"
                       className="w-full px-2 py-1 font-mono font-semibold text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-ring text-foreground placeholder:text-muted-foreground/40" />
@@ -742,12 +1155,6 @@ export const LookupTableCreate: React.FC<LookupTableCreateProps> = ({ onSave, on
                         className="w-full px-2 py-1 font-mono text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-ring text-foreground placeholder:text-muted-foreground/40" />
                     </td>
                   ))}
-                  <td className="px-2 py-1.5 text-center">
-                    <button onClick={() => toggleRowEnabled(ri)}
-                      className={cn('w-8 h-4 rounded-full transition-colors relative block mx-auto', row.isEnabled ? 'bg-primary' : 'bg-muted-foreground/30')}>
-                      <span className={cn('absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all', row.isEnabled ? 'left-4' : 'left-0.5')} />
-                    </button>
-                  </td>
                   <td className="px-2 py-1.5">
                     <button onClick={() => removeRow(ri)} className="text-muted-foreground hover:text-destructive transition-colors"><IC.Trash size={13} /></button>
                   </td>
@@ -763,7 +1170,18 @@ export const LookupTableCreate: React.FC<LookupTableCreateProps> = ({ onSave, on
     </div>
   );
 
-  const stepContent = [StepInfo, StepSchema, StepData];
+  const stepContent = [StepInfo, StepVersionInfo, StepSchema, StepData];
+
+  const stepTitles = isNewVersion
+    ? ['Version Info', 'Define Schema', 'Add Entries']
+    : ['Lookup Table Info', 'Version Info', 'Define Schema', 'Add Entries'];
+  const stepSubtitles = isNewVersion
+    ? ['Set the effective dates and version notes for this version.', 'Define the key column and the value columns returned on a match.', 'Add key–value entries for this version.']
+    : ['Give your lookup table a name, category, and description.', 'Set the effective dates and version notes for this version.', 'Define the key column and the value columns returned on a match.', 'Add key–value entries for this version.'];
+
+  const activeSteps      = isNewVersion ? STEPS.slice(1) : STEPS;
+  const activeContent    = isNewVersion ? stepContent.slice(1) : stepContent;
+  const activeCanProceed = isNewVersion ? canProceed.slice(1) : canProceed;
 
   return (
     <div className="flex flex-col h-full">
@@ -802,7 +1220,7 @@ export const LookupTableCreate: React.FC<LookupTableCreateProps> = ({ onSave, on
           </button>
           <div className="w-px h-5 bg-border" />
           <div className="flex items-center gap-0">
-            {STEPS.map((label, i) => (
+            {activeSteps.map((label, i) => (
               <React.Fragment key={label}>
                 <button type="button" onClick={() => i < step && setStep(i)}
                   className={cn('flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors',
@@ -813,36 +1231,32 @@ export const LookupTableCreate: React.FC<LookupTableCreateProps> = ({ onSave, on
                   </span>
                   {label}
                 </button>
-                {i < STEPS.length - 1 && <div className="w-4 h-px bg-border mx-1" />}
+                {i < activeSteps.length - 1 && <div className="w-4 h-px bg-border mx-1" />}
               </React.Fragment>
             ))}
           </div>
         </div>
         <div className="flex items-center gap-2">
           {step > 0 && <Btn variant="secondary" onClick={() => setStep(s => s - 1)}>← Previous</Btn>}
-          {step < STEPS.length - 1
-            ? <Btn variant="secondary" disabled={!canProceed[step]} onClick={() => setStep(s => s + 1)}>Next →</Btn>
-            : <Btn disabled={!canProceed[step]} onClick={handleSubmit}>{isNewVersion ? 'Create Version' : 'Create Table'}</Btn>}
+          {step < activeSteps.length - 1
+            ? <Btn variant="secondary" disabled={!activeCanProceed[step]} onClick={() => setStep(s => s + 1)}>Next →</Btn>
+            : <Btn disabled={!activeCanProceed[step]} onClick={handleSubmit}>Submit for Review</Btn>}
         </div>
       </div>
 
       {/* Step content */}
       <div className="flex-1 overflow-y-auto p-6" style={{ scrollbarWidth: 'thin' }}>
-        <div className="max-w-2xl mx-auto">
+        <div className={step <= (isNewVersion ? 0 : 1) ? 'max-w-2xl mx-auto' : 'w-full'}>
           <div className="bg-card rounded-xl border border-border p-6 flex flex-col gap-5">
             <div>
               <h2 className="text-base font-semibold text-foreground mb-0.5">
-                {step === 0 && (isNewVersion ? `New Version — ${existingTable!.name}` : 'Lookup Table Info')}
-                {step === 1 && 'Define Schema'}
-                {step === 2 && 'Add Entries'}
+                {stepTitles[step]}
               </h2>
               <p className="text-sm text-muted-foreground">
-                {step === 0 && (isNewVersion ? 'Provide metadata for this new version.' : 'Give your lookup table a name, category, and description.')}
-                {step === 1 && 'Define the key column and the value columns returned on a match.'}
-                {step === 2 && 'Add key–value entries and set the effective date for this version.'}
+                {stepSubtitles[step]}
               </p>
             </div>
-            {stepContent[step]}
+            {activeContent[step]}
           </div>
         </div>
       </div>

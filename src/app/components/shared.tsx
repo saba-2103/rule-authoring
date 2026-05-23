@@ -1,4 +1,15 @@
 import React, { useEffect } from 'react';
+import {
+  LayoutDashboard, Binary, TextSearch, Stamp,
+  ChartNoAxesCombined, SquareActivity,
+  Box, CloudCog, Rows3,
+} from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import {
+  SidebarProvider, Sidebar, SidebarHeader, SidebarContent,
+  SidebarGroup, SidebarGroupLabel, SidebarGroupContent,
+  SidebarMenu, SidebarMenuItem, SidebarMenuButton,
+} from './ui/sidebar';
 
 /* ── HELPERS ─────────────────────────────────────── */
 export const cn = (...c: (string | boolean | undefined | null)[]) => c.filter(Boolean).join(' ');
@@ -71,6 +82,7 @@ export interface RuleVersion {
 
 export interface Rule {
   id: string;
+  spaceId?: string;
   name: string;
   category: string;
   tags: string[];
@@ -97,6 +109,7 @@ export interface TableVersion {
 
 export interface Table {
   id: string;
+  spaceId?: string;
   name: string;
   category: string;
   tags: string[];
@@ -121,6 +134,7 @@ export interface FlowVersion {
 
 export interface Flow {
   id: string;
+  spaceId?: string;
   name: string;
   category: string;
   tags: string[];
@@ -159,6 +173,7 @@ export interface LookupVersion {
 
 export interface LookupTable {
   id: string;
+  spaceId?: string;
   name: string;
   category: string;
   tags: string[];
@@ -352,6 +367,22 @@ export function deriveOutputSchema(content: RuleContent): DerivedSchema {
 /* ── SEED DATA ───────────────────────────────────── */
 export const SEED_SPACES: Space[] = [
   {
+    id: 'default-space', name: 'Default Space', description: 'GTL underwriting rules — eligibility, NML, medical validity, SA increase, grandfathering, NRI, MQ and LOA',
+    createdAt: '2026-01-01T00:00:00',
+    members: [
+      { userId: 'u1', email: 'alice@insure.com', role: 'ADMIN', joinedAt: '2026-01-01T00:00:00' },
+    ],
+    enabledFactIds: [
+      'f-action', 'f-approval', 'f-authority', 'f-bank', 'f-base', 'f-billing', 'f-broker',
+      'f-census', 'f-claim', 'f-compliance', 'f-composition', 'f-data', 'f-docs',
+      'f-endorsement', 'f-floatReceipt', 'f-floatTransfer', 'f-irdai', 'f-kyc', 'f-lfq',
+      'f-loan', 'f-medical', 'f-member', 'f-mph', 'f-override', 'f-plan', 'f-policy',
+      'f-product', 'f-promo', 'f-quote', 'f-rateCard', 'f-rating', 'f-refund', 'f-request',
+      'f-revival', 'f-rider', 'f-scheme', 'f-settlement', 'f-sig', 'f-tax', 'f-termination',
+      'f-ulip', 'f-uw',
+    ],
+  },
+  {
     id: 'motor-uw', name: 'AXA Motor Insurance', description: 'Motor insurance underwriting and pricing rules',
     createdAt: '2025-01-01T00:00:00',
     members: [
@@ -362,22 +393,12 @@ export const SEED_SPACES: Space[] = [
     enabledFactIds: ['f-policy', 'f-driver', 'f-pricing'],
   },
   {
-    id: 'life-uw', name: 'AXA Life Insurance', description: 'Life insurance underwriting, pricing and compliance rules',
-    createdAt: '2025-03-01T00:00:00',
+    id: 'demo', name: 'Empty', description: 'Sandbox space for demonstrations and onboarding',
+    createdAt: '2026-01-01T00:00:00',
     members: [
-      { userId: 'u1', email: 'alice@insure.com', role: 'ADMIN', joinedAt: '2025-03-01T00:00:00' },
-      { userId: 'u4', email: 'david@insure.com', role: 'RULE_AUTHOR', joinedAt: '2025-03-10T00:00:00' },
+      { userId: 'u1', email: 'alice@insure.com', role: 'ADMIN', joinedAt: '2026-01-01T00:00:00' },
     ],
-    enabledFactIds: ['f-applicant', 'f-rider', 'f-pricing'],
-  },
-  {
-    id: 'claims', name: 'Claims Processing', description: 'Claims assessment, settlement and fraud detection rules',
-    createdAt: '2025-02-01T00:00:00',
-    members: [
-      { userId: 'u2', email: 'bob@insure.com', role: 'ADMIN', joinedAt: '2025-02-01T00:00:00' },
-      { userId: 'u5', email: 'eve@insure.com', role: 'RULE_EXECUTOR', joinedAt: '2025-02-15T00:00:00' },
-    ],
-    enabledFactIds: ['f-claim', 'f-policy', 'f-fraud', 'f-provider', 'f-adjudication', 'f-renewal'],
+    enabledFactIds: [],
   },
 ];
 
@@ -392,6 +413,46 @@ export const SEED_FACTS: Fact[] = [
   { id: 'f-renewal',     name: 'renewal',      displayName: 'Renewal',      description: 'Renewal processing context: claim history aggregates, tier progression, and NCB awards.',   createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
   { id: 'f-provider',    name: 'provider',     displayName: 'Provider',     description: 'Healthcare provider network tier and empanelment classification.',                          createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
   { id: 'f-adjudication',name: 'adjudication', displayName: 'Adjudication', description: 'Claims adjudication decision outputs: STP pass/fail, approval thresholds, ML confidence.',  createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  /* GTL / Group Life domain */
+  { id: 'f-member',        name: 'member',        displayName: 'Member',               description: 'Group scheme member profile: eligibility, demographics, life class, hazard, and UW outputs.',  createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-scheme',        name: 'scheme',        displayName: 'Scheme',               description: 'Group insurance scheme configuration: product code, type, segment, FCL, and setup context.',    createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-rating',        name: 'rating',        displayName: 'Rating',               description: 'GTL/group premium rating outputs: base rate, per-mille, loadings, discounts, and GST.',         createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-uw',            name: 'uw',            displayName: 'Underwriting',         description: 'Underwriting decision context: action, disposition, medical validity, rate-up, and status.',    createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-census',        name: 'census',        displayName: 'Census',               description: 'Employee census data quality and validation: headcount, DQ band, STP band, and outcomes.',      createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-docs',          name: 'docs',          displayName: 'Documents',            description: 'Document verification context: type, OCR confidence, precedence, source, and gate outcome.',    createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-kyc',           name: 'kyc',           displayName: 'KYC',                  description: 'Know-Your-Customer verification: entity type, PAN, CIN, PEP, signatory, and outcome.',          createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-approval',      name: 'approval',      displayName: 'Approval',             description: 'Approval workflow state: status, action, two-officer check, and final outcome.',                 createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-product',       name: 'product',       displayName: 'Product',              description: 'Product configuration rules: line of business, variant, premium type, tax, and limits.',         createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-sig',           name: 'sig',           displayName: 'Signature',            description: 'Digital and wet signature verification: mode, validity, authority, and outcome.',                createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-bank',          name: 'bank',          displayName: 'Bank',                 description: 'Bank account verification: penny drop, fuzzy score match, and verification outcome.',            createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-override',      name: 'override',      displayName: 'Override',             description: 'Underwriting or rate override: deviation percentage, reason, action, and status.',               createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-tax',           name: 'tax',           displayName: 'Tax',                  description: 'Tax computation context: GST treatment, HSN code, stamp duty, and rate.',                        createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-billing',       name: 'billing',       displayName: 'Billing',              description: 'Billing and payment context: frequency and processing outcome.',                                  createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-plan',          name: 'plan',          displayName: 'Plan',                 description: 'Plan configuration within a scheme: sum-assured type and structure.',                            createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-quote',         name: 'quote',         displayName: 'Quote',                description: 'Quotation context: type (new business, renewal, endorsement).',                                  createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-base',          name: 'base',          displayName: 'Base Plan',            description: 'Base plan configuration: joint-life capability and policy term.',                                createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-broker',        name: 'broker',        displayName: 'Broker',               description: 'Broker context: tier classification and package submission flag.',                               createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-promo',         name: 'promo',         displayName: 'Promotion',            description: 'Promotional campaign context: Q4 active flag and campaign eligibility.',                         createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-rateCard',      name: 'rateCard',      displayName: 'Rate Card',            description: 'Rate card validation: insurer profile match and effective date window.',                         createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-refund',        name: 'refund',        displayName: 'Refund',               description: 'Refund processing context: computed refund amount for cancellations.',                           createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-request',       name: 'request',       displayName: 'Request',              description: 'Policy request context: policy loan flag and processing outcome.',                               createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-revival',       name: 'revival',       displayName: 'Revival',              description: 'Policy revival context: interest rate applicable for lapsed policy reinstatement.',              createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-endorsement',   name: 'endorsement',   displayName: 'Endorsement',          description: 'Mid-term policy endorsement: type and premium adjustment.',                                       createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-ulip',          name: 'ulip',          displayName: 'ULIP',                 description: 'Unit-linked insurance plan switch context: count, amount, and switch outcome.',                  createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-composition',   name: 'composition',   displayName: 'Composition',          description: 'Group scheme composition validation: scheme-type mix and outcome.',                              createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-compliance',    name: 'compliance',    displayName: 'Compliance',           description: 'Regulatory compliance checks: IRDAI Sec 38/39 nomination and assignment compliance.',           createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-lfq',           name: 'lfq',           displayName: 'Life Questionnaire',   description: 'Life full questionnaire context: adverse medical history flag.',                                 createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-loan',          name: 'loan',          displayName: 'Loan',                 description: 'Loan context for borrower group schemes: foreclosure status.',                                    createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-medical',       name: 'medical',       displayName: 'Medical',              description: 'Medical evidence context: previous medical and test validity flags.',                             createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-data',          name: 'data',          displayName: 'Data',                 description: 'Data processing context: PII field flag and storage outcome.',                                   createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-authority',     name: 'authority',     displayName: 'Authority',            description: 'Delegated authority limits: maximum rate deviation percentage.',                                 createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-irdai',         name: 'irdai',         displayName: 'IRDAI',                description: 'IRDAI regulatory context: rate floor applicable to the product.',                               createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-floatReceipt',  name: 'floatReceipt',  displayName: 'Float Receipt',        description: 'Float receipt reconciliation: variance tolerance breach and outcome.',                           createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-floatTransfer', name: 'floatTransfer', displayName: 'Float Transfer',       description: 'Inter-entity float transfer: cross-entity validity, UTR, and outcome.',                        createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-mph',           name: 'mph',           displayName: 'Master Policy Holder', description: 'Master policy holder classification: corporate and RBI-regulated flags.',                       createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-action',        name: 'action',        displayName: 'Action',               description: 'Trigger/action context passed to rule evaluation.',                                              createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-termination',   name: 'termination',   displayName: 'Termination',          description: 'Policy termination context: initiator, notice days, and outcome.',                              createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
+  { id: 'f-settlement',    name: 'settlement',    displayName: 'Settlement',           description: 'Claims settlement context: bank rejection flag and settlement outcome.',                         createdAt: '2025-01-01T00:00:00', createdBy: 'system' },
 ];
 
 const ff = (id: string, factId: string, name: string, displayName: string, dataType: DataType, description: string, isOutput: boolean): FactField => ({
@@ -497,6 +558,295 @@ export const SEED_FACT_FIELDS: FactField[] = [
   ff('ff-adj-01','f-adjudication','stpPassed',           'STP Passed',                           'boolean','Output: whether the claim passed the straight-through processing gate.',         true),
   ff('ff-adj-02','f-adjudication','approvalLimit',       'Approval Limit',                       'number', 'Output: maximum auto-approval amount based on provider tier.',                   true),
   ff('ff-adj-03','f-adjudication','mlConfidence',        'ML Confidence',                        'number', 'ML model confidence score (0–1) for auto-approval eligibility.',                false),
+  /* policy — GTL additions */
+  ff('ff-pol-20','f-policy','outcome',                   'Outcome',                              'string', 'Output: overall policy processing outcome.',                                      true),
+  ff('ff-pol-21','f-policy','jurisdiction',              'Jurisdiction',                         'string', 'Policy jurisdiction for regulatory and stamp duty routing.',                      false),
+  ff('ff-pol-22','f-policy','clause',                    'Clause',                               'string', 'Special clause attached to the policy (e.g. WAP, SUICIDE_EXCLUSION).',           false),
+  ff('ff-pol-23','f-policy','clausePack',                'Clause Pack',                          'string', 'Bundled clause pack applied to the policy.',                                      false),
+  ff('ff-pol-24','f-policy','rcd',                       'Risk Commencement Date',               'date',   'Date from which risk cover is effective.',                                        false),
+  ff('ff-pol-25','f-policy','nominationOrAssignment',    'Nomination / Assignment',              'string', 'Whether policy has a valid nomination or assignment on record.',                  false),
+  ff('ff-pol-26','f-policy','hardPreIssuePass',          'Hard Pre-Issue Pass',                  'boolean','Output: whether all hard pre-issue checks have been satisfied.',                  true),
+  ff('ff-pol-27','f-policy','freeLookCancellation',      'Free Look Cancellation',               'boolean','Whether a free-look period cancellation has been initiated.',                    false),
+  ff('ff-pol-28','f-policy','freeLookOutcome',           'Free Look Outcome',                    'string', 'Output: decision of the free-look cancellation request.',                        true),
+  ff('ff-pol-29','f-policy','cancellationRequested',     'Cancellation Requested',               'boolean','Whether a policy cancellation has been requested.',                              false),
+  ff('ff-pol-30','f-policy','revivalRequested',          'Revival Requested',                    'boolean','Whether a policy revival has been requested.',                                   false),
+  ff('ff-pol-31','f-policy','lenderEntity',              'Lender Entity',                        'string', 'Lending institution for borrower group schemes.',                                false),
+  ff('ff-pol-32','f-policy','loanClosureOption',         'Loan Closure Option',                  'string', 'How outstanding loan is handled on policy termination.',                         false),
+  /* claim — GTL additions */
+  ff('ff-clm-13','f-claim','outcome',                    'Outcome',                              'string', 'Output: overall claim processing outcome.',                                       true),
+  ff('ff-clm-14','f-claim','causeOfDeath',               'Cause of Death',                       'string', 'Cause of death code for life/group life death claims.',                          false),
+  ff('ff-clm-15','f-claim','survivalDays',               'Survival Days',                        'number', 'Days survived after diagnosis — used for CI/ADB checks.',                       false),
+  ff('ff-clm-16','f-claim','daysSinceCoverStart',        'Days Since Cover Start',               'number', 'Days elapsed since the cover commencement date.',                               false),
+  ff('ff-clm-17','f-claim','monthsSinceCoverStart',      'Months Since Cover Start',             'number', 'Months elapsed since cover start — used for waiting period checks.',            false),
+  ff('ff-clm-18','f-claim','daysSinceDisability',        'Days Since Disability',                'number', 'Days elapsed since onset of disability — used for TPD/WOP triggers.',           false),
+  ff('ff-clm-19','f-claim','hospitalisationDays',        'Hospitalisation Days',                 'number', 'Inpatient hospitalisation days for hospital cash claims.',                       false),
+  ff('ff-clm-20','f-claim','payeePriority',              'Payee Priority',                       'string', 'Output: determined payee priority order for settlement.',                        true),
+  ff('ff-clm-21','f-claim','nomineeKycPending',          'Nominee KYC Pending',                  'boolean','Output: whether nominee KYC is outstanding before settlement.',                  true),
+  ff('ff-clm-22','f-claim','beneficiaryKycPending',      'Beneficiary KYC Pending',              'boolean','Output: whether beneficiary KYC is outstanding before settlement.',              true),
+  ff('ff-clm-23','f-claim','adbExclusionWaived',         'ADB Exclusion Waived',                 'boolean','Output: whether the ADB exclusion has been waived by UW decision.',              true),
+  /* rider — GTL additions */
+  ff('ff-rid-06','f-rider','type',                       'Rider Type',                           'string', 'Rider type code (e.g. ADB, CI, WOP, HOSPI_CASH, TPD).',                         false),
+  ff('ff-rid-07','f-rider','termYears',                  'Rider Term (Years)',                   'number', 'Policy term for the rider in years.',                                             false),
+  ff('ff-rid-08','f-rider','jointLife',                  'Joint Life',                           'boolean','Whether the rider covers both lives on a joint-life policy.',                    false),
+  ff('ff-rid-09','f-rider','adbCap',                     'ADB Cap',                              'number', 'Output: maximum sum assured cap applied to the ADB rider.',                      true),
+  ff('ff-rid-10','f-rider','hospiCashConfig',            'Hospi Cash Config',                    'string', 'Hospital cash daily benefit configuration string.',                              false),
+  ff('ff-rid-11','f-rider','outcome',                    'Outcome',                              'string', 'Output: overall rider eligibility/rating outcome.',                               true),
+  /* member */
+  ff('ff-mbr-01','f-member','age',                       'Age',                                  'number', 'Member age in years at scheme commencement or mid-year join date.',               false),
+  ff('ff-mbr-02','f-member','gender',                    'Gender',                               'string', 'Member gender: MALE, FEMALE, OTHER.',                                             false),
+  ff('ff-mbr-03','f-member','dateOfJoiningScheme',       'Date of Joining Scheme',               'date',   'Date the member joined the group scheme.',                                        false),
+  ff('ff-mbr-04','f-member','occupation',                'Occupation',                           'string', 'Member occupational category code.',                                              false),
+  ff('ff-mbr-05','f-member','memberType',                'Member Type',                          'string', 'Type classification: EMPLOYEE, BORROWER, DEPOSITOR, MEMBER.',                   false),
+  ff('ff-mbr-06','f-member','memberClass',               'Member Class',                         'string', 'Sub-class of member within the scheme (e.g. EXECUTIVE, STAFF).',                false),
+  ff('ff-mbr-07','f-member','sa',                        'Sum Assured (Short)',                  'number', 'Member-level sum assured (short form).',                                          false),
+  ff('ff-mbr-08','f-member','sumAssured',                'Sum Assured',                          'number', 'Member-level sum assured.',                                                       false),
+  ff('ff-mbr-09','f-member','salary',                    'Salary',                               'number', 'Annual salary used for SI formula validation.',                                   false),
+  ff('ff-mbr-10','f-member','loanOutstanding',           'Loan Outstanding',                     'number', 'Outstanding loan principal for borrower group members.',                         false),
+  ff('ff-mbr-11','f-member','loaType',                   'LOA Type',                             'string', 'Leave-of-absence type: MATERNITY, SABBATICAL, UNPAID.',                         false),
+  ff('ff-mbr-12','f-member','loaDurationMonths',         'LOA Duration (Months)',                'number', 'Duration of leave of absence in months.',                                        false),
+  ff('ff-mbr-13','f-member','midYearIncreaseCount',      'Mid-Year Increase Count',              'number', 'Number of mid-year sum assured increases in the policy year.',                   false),
+  ff('ff-mbr-14','f-member','munichRePreviouslySeen',    'Munich Re Previously Seen',            'boolean','Whether Munich Re has previously assessed this member.',                         false),
+  ff('ff-mbr-15','f-member','tpdTrigger',                'TPD Trigger',                          'string', 'Triggering event type for Total Permanent Disability claim.',                   false),
+  ff('ff-mbr-16','f-member','returningFromSabbatical',   'Returning From Sabbatical',            'boolean','Whether the member is returning from an approved sabbatical.',                  false),
+  ff('ff-mbr-17','f-member','hasDisclosedPed',           'Has Disclosed PED',                    'boolean','Whether the member disclosed a pre-existing disease at enrolment.',             false),
+  ff('ff-mbr-18','f-member','ped',                       'Pre-Existing Disease',                 'string', 'Pre-existing disease code declared by the member.',                              false),
+  ff('ff-mbr-19','f-member','ageBand',                   'Age Band',                             'string', 'Output: computed age band used for mortality rating.',                            true),
+  ff('ff-mbr-20','f-member','fcl',                       'Free Cover Limit',                     'number', 'Output: applicable free cover limit for this member.',                            true),
+  ff('ff-mbr-21','f-member','lifeClass',                 'Life Class',                           'string', 'Output: UW life class assigned (STANDARD, RATED, EXCLUDED).',                   true),
+  ff('ff-mbr-22','f-member','hazardClass',               'Hazard Class',                         'string', 'Output: occupational hazard class assigned to the member.',                      true),
+  ff('ff-mbr-23','f-member','hazardousOccupation',       'Hazardous Occupation',                 'boolean','Output: whether member occupation is classified as hazardous.',                  true),
+  ff('ff-mbr-24','f-member','ageInRange',                'Age In Range',                         'boolean','Output: whether member age falls within the scheme age limits.',                 true),
+  ff('ff-mbr-25','f-member','ageExceedsFclCutoff',       'Age Exceeds FCL Cutoff',               'boolean','Output: whether member age exceeds the free cover limit cutoff.',               true),
+  ff('ff-mbr-26','f-member','saAboveFcl',                'SA Above FCL',                         'boolean','Output: whether the member sum assured exceeds the free cover limit.',           true),
+  ff('ff-mbr-27','f-member','saLteFcl',                  'SA ≤ FCL',                             'boolean','Output: whether the member sum assured is within the free cover limit.',         true),
+  ff('ff-mbr-28','f-member','coverAboveFcl',             'Cover Above FCL',                      'boolean','Output: whether cover amount is above the FCL threshold.',                       true),
+  ff('ff-mbr-29','f-member','crossesFclCutoffAtRenewal', 'Crosses FCL Cutoff At Renewal',        'boolean','Output: whether member will exceed FCL cutoff age at renewal.',                 true),
+  ff('ff-mbr-30','f-member','loanOutstandingInBounds',   'Loan Outstanding In Bounds',           'boolean','Output: whether loan outstanding is within allowed SA bounds.',                  true),
+  ff('ff-mbr-31','f-member','loanTermInBounds',          'Loan Term In Bounds',                  'boolean','Output: whether loan term is within the allowed range.',                         true),
+  ff('ff-mbr-32','f-member','eligibilityStatus',         'Eligibility Status',                   'string', 'Output: member eligibility decision: ELIGIBLE, INELIGIBLE, REFER.',             true),
+  ff('ff-mbr-33','f-member','highRiskCondition',         'High Risk Condition',                  'boolean','Output: whether a high-risk medical condition was identified.',                  true),
+  ff('ff-mbr-34','f-member','dobValid',                  'Date of Birth Valid',                  'boolean','Output: whether the declared date of birth has been validated.',                 true),
+  ff('ff-mbr-35','f-member','idUniqueInDraft',           'ID Unique In Draft',                   'boolean','Output: whether the member ID is unique within the draft census.',               true),
+  ff('ff-mbr-36','f-member','duplicateInMph',            'Duplicate In MPH',                     'boolean','Output: whether a duplicate entry exists in the master policy holder list.',     true),
+  ff('ff-mbr-37','f-member','requiredFieldsMissing',     'Required Fields Missing',              'boolean','Output: whether any mandatory member fields are absent.',                        true),
+  ff('ff-mbr-38','f-member','siFormulaViolation',        'SI Formula Violation',                 'boolean','Output: whether the sum insured formula rule has been breached.',                true),
+  ff('ff-mbr-39','f-member','salaryConsistencyMismatch', 'Salary Consistency Mismatch',          'boolean','Output: whether declared salary is inconsistent with grade band.',               true),
+  ff('ff-mbr-40','f-member','borrowerLoanFieldsMissing', 'Borrower Loan Fields Missing',         'boolean','Output: whether required loan fields are absent for borrower members.',          true),
+  ff('ff-mbr-41','f-member','nriOrFn',                   'NRI or Foreign National (Short)',       'boolean','Output: whether member is a non-resident Indian or foreign national.',           true),
+  ff('ff-mbr-42','f-member','nriOrForeignNational',      'NRI or Foreign National',              'boolean','Output: whether member is a non-resident Indian or foreign national (full).',    true),
+  ff('ff-mbr-43','f-member','countryClassification',     'Country Classification',               'string', 'Output: country risk tier — INDIA, STANDARD, RESTRICTED, DECLINE.',             true),
+  ff('ff-mbr-44','f-member','countryOnDeclineList',      'Country On Decline List',              'boolean','Output: whether the member country is on the IRDAI decline list.',              true),
+  ff('ff-mbr-45','f-member','pepMatch',                  'PEP Match',                            'boolean','Output: whether the member matched a Politically Exposed Person record.',       true),
+  ff('ff-mbr-46','f-member','grandfatherFlag',           'Grandfather Flag',                     'boolean','Output: whether grandfathering applies for this member.',                        true),
+  ff('ff-mbr-47','f-member','outcome',                   'Outcome',                              'string', 'Output: overall member UW/eligibility outcome.',                                  true),
+  ff('ff-mbr-48','f-member','warning',                   'Warning',                              'string', 'Output: warning message for soft-fail member conditions.',                       true),
+  ff('ff-mbr-49','f-member','ageAtDeath',                'Age At Death',                         'number', 'Member age at the time of death — used in death claim processing.',             false),
+  /* scheme */
+  ff('ff-sch-01','f-scheme','productCode',               'Product Code',                         'string', 'Insurance product code for the group scheme.',                                   false),
+  ff('ff-sch-02','f-scheme','schemeType',                'Scheme Type',                          'string', 'Scheme type: GTL, GPA, GMED, GHLI, GHLA.',                                      false),
+  ff('ff-sch-03','f-scheme','segment',                   'Segment',                              'string', 'Market segment: SME, CORPORATE, BANCASSURANCE, AFFINITY.',                      false),
+  ff('ff-sch-04','f-scheme','effectiveDate',             'Effective Date',                       'date',   'Date from which scheme terms take effect.',                                      false),
+  ff('ff-sch-05','f-scheme','isGrandfathered',           'Is Grandfathered',                     'boolean','Whether the scheme has grandfathering provisions for existing members.',         false),
+  ff('ff-sch-06','f-scheme','isMultiPartner',            'Is Multi-Partner',                     'boolean','Whether the scheme involves multiple partner entities.',                          false),
+  ff('ff-sch-07','f-scheme','participationRule',         'Participation Rule',                   'string', 'Minimum participation requirement: ALL_EMPLOYEES, VOLUNTARY.',                  false),
+  ff('ff-sch-08','f-scheme','template',                  'Template',                             'string', 'Scheme configuration template code.',                                            false),
+  ff('ff-sch-09','f-scheme','setupTrigger',              'Setup Trigger',                        'string', 'Event that triggered scheme setup: NEW_BUSINESS, RENEWAL, TAKEOVER.',           false),
+  ff('ff-sch-10','f-scheme','strategicAccount',          'Strategic Account',                    'boolean','Whether the scheme is designated as a strategic account.',                       false),
+  ff('ff-sch-11','f-scheme','wellnessCertified',         'Wellness Certified',                   'boolean','Whether the employer holds an accredited wellness certification.',               false),
+  ff('ff-sch-12','f-scheme','hazardBand',                'Hazard Band',                          'string', 'Output: overall scheme hazard band derived from occupational mix.',               true),
+  ff('ff-sch-13','f-scheme','fclCutoffAgeOutOfRange',    'FCL Cutoff Age Out of Range',          'boolean','Output: whether the FCL cutoff age is outside allowed bounds.',                  true),
+  ff('ff-sch-14','f-scheme','fclNotConfiguredMultiDim',  'FCL Not Configured (Multi-Dim)',       'boolean','Output: whether FCL is not configured for multi-dimension schemes.',             true),
+  /* rating */
+  ff('ff-rat-01','f-rating','baseRate',                  'Base Rate',                            'number', 'Output: base mortality/morbidity rate per mille.',                               true),
+  ff('ff-rat-02','f-rating','purePremium',               'Pure Premium',                         'number', 'Output: pure risk premium before loadings and discounts.',                       true),
+  ff('ff-rat-03','f-rating','annualPremium',             'Annual Premium',                       'number', 'Output: final annual premium including all adjustments.',                        true),
+  ff('ff-rat-04','f-rating','commercialPremium',         'Commercial Premium',                   'number', 'Output: commercially adjusted premium after broker and strategic discounts.',    true),
+  ff('ff-rat-05','f-rating','effectivePerMille',         'Effective Per Mille',                  'number', 'Output: effective rate per 1000 of sum assured.',                                true),
+  ff('ff-rat-06','f-rating','gst',                       'GST',                                  'number', 'Output: GST amount applied to the premium.',                                      true),
+  ff('ff-rat-07','f-rating','load',                      'Load',                                 'number', 'Output: total loading percentage applied.',                                       true),
+  ff('ff-rat-08','f-rating','seniorLoad',                'Senior Load',                          'number', 'Output: loading for senior age band members.',                                    true),
+  ff('ff-rat-09','f-rating','hazardMixLoad',             'Hazard Mix Load',                      'number', 'Output: loading for occupational hazard mix.',                                    true),
+  ff('ff-rat-10','f-rating','concentrationLoad',         'Concentration Load',                   'number', 'Output: loading for geographic or industry concentration risk.',                 true),
+  ff('ff-rat-11','f-rating','dqLoad',                    'DQ Load',                              'number', 'Output: data quality loading applied due to census DQ band.',                    true),
+  ff('ff-rat-12','f-rating','smokerLoad',                'Smoker Load',                          'number', 'Output: loading for smoker members.',                                             true),
+  ff('ff-rat-13','f-rating','emrPct',                    'EMR %',                                'number', 'Output: experience modification rate percentage.',                               true),
+  ff('ff-rat-14','f-rating','emrReasonCode',             'EMR Reason Code',                      'string', 'Output: reason code explaining the EMR adjustment.',                             true),
+  ff('ff-rat-15','f-rating','ageSetBack',                'Age Set-Back',                         'number', 'Output: age set-back years applied to female lives.',                             true),
+  ff('ff-rat-16','f-rating','genderForRating',           'Gender For Rating',                    'string', 'Output: gender used for rating after age set-back application.',                 true),
+  ff('ff-rat-17','f-rating','minRatedAge',               'Minimum Rated Age',                    'number', 'Output: minimum age used for rating calculations.',                               true),
+  ff('ff-rat-18','f-rating','rateSlab',                  'Rate Slab',                            'string', 'Output: rate slab code applied to the scheme.',                                   true),
+  ff('ff-rat-19','f-rating','slabKey',                   'Slab Key',                             'string', 'Output: composite key used to look up the rate slab.',                           true),
+  ff('ff-rat-20','f-rating','modalLoad',                 'Modal Load',                           'number', 'Output: loading for non-annual payment frequency.',                               true),
+  ff('ff-rat-21','f-rating','brokerDiscount',            'Broker Discount',                      'number', 'Output: discount percentage applied for broker tier.',                            true),
+  ff('ff-rat-22','f-rating','jointLifeDiscount',         'Joint Life Discount',                  'number', 'Output: discount for joint-life policy structure.',                               true),
+  ff('ff-rat-23','f-rating','planMatchDiscount',         'Plan Match Discount',                  'number', 'Output: discount for plan design matching standard template.',                    true),
+  ff('ff-rat-24','f-rating','riderDiscount',             'Rider Discount',                       'number', 'Output: discount applied for bundled rider purchase.',                            true),
+  ff('ff-rat-25','f-rating','wellnessDiscount',          'Wellness Discount',                    'number', 'Output: discount for wellness-certified employers.',                               true),
+  ff('ff-rat-26','f-rating','strategicRebate',           'Strategic Rebate',                     'number', 'Output: strategic account rebate percentage.',                                    true),
+  ff('ff-rat-27','f-rating','discountHint',              'Discount Hint',                        'string', 'Output: hint code for the primary discount driver applied.',                     true),
+  ff('ff-rat-28','f-rating','status',                    'Status',                               'string', 'Output: rating engine status: RATED, REFER, DECLINE.',                           true),
+  ff('ff-rat-29','f-rating','outcome',                   'Outcome',                              'string', 'Output: overall rating outcome.',                                                  true),
+  /* underwriting */
+  ff('ff-uww-01','f-uw','outcome',                       'Outcome',                              'string', 'Output: overall UW decision: ACCEPT, REFER, DECLINE, RATED.',                   true),
+  ff('ff-uww-02','f-uw','status',                        'Status',                               'string', 'Output: current UW status in the workflow.',                                      true),
+  ff('ff-uww-03','f-uw','action',                        'Action',                               'string', 'Output: UW action to take: APPROVE, REFER_MEDICAL, LOAD, EXCLUDE.',              true),
+  ff('ff-uww-04','f-uw','band',                          'Band',                                 'string', 'Output: UW risk band assigned.',                                                   true),
+  ff('ff-uww-05','f-uw','finalDisposition',              'Final Disposition',                    'string', 'Output: final UW disposition after all checks.',                                  true),
+  ff('ff-uww-06','f-uw','increaseDisposition',           'Increase Disposition',                 'string', 'Output: disposition for mid-year sum assured increase requests.',                 true),
+  ff('ff-uww-07','f-uw','inProgress',                    'In Progress',                          'boolean','Output: whether UW assessment is still in progress.',                             true),
+  ff('ff-uww-08','f-uw','rateUpApplies',                 'Rate Up Applies',                      'boolean','Output: whether a rate-up loading has been applied.',                             true),
+  ff('ff-uww-09','f-uw','medValidity',                   'Medical Evidence Validity',            'date',   'Output: date until which medical evidence remains valid.',                        true),
+  ff('ff-uww-10','f-uw','fclCap',                        'FCL Cap',                              'number', 'Output: the effective free cover limit cap for this member.',                     true),
+  ff('ff-uww-11','f-uw','premiumBase',                   'Premium Base',                         'number', 'Output: base premium amount before UW adjustments.',                              true),
+  ff('ff-uww-12','f-uw','premiumCalc',                   'Premium Calculated',                   'number', 'Output: final calculated premium after all UW adjustments.',                     true),
+  ff('ff-uww-13','f-uw','reasonCode',                    'Reason Code',                          'string', 'Output: primary reason code for the UW decision.',                               true),
+  ff('ff-uww-14','f-uw','inforceRule',                   'Inforce Rule',                         'string', 'Output: name of the inforce/continuity rule applied.',                           true),
+  /* census */
+  ff('ff-cen-01','f-census','headcount',                 'Headcount',                            'number', 'Total employee count submitted in the census.',                                   false),
+  ff('ff-cen-02','f-census','membersCount',              'Members Count',                        'number', 'Number of members in the census after deduplication.',                           false),
+  ff('ff-cen-03','f-census','plansCount',                'Plans Count',                          'number', 'Number of distinct plans configured in the census.',                              false),
+  ff('ff-cen-04','f-census','tracking',                  'Tracking',                             'string', 'Census submission tracking reference.',                                           false),
+  ff('ff-cen-05','f-census','dqBand',                    'DQ Band',                              'string', 'Output: data quality band: A, B, C, D.',                                          true),
+  ff('ff-cen-06','f-census','stpBand',                   'STP Band',                             'string', 'Output: straight-through processing eligibility band.',                           true),
+  ff('ff-cen-07','f-census','requiredHeadersMissing',    'Required Headers Missing',             'boolean','Output: whether mandatory column headers are absent from the census file.',      true),
+  ff('ff-cen-08','f-census','duplicateOnKey',            'Duplicate On Key',                     'boolean','Output: whether duplicate records exist on the unique key.',                      true),
+  ff('ff-cen-09','f-census','allEmployeesIncluded',      'All Employees Included',               'boolean','Output: whether the census includes all active employees.',                       true),
+  ff('ff-cen-10','f-census','employerEmployeeMixValid',  'Employer-Employee Mix Valid',          'boolean','Output: whether employer and employee data ratio is valid.',                      true),
+  ff('ff-cen-11','f-census','outcome',                   'Outcome',                              'string', 'Output: overall census validation outcome.',                                       true),
+  /* docs */
+  ff('ff-doc-01','f-docs','documentType',                'Document Type',                        'string', 'Document type code (e.g. POLICY_SCHEDULE, CENSUS, KYC_PAN).',                   false),
+  ff('ff-doc-02','f-docs','uploadSource',                'Upload Source',                        'string', 'Channel through which document was uploaded: PORTAL, EMAIL, API.',               false),
+  ff('ff-doc-03','f-docs','ocrConfidence',               'OCR Confidence',                       'number', 'OCR engine confidence score (0–1) for extracted data accuracy.',                 false),
+  ff('ff-doc-04','f-docs','required',                    'Required',                             'boolean','Output: whether this document is required for the current stage.',                true),
+  ff('ff-doc-05','f-docs','precedence',                  'Precedence',                           'string', 'Output: document precedence/priority for the verification flow.',                 true),
+  ff('ff-doc-06','f-docs','multipleSourcesForDoc',       'Multiple Sources For Doc',             'boolean','Output: whether the same document type exists from multiple sources.',            true),
+  ff('ff-doc-07','f-docs','allMandatoryVerifiedOrWaived','All Mandatory Verified or Waived',     'boolean','Output: whether all mandatory documents are verified or explicitly waived.',      true),
+  ff('ff-doc-08','f-docs','outcome',                     'Outcome',                              'string', 'Output: overall document gate outcome.',                                           true),
+  /* kyc */
+  ff('ff-kyc-01','f-kyc','entityType',                   'Entity Type',                          'string', 'KYC entity type: INDIVIDUAL, COMPANY, TRUST, PARTNERSHIP.',                     false),
+  ff('ff-kyc-02','f-kyc','panPresent',                   'PAN Present',                          'boolean','Whether PAN document has been submitted.',                                        false),
+  ff('ff-kyc-03','f-kyc','boCertificatePresent',         'BO Certificate Present',               'boolean','Whether Beneficial Ownership certificate has been submitted.',                   false),
+  ff('ff-kyc-04','f-kyc','panFormatValid',               'PAN Format Valid',                     'boolean','Output: whether the PAN number format is valid.',                                 true),
+  ff('ff-kyc-05','f-kyc','cinValidated',                 'CIN Validated',                        'boolean','Output: whether the Corporate Identification Number has been validated.',         true),
+  ff('ff-kyc-06','f-kyc','pepMatch',                     'PEP Match',                            'boolean','Output: whether a Politically Exposed Person match was found.',                   true),
+  ff('ff-kyc-07','f-kyc','newSignatoryKycMissing',       'New Signatory KYC Missing',            'boolean','Output: whether KYC documents for a new signatory are missing.',                 true),
+  ff('ff-kyc-08','f-kyc','outcome',                      'Outcome',                              'string', 'Output: overall KYC verification outcome.',                                       true),
+  /* approval */
+  ff('ff-apr-01','f-approval','originatorId',            'Originator ID',                        'string', 'User ID of the person who originated the approval request.',                    false),
+  ff('ff-apr-02','f-approval','approverId',              'Approver ID',                          'string', 'User ID of the assigned approver.',                                               false),
+  ff('ff-apr-03','f-approval','twoOfficerId',            'Two-Officer ID',                       'string', 'Output: second officer ID required for dual-control approvals.',                  true),
+  ff('ff-apr-04','f-approval','state',                   'State',                                'string', 'Output: current state in the approval workflow.',                                  true),
+  ff('ff-apr-05','f-approval','status',                  'Status',                               'string', 'Output: approval status: PENDING, APPROVED, REJECTED, ESCALATED.',               true),
+  ff('ff-apr-06','f-approval','action',                  'Action',                               'string', 'Output: approval action to execute.',                                             true),
+  ff('ff-apr-07','f-approval','reasonCode',              'Reason Code',                          'string', 'Output: reason code for the approval decision.',                                  true),
+  ff('ff-apr-08','f-approval','duplicateScopeExists',    'Duplicate Scope Exists',               'boolean','Output: whether a duplicate approval scope is already in flight.',               true),
+  ff('ff-apr-09','f-approval','outcome',                 'Outcome',                              'string', 'Output: overall approval outcome.',                                               true),
+  /* product */
+  ff('ff-prd-01','f-product','lineOfBusiness',           'Line of Business',                     'string', 'Product line: GTL, GPA, GMED, GHLI, ULIP, TERM.',                               false),
+  ff('ff-prd-02','f-product','variant',                  'Variant',                              'string', 'Product variant or sub-type code.',                                               false),
+  ff('ff-prd-03','f-product','schemeType',               'Scheme Type',                          'string', 'Allowed scheme types for this product.',                                          false),
+  ff('ff-prd-04','f-product','premiumType',              'Premium Type',                         'string', 'Premium structure: ANNUAL, SINGLE, LIMITED_PAY.',                                 false),
+  ff('ff-prd-05','f-product','minGroupSize',             'Minimum Group Size',                   'number', 'Minimum number of lives required for group eligibility.',                         false),
+  ff('ff-prd-06','f-product','nonMedicalAgeCap',         'Non-Medical Age Cap',                  'number', 'Maximum age for non-medical underwriting.',                                       false),
+  ff('ff-prd-07','f-product','smokerDifferentiation',    'Smoker Differentiation',               'boolean','Whether the product differentiates premium by smoking status.',                  false),
+  ff('ff-prd-08','f-product','jointLife',                'Joint Life',                           'boolean','Whether the product supports joint-life policies.',                               false),
+  ff('ff-prd-09','f-product','taxBenefit',               'Tax Benefit',                          'string', 'Tax benefit section code applicable to the product.',                            false),
+  ff('ff-prd-10','f-product','gstException',             'GST Exception',                        'boolean','Whether the product has a GST exemption.',                                        false),
+  ff('ff-prd-11','f-product','micro',                    'Micro',                                'boolean','Whether this is a micro-insurance product.',                                      false),
+  ff('ff-prd-12','f-product','maxSwitchesPerYear',       'Max Switches Per Year',                'number', 'Maximum ULIP fund switches allowed per policy year.',                            false),
+  ff('ff-prd-13','f-product','minSwitchAmount',          'Minimum Switch Amount',                'number', 'Minimum amount per ULIP fund switch.',                                            false),
+  ff('ff-prd-14','f-product','minPremiumFloor',          'Minimum Premium Floor',                'number', 'Minimum allowable premium for this product.',                                     false),
+  /* signature */
+  ff('ff-sig-01','f-sig','signatureMode',                'Signature Mode',                       'string', 'Mode of signature: WET, DIGITAL, AADHAAR_ESIGN.',                               false),
+  ff('ff-sig-02','f-sig','signedOn',                     'Signed On',                            'date',   'Date on which the document was signed.',                                          false),
+  ff('ff-sig-03','f-sig','wetSigPresent',                'Wet Signature Present',                'boolean','Whether a physical wet signature is present on the document.',                   false),
+  ff('ff-sig-04','f-sig','signatoryValid',               'Signatory Valid',                      'boolean','Output: whether the signatory is authorised to sign.',                            true),
+  ff('ff-sig-05','f-sig','signatoryAuthorityExpired',    'Signatory Authority Expired',          'boolean','Output: whether the signatory authorisation has expired.',                        true),
+  ff('ff-sig-06','f-sig','outcome',                      'Outcome',                              'string', 'Output: signature verification outcome.',                                          true),
+  /* bank */
+  ff('ff-bnk-01','f-bank','pennyDropFuzzyScore',         'Penny Drop Fuzzy Score',               'number', 'Fuzzy match score between penny drop response name and KYC name.',               false),
+  ff('ff-bnk-02','f-bank','verifyOutcome',               'Verify Outcome',                       'string', 'Output: bank account verification result: VERIFIED, FAILED, MISMATCH.',          true),
+  ff('ff-bnk-03','f-bank','outcome',                     'Outcome',                              'string', 'Output: overall bank verification outcome.',                                       true),
+  /* override */
+  ff('ff-ovr-01','f-override','rateDeviationPct',        'Rate Deviation %',                     'number', 'Requested rate deviation as a percentage.',                                       false),
+  ff('ff-ovr-02','f-override','action',                  'Action',                               'string', 'Override action type: APPROVE, REJECT, ESCALATE.',                               false),
+  ff('ff-ovr-03','f-override','reasonCode',              'Reason Code',                          'string', 'Reason code justifying the override request.',                                    false),
+  ff('ff-ovr-04','f-override','status',                  'Status',                               'string', 'Output: current override status.',                                                 true),
+  /* tax */
+  ff('ff-tax-01','f-tax','gstTreatment',                 'GST Treatment',                        'string', 'Output: GST treatment applied: STANDARD, EXEMPT, REVERSE_CHARGE.',               true),
+  ff('ff-tax-02','f-tax','hsnCode',                      'HSN Code',                             'string', 'Output: Harmonised System of Nomenclature code for the insurance product.',      true),
+  ff('ff-tax-03','f-tax','stampDuty',                    'Stamp Duty',                           'number', 'Output: computed stamp duty amount.',                                              true),
+  ff('ff-tax-04','f-tax','stampDutyRate',                'Stamp Duty Rate',                      'number', 'Output: stamp duty rate applicable by jurisdiction.',                             true),
+  /* billing */
+  ff('ff-bil-01','f-billing','frequency',                'Frequency',                            'string', 'Billing frequency: ANNUAL, SEMI_ANNUAL, QUARTERLY, MONTHLY.',                   false),
+  ff('ff-bil-02','f-billing','outcome',                  'Outcome',                              'string', 'Output: billing processing outcome.',                                              true),
+  /* plan */
+  ff('ff-pln-01','f-plan','saType',                      'SA Type',                              'string', 'Sum assured type: FLAT, MULTIPLE_OF_SALARY, LOAN_OUTSTANDING.',                 false),
+  /* quote */
+  ff('ff-qut-01','f-quote','type',                       'Type',                                 'string', 'Quote type: NEW_BUSINESS, RENEWAL, ENDORSEMENT, REINSTATEMENT.',                 false),
+  /* base plan */
+  ff('ff-bas-01','f-base','termYears',                   'Term (Years)',                         'number', 'Base plan policy term in years.',                                                  false),
+  ff('ff-bas-02','f-base','jointLifeCapable',            'Joint Life Capable',                   'boolean','Whether the base plan supports a joint-life structure.',                          false),
+  /* broker */
+  ff('ff-brk-01','f-broker','tier',                      'Tier',                                 'string', 'Broker tier classification: PLATINUM, GOLD, SILVER, DIRECT.',                   false),
+  ff('ff-brk-02','f-broker','packageSubmission',         'Package Submission',                   'boolean','Whether the broker submitted a package deal for volume discount.',               false),
+  /* promo */
+  ff('ff-prm-01','f-promo','q4Active',                   'Q4 Active',                            'boolean','Whether the Q4 promotional campaign is active for this scheme.',                 false),
+  /* rate card */
+  ff('ff-rct-01','f-rateCard','insurerMatchesProfile',   'Insurer Matches Profile',              'boolean','Output: whether the selected insurer matches the scheme risk profile.',           true),
+  ff('ff-rct-02','f-rateCard','windowViolatesEffectiveDate','Window Violates Effective Date',    'boolean','Output: whether the rate card window conflicts with the effective date.',         true),
+  /* refund */
+  ff('ff-rfd-01','f-refund','amount',                    'Amount',                               'number', 'Output: computed refund amount for policy cancellation.',                         true),
+  /* request */
+  ff('ff-req-01','f-request','policyLoan',               'Policy Loan',                          'boolean','Whether the request includes a policy loan component.',                           false),
+  ff('ff-req-02','f-request','outcome',                  'Outcome',                              'string', 'Output: overall request processing outcome.',                                      true),
+  /* revival */
+  ff('ff-rvv-01','f-revival','interestRate',             'Interest Rate',                        'number', 'Output: interest rate applicable on arrears for policy revival.',                  true),
+  /* endorsement */
+  ff('ff-end-01','f-endorsement','type',                 'Type',                                 'string', 'Endorsement type: ADD_MEMBER, REMOVE_MEMBER, SA_CHANGE, RIDER_ADD.',             false),
+  ff('ff-end-02','f-endorsement','premiumAdjustment',    'Premium Adjustment',                   'number', 'Output: premium adjustment amount for the endorsement.',                          true),
+  /* ulip */
+  ff('ff-ulp-01','f-ulip','annualSwitchCount',           'Annual Switch Count',                  'number', 'Number of fund switches executed in the current policy year.',                   false),
+  ff('ff-ulp-02','f-ulip','switchAmount',                'Switch Amount',                        'number', 'Amount being switched between ULIP funds.',                                       false),
+  ff('ff-ulp-03','f-ulip','switchOutcome',               'Switch Outcome',                       'string', 'Output: ULIP fund switch decision: ALLOWED, REJECTED.',                           true),
+  /* composition */
+  ff('ff-cmp-01','f-composition','schemeTypeMix',        'Scheme Type Mix',                      'string', 'Mix of scheme types in a multi-part group arrangement.',                         false),
+  ff('ff-cmp-02','f-composition','outcome',              'Outcome',                              'string', 'Output: composition validation outcome.',                                          true),
+  /* compliance */
+  ff('ff-cpl-01','f-compliance','sec38_39',              'Sec 38 / 39 Compliance',               'string', 'Output: IRDAI Section 38/39 nomination/assignment compliance status.',            true),
+  /* life questionnaire */
+  ff('ff-lfq-01','f-lfq','adversityNoted',               'Adversity Noted',                      'boolean','Output: whether an adverse medical history was noted in the LFQ.',               true),
+  /* loan */
+  ff('ff-lon-01','f-loan','foreclosed',                  'Foreclosed',                           'boolean','Whether the underlying loan has been foreclosed.',                               false),
+  /* medical */
+  ff('ff-med-01','f-medical','previousMedicalsValid',    'Previous Medicals Valid',              'boolean','Output: whether previously submitted medical evidence remains valid.',             true),
+  ff('ff-med-02','f-medical','previousTestValid',        'Previous Test Valid',                  'boolean','Output: whether a specific prior medical test is still within validity.',         true),
+  /* data */
+  ff('ff-dat-01','f-data','piiField',                    'PII Field',                            'boolean','Whether the data field contains personally identifiable information.',            false),
+  ff('ff-dat-02','f-data','storageOutcome',              'Storage Outcome',                      'string', 'Output: data storage/masking processing outcome.',                                true),
+  /* authority */
+  ff('ff-aut-01','f-authority','maxRateDeviationPct',    'Max Rate Deviation %',                 'number', 'Maximum rate deviation percentage permitted under delegated authority.',          false),
+  /* irdai */
+  ff('ff-ird-01','f-irdai','rateFloor',                  'Rate Floor',                           'number', 'IRDAI minimum rate floor for the product.',                                       false),
+  /* float receipt */
+  ff('ff-flr-01','f-floatReceipt','varianceExceedsTolerance','Variance Exceeds Tolerance',       'boolean','Output: whether float receipt variance exceeds the allowed tolerance.',          true),
+  ff('ff-flr-02','f-floatReceipt','outcome',             'Outcome',                              'string', 'Output: float receipt reconciliation outcome.',                                    true),
+  /* float transfer */
+  ff('ff-flt-01','f-floatTransfer','utr',                'UTR',                                  'string', 'Unique Transaction Reference for the float transfer.',                            false),
+  ff('ff-flt-02','f-floatTransfer','crossLegalEntityValid','Cross Legal Entity Valid',           'boolean','Output: whether the inter-entity float transfer is structurally valid.',          true),
+  ff('ff-flt-03','f-floatTransfer','outcome',            'Outcome',                              'string', 'Output: float transfer processing outcome.',                                       true),
+  /* master policy holder */
+  ff('ff-mph-01','f-mph','corporate',                    'Corporate',                            'boolean','Whether the master policy holder is a corporate entity.',                         false),
+  ff('ff-mph-02','f-mph','rbiRegulated',                 'RBI Regulated',                        'boolean','Whether the master policy holder is an RBI-regulated entity.',                   false),
+  /* action */
+  ff('ff-act-01','f-action','type',                      'Type',                                 'string', 'Action/trigger type passed to the rule engine for context.',                     false),
+  /* termination */
+  ff('ff-trm-01','f-termination','initiatedBy',          'Initiated By',                         'string', 'Who initiated the termination: POLICYHOLDER, INSURER, REGULATOR.',              false),
+  ff('ff-trm-02','f-termination','noticeDays',           'Notice Days',                          'number', 'Number of days notice given before termination effective date.',                  false),
+  ff('ff-trm-03','f-termination','outcome',              'Outcome',                              'string', 'Output: termination processing outcome.',                                          true),
+  /* settlement */
+  ff('ff-stl-01','f-settlement','bankRejected',          'Bank Rejected',                        'boolean','Whether the settlement payment was rejected by the bank.',                       false),
+  ff('ff-stl-02','f-settlement','outcome',               'Outcome',                              'string', 'Output: claims settlement outcome.',                                               true),
 ];
 
 const mkVer = (
@@ -1336,6 +1686,1680 @@ export const SEED_RULES: Rule[] = [
   },
 ];
 
+/* ── GTL UW NON-DMN RULES (A1) ───────────────────── */
+export const SEED_GTL_RULES: Rule[] = [
+  /* ── UW Eligibility ──────────────────────────── */
+  {
+    id: 'gtl-elig-001', name: 'FCL Cutoff Age Setup', category: 'Eligibility',
+    tags: ['gtl', 'eligibility', 'fcl', 'scheme-setup'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'Capture FCL_Cutoff_Age per scheme (mandatory) on scheme setup.', 'Initial Release — DRF Anhira', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('scheme.setupTrigger', 'IS_NOT_NULL')] }, [
+        _a('ASSIGN', 'uw.action', 'REQUIRE:FCL_CUTOFF_AGE'),
+      ]))],
+  },
+  {
+    id: 'gtl-elig-002', name: 'FCL Cutoff Age Range Validation', category: 'Eligibility',
+    tags: ['gtl', 'eligibility', 'fcl', 'validation'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'Reject if FCL_Cutoff_Age is outside the range [Min_Age, Cease_Age].', 'Initial Release — DRF Anhira', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('scheme.fclCutoffAgeOutOfRange', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'uw.outcome', 'FAIL:FCL_CUTOFF_OUT_OF_RANGE'),
+      ]))],
+  },
+  {
+    id: 'gtl-elig-003', name: 'Age > 65 FCL Hard Cap', category: 'Eligibility',
+    tags: ['gtl', 'eligibility', 'age', 'hard-cap'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'Force FCL = 0 and route to UW queue when member age exceeds 65.', 'Initial Release — DRF Anhira #15', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.age', 'GREATER_THAN', '65')] }, [
+        _a('ASSIGN', 'uw.fclCap', '0'),
+        _a('ASSIGN', 'uw.outcome', 'REFER_UW:AGE_GT_65'),
+      ]))],
+  },
+  {
+    id: 'gtl-elig-004', name: 'Age > FCL Cutoff Age UW Referral', category: 'Eligibility',
+    tags: ['gtl', 'eligibility', 'age', 'fcl-cutoff'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'Set FCL = 0 and queue for UW when member age exceeds FCL_Cutoff_Age but is ≤ 65.', 'Initial Release — DRF Anhira', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.ageExceedsFclCutoff', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'uw.fclCap', '0'),
+        _a('ASSIGN', 'uw.outcome', 'REFER_UW:AGE_GT_FCL_CUTOFF'),
+      ]))],
+  },
+  {
+    id: 'gtl-elig-005', name: 'Renewal Age Crossing FCL Cutoff', category: 'Eligibility',
+    tags: ['gtl', 'eligibility', 'renewal', 'fcl-cutoff'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'Auto-move member to FCL = 0 when they cross FCL_Cutoff_Age at renewal.', 'Initial Release — DRF Anhira', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.crossesFclCutoffAtRenewal', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'uw.fclCap', '0'),
+        _a('ASSIGN', 'uw.outcome', 'CAP_FCL:0;REFER_UW:RENEWAL_AGE_CROSSING'),
+      ]))],
+  },
+  {
+    id: 'gtl-elig-006', name: 'Duplicate LA Under Same Master Policy', category: 'Eligibility',
+    tags: ['gtl', 'eligibility', 'duplicate', 'la'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'Reject if the same Life Assured appears twice under the same Master Policy.', 'Initial Release — DRF Anhira', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.duplicateInMph', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'uw.outcome', 'BLOCK:LA_DUPLICATE_IN_MPH'),
+      ]))],
+  },
+  {
+    id: 'gtl-elig-007', name: 'Multi-Dimensional FCL Setup Required', category: 'Eligibility',
+    tags: ['gtl', 'eligibility', 'fcl', 'multi-dim'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'Require FCL configured per location, benefit, and risk category when not universally set.', 'Initial Release — DRF Anhira #10', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('scheme.fclNotConfiguredMultiDim', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'uw.action', 'REQUIRE:FCL_PER_LOCATION_BENEFIT_RISK'),
+      ]))],
+  },
+  {
+    id: 'gtl-elig-008', name: 'Multi-Partner FCL Per Partner Required', category: 'Eligibility',
+    tags: ['gtl', 'eligibility', 'fcl', 'multi-partner'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'Each partner in a multi-partner Master Policy must have their own FCL; no shared FCL.', 'Initial Release — DRF Anhira', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('scheme.isMultiPartner', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'uw.action', 'REQUIRE:FCL_PER_PARTNER'),
+      ]))],
+  },
+
+  /* ── UW NML ──────────────────────────────────── */
+  {
+    id: 'gtl-nml-001', name: 'NML Collapses with FCL (GTL)', category: 'NML',
+    tags: ['gtl', 'nml', 'fcl', 'product'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'For GTL product, NML equals FCL — no separate medical or non-medical limits apply.', 'Initial Release — DRF Anhira #15', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('scheme.productCode', 'EQUALS', 'GTL'), _c('member.saLteFcl', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'uw.action', 'REQUIRE:NML_EQ_FCL'),
+      ]))],
+  },
+  {
+    id: 'gtl-nml-002', name: 'LFQ Not Required Below FCL', category: 'NML',
+    tags: ['gtl', 'nml', 'lfq', 'fcl'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'Life Financial Questionnaire is not required when SA is at or below the FCL threshold.', 'Initial Release — DRF Anhira', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.sa', 'LESS_THAN_OR_EQUAL', 'FCL')] }, [
+        _a('ASSIGN', 'uw.action', 'REQUIRE:LFQ_NOT_REQUIRED_BELOW_FCL'),
+      ]))],
+  },
+
+  /* ── UW Medical Validity ─────────────────────── */
+  {
+    id: 'gtl-medval-001', name: 'Standard Medical Validity — 1 Year', category: 'Medical Validity',
+    tags: ['gtl', 'medical', 'validity', 'standard'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'Medical records for standard lives are valid for 1 year from the test date.', 'Initial Release — DRF Anhira', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.lifeClass', 'EQUALS', 'STANDARD')] }, [
+        _a('ASSIGN', 'uw.medValidity', 'REQUIRE:MED_VALIDITY_1Y'),
+      ]))],
+  },
+  {
+    id: 'gtl-medval-002', name: 'Sub-Standard Medical Validity — Per Test Master', category: 'Medical Validity',
+    tags: ['gtl', 'medical', 'validity', 'sub-standard'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'Medical record validity for sub-standard lives is governed by the Test Master schedule.', 'Initial Release — DRF Anhira', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.lifeClass', 'EQUALS', 'SUB_STANDARD')] }, [
+        _a('ASSIGN', 'uw.medValidity', 'REQUIRE:MED_VALIDITY_PER_TEST'),
+      ]))],
+  },
+  {
+    id: 'gtl-medval-003', name: 'Waive Re-Triggered Medical Test If Still Valid', category: 'Medical Validity',
+    tags: ['gtl', 'medical', 'waiver', 'carry-forward'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'Waive the same medical test if the previous result is still within its validity window.', 'Initial Release — DRF Anhira', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('medical.previousTestValid', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'uw.action', 'WAIVE:MED_TEST_VALID'),
+      ]))],
+  },
+  {
+    id: 'gtl-medval-004', name: 'Age-Based Medical Carry-Forward Guidelines', category: 'Medical Validity',
+    tags: ['gtl', 'medical', 'carry-forward', 'age'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'DRAFT', 'Apply carry-forward guidelines when member age ≤ 60 (or 65 per retirement age). Exact table pending RI confirmation.', 'Initial Release — DRF Anhira (pending RI)', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.age', 'LESS_THAN_OR_EQUAL', '65')] }, [
+        _a('ASSIGN', 'uw.action', 'REQUIRE:CARRY_FORWARD_GUIDELINES'),
+      ]))],
+  },
+  {
+    id: 'gtl-medval-005', name: 'Grandfathering Carry-Forward (Munich Re)', category: 'Medical Validity',
+    tags: ['gtl', 'medical', 'grandfathering', 'munich-re'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'Apply carry-forward standards for standard and sub-standard lives previously seen by Munich Re under grandfathering.', 'Initial Release — DRF Anhira', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.munichRePreviouslySeen', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'uw.action', 'REQUIRE:GF_CARRY_FORWARD'),
+      ]))],
+  },
+  {
+    id: 'gtl-medval-006', name: 'Fresh Grandfathering Munich Re Referral', category: 'Medical Validity',
+    tags: ['gtl', 'medical', 'grandfathering', 'munich-re', 'referral'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'Refer to Munich Re for fresh grandfathered scheme where lives have cover above FCL and were not previously seen.', 'Initial Release — DRF Anhira', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('scheme.isGrandfathered', 'EQUALS', 'true'), _c('member.coverAboveFcl', 'EQUALS', 'true'), _c('member.munichRePreviouslySeen', 'EQUALS', 'false')] }, [
+        _a('ASSIGN', 'uw.outcome', 'REFER_FAC:GF_MUNICH_RE'),
+      ]))],
+  },
+
+  /* ── UW SA Increase — Mid-Year & Premium ─────── */
+  {
+    id: 'gtl-sainc-301', name: 'Max 2 SA Increases Per Policy Year', category: 'SA Inc (Mid-Year)',
+    tags: ['gtl', 'sa-increase', 'mid-year', 'cap'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'A member may not request more than 2 mid-year SA increases within the same policy year.', 'Initial Release — DRF Anhira', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.midYearIncreaseCount', 'GREATER_THAN_OR_EQUAL', '2')] }, [
+        _a('ASSIGN', 'uw.outcome', 'BLOCK:MAX_2_INCREASES_PER_YEAR'),
+      ]))],
+  },
+  {
+    id: 'gtl-sainc-303', name: 'Waive Fresh Medicals — Previous Medicals Valid', category: 'SA Inc (Mid-Year)',
+    tags: ['gtl', 'sa-increase', 'mid-year', 'medical-waiver'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'Waive fresh medical requirements for mid-year SA increase if previous medicals are still within validity.', 'Initial Release — DRF Anhira', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('medical.previousMedicalsValid', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'uw.action', 'WAIVE:PREV_MED_VALID'),
+      ]))],
+  },
+  {
+    id: 'gtl-sainc-304', name: 'Permanent SA Increase Lock on Decline or Postpone', category: 'SA Inc (Mid-Year)',
+    tags: ['gtl', 'sa-increase', 'permanent-lock', 'decline'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'Permanently lock the member from future SA increases if any increase request is declined or postponed.', 'Initial Release — DRF Anhira', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('uw.increaseDisposition', 'IN', 'DECLINED,POSTPONED')] }, [
+        _a('ASSIGN', 'uw.action', 'BLOCK:PERMANENT_SA_INCREASE_LOCK'),
+      ]))],
+  },
+  {
+    id: 'gtl-sainc-401', name: 'Inforce SA = Last Inforce SA During UW', category: 'SA Inc (Premium)',
+    tags: ['gtl', 'sa-increase', 'premium', 'inforce'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'While UW is in progress for SA > FCL, the inforce SA remains the last confirmed inforce SA.', 'Initial Release — DRF Anhira', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('uw.inProgress', 'EQUALS', 'true'), _c('member.saAboveFcl', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'uw.inforceRule', 'REQUIRE:INFORCE_EQ_LAST_SA'),
+      ]))],
+  },
+  {
+    id: 'gtl-sainc-402', name: 'Inforce SA = New SA on Standard or Rated-Up Decision', category: 'SA Inc (Premium)',
+    tags: ['gtl', 'sa-increase', 'premium', 'inforce', 'approved'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'Set inforce SA to the new requested SA when the final UW disposition is STANDARD or RATED_UP.', 'Initial Release — DRF Anhira', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('uw.finalDisposition', 'IN', 'STANDARD,RATED_UP')] }, [
+        _a('ASSIGN', 'uw.inforceRule', 'REQUIRE:INFORCE_EQ_NEW_SA'),
+      ]))],
+  },
+  {
+    id: 'gtl-sainc-403', name: 'Inforce SA = Last SA on Decline or Postpone', category: 'SA Inc (Premium)',
+    tags: ['gtl', 'sa-increase', 'premium', 'inforce', 'declined'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'Revert inforce SA to the last confirmed inforce SA when disposition is DECLINED or POSTPONED.', 'Initial Release — DRF Anhira', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('uw.finalDisposition', 'IN', 'DECLINED,POSTPONED')] }, [
+        _a('ASSIGN', 'uw.inforceRule', 'REQUIRE:INFORCE_EQ_LAST_SA'),
+      ]))],
+  },
+  {
+    id: 'gtl-sainc-404', name: 'Rate-Up Premium on SA Delta', category: 'SA Inc (Premium)',
+    tags: ['gtl', 'sa-increase', 'rate-up', 'premium-delta'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'When disposition is RATED_UP, premium loading applies only on the delta (New SA − Last Inforce SA).', 'Initial Release — DRF Anhira', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('uw.finalDisposition', 'EQUALS', 'RATED_UP')] }, [
+        _a('ASSIGN', 'uw.premiumBase', 'REQUIRE:RATE_UP_ON_DELTA'),
+      ]))],
+  },
+  {
+    id: 'gtl-sainc-405', name: 'Pro-Rate Rate-Up from Decision Date to PTD', category: 'SA Inc (Premium)',
+    tags: ['gtl', 'sa-increase', 'rate-up', 'pro-rate'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'Pro-rate the rate-up premium from the Current Decision Date through to the Paid-To-Date.', 'Initial Release — DRF Anhira', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('uw.rateUpApplies', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'uw.premiumCalc', 'REQUIRE:PRO_RATE_DEC_DATE_TO_PTD'),
+      ]))],
+  },
+
+  /* ── UW Grandfathering, NRI & MQ ─────────────── */
+  {
+    id: 'gtl-gf-001', name: 'Grandfathering UW Queue', category: 'Grandfathering',
+    tags: ['gtl', 'grandfathering', 'uw-queue'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'Push member to UW queue when the grandfathering flag is set.', 'Initial Release — DRF Anhira', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.grandfatherFlag', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'uw.outcome', 'REFER_UW:GRANDFATHERING'),
+      ]))],
+  },
+  {
+    id: 'gtl-gf-003', name: 'GF Munich Re Referral — New Life', category: 'Grandfathering',
+    tags: ['gtl', 'grandfathering', 'munich-re', 'new-life'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'Refer to Munich Re when cover exceeds FCL and the life has not previously been seen by Munich Re under the grandfathering route.', 'Initial Release — DRF Anhira', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.coverAboveFcl', 'EQUALS', 'true'), _c('member.munichRePreviouslySeen', 'EQUALS', 'false')] }, [
+        _a('ASSIGN', 'uw.outcome', 'REFER_FAC:GF_MUNICH_NEW'),
+      ]))],
+  },
+  {
+    id: 'gtl-gf-006', name: 'GF Carry-Forward from Munich Re', category: 'Grandfathering',
+    tags: ['gtl', 'grandfathering', 'carry-forward', 'munich-re'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'Apply Munich Re carry-forward guidelines for lives previously assessed under the grandfathering route.', 'Initial Release — DRF Anhira', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.munichRePreviouslySeen', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'uw.action', 'REQUIRE:GF_CARRY_FORWARD'),
+      ]))],
+  },
+  {
+    id: 'gtl-nri-001', name: 'NRI Route to UW', category: 'NRI',
+    tags: ['gtl', 'nri', 'uw-queue'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'Route member to UW queue when NRI or foreign national flag is set.', 'Initial Release — DRF Anhira', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.nriOrFn', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'uw.outcome', 'REFER_UW:NRI'),
+      ]))],
+  },
+  {
+    id: 'gtl-nri-002', name: 'NRI Decline Country Upfront Rejection', category: 'NRI',
+    tags: ['gtl', 'nri', 'decline', 'country'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'Upfront reject the application if the NRI member\'s country of residence is on the decline list (managed separately).', 'Initial Release — DRF Anhira', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.nriOrFn', 'EQUALS', 'true'), _c('member.countryOnDeclineList', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'uw.outcome', 'DECLINE:NRI_DECLINE_COUNTRY'),
+      ]))],
+  },
+  {
+    id: 'gtl-nri-003', name: 'NRI Unknown Country Referral', category: 'NRI',
+    tags: ['gtl', 'nri', 'country', 'unknown'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'DRAFT', 'Refer to UW when the member country is not on the approve or decline list. Exact country classification TBD.', 'Initial Release — DRF Anhira (TBD)', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.nriOrFn', 'EQUALS', 'true'), _c('member.countryClassification', 'EQUALS', 'UNKNOWN')] }, [
+        _a('ASSIGN', 'uw.outcome', 'REFER_UW:NRI_COUNTRY_UNKNOWN'),
+      ]))],
+  },
+  {
+    id: 'gtl-mq-001', name: 'GTL Product — LFQ Only, No MQ', category: 'MQ/LFQ',
+    tags: ['gtl', 'mq', 'lfq', 'product-config'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'For GTL product, only Life Financial Questionnaire is used; Medical Questionnaire is not applicable.', 'Initial Release — DRF Anhira', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('scheme.productCode', 'EQUALS', 'GTL')] }, [
+        _a('ASSIGN', 'uw.action', 'REQUIRE:LFQ_ONLY'),
+      ]))],
+  },
+  {
+    id: 'gtl-mq-002', name: 'LFQ Adverse Findings — Grid Medicals Required', category: 'MQ/LFQ',
+    tags: ['gtl', 'mq', 'lfq', 'adverse', 'medical-grid'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'When LFQ reveals adverse findings, route to UW and require full medical grid assessment.', 'Initial Release — DRF Anhira', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('lfq.adversityNoted', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'uw.outcome', 'REFER_UW:LFQ_ADV'),
+        _a('ASSIGN', 'uw.action', 'REQUIRE:MEDICAL_GRID'),
+      ]))],
+  },
+
+  /* ── UW Leave of Absence ─────────────────────── */
+  {
+    id: 'gtl-loa-001', name: 'Medical LWP — Cover Till End of Term, No Renewal', category: 'LOA',
+    tags: ['gtl', 'loa', 'medical', 'lwp', 'no-renewal'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'Member on Leave Without Pay for medical reasons retains cover until end of policy term but is not eligible for renewal.', 'Initial Release — DRF Anhira', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.loaType', 'EQUALS', 'MEDICAL_LWP')] }, [
+        _a('ASSIGN', 'uw.action', 'REQUIRE:NO_RENEWAL_MEDICAL_LWP'),
+      ]))],
+  },
+  {
+    id: 'gtl-loa-002', name: 'Maternity LOA ≤ 6 Months — Government Regulation Cover', category: 'LOA',
+    tags: ['gtl', 'loa', 'maternity', 'government'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'Member on maternity leave of up to 6 months is covered per government regulation with no additional requirements.', 'Initial Release — DRF Anhira', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.loaType', 'EQUALS', 'MATERNITY'), _c('member.loaDurationMonths', 'LESS_THAN_OR_EQUAL', '6')] }, [
+        _a('ASSIGN', 'uw.outcome', 'PASS:MATERNITY_LE_6M'),
+      ]))],
+  },
+  {
+    id: 'gtl-loa-003', name: 'Maternity LOA 6–12 Months — Sabbatical Permitted', category: 'LOA',
+    tags: ['gtl', 'loa', 'maternity', 'sabbatical'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'Member on maternity leave between 6 and 12 months is treated as sabbatical and permitted coverage.', 'Initial Release — DRF Anhira', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.loaType', 'EQUALS', 'MATERNITY'), _c('member.loaDurationMonths', 'GREATER_THAN', '6'), _c('member.loaDurationMonths', 'LESS_THAN_OR_EQUAL', '12')] }, [
+        _a('ASSIGN', 'uw.outcome', 'PASS:MATERNITY_SABBATICAL'),
+      ]))],
+  },
+  {
+    id: 'gtl-loa-004', name: 'Maternity LOA > 12 Months — Fresh MQ and Grid', category: 'LOA',
+    tags: ['gtl', 'loa', 'maternity', 'fresh-mq', 'medical-grid'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'Require fresh LFQ and grid medicals (if above FCL) when member returns from maternity leave exceeding 12 months.', 'Initial Release — DRF Anhira', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.loaType', 'EQUALS', 'MATERNITY'), _c('member.loaDurationMonths', 'GREATER_THAN', '12')] }, [
+        _a('ASSIGN', 'uw.action', 'REQUIRE:FRESH_MQ'),
+        _a('ASSIGN', 'uw.action', 'REQUIRE:GRID_IF_ABOVE_FCL'),
+      ]))],
+  },
+  {
+    id: 'gtl-loa-005', name: 'Non-Medical Sabbatical — Max 6 Months, No Renewal', category: 'LOA',
+    tags: ['gtl', 'loa', 'sabbatical', 'cap'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'Non-medical, non-maternity sabbatical is capped at 6 months of coverage with no renewal permitted.', 'Initial Release — DRF Anhira', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.loaType', 'EQUALS', 'SABBATICAL_NON_MEDICAL')] }, [
+        _a('ASSIGN', 'uw.action', 'REQUIRE:SABBATICAL_CAP_6M'),
+      ]))],
+  },
+  {
+    id: 'gtl-loa-006', name: 'Return from Sabbatical — Fresh MQ and Medical Grid', category: 'LOA',
+    tags: ['gtl', 'loa', 'sabbatical', 'return', 'fresh-mq', 'medical-grid'], createdAt: '2026-06-01T00:00:00', createdBy: 'uw-head@anhira.com',
+    versions: [mkVer(1, 'ACTIVE', 'Require fresh LFQ and medical grid assessment when member returns from any non-medical/non-maternity sabbatical.', 'Initial Release — DRF Anhira', '2026-06-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.returningFromSabbatical', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'uw.action', 'REQUIRE:FRESH_MQ'),
+        _a('ASSIGN', 'uw.action', 'REQUIRE:MEDICAL_GRID'),
+      ]))],
+  },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A2 · GTL Rating Engine — Non-DMN Rules (32 rules)
+// ─────────────────────────────────────────────────────────────────────────────
+export const SEED_A2_RULES: Rule[] = [
+  // ── RATE_Selection_Residual ──
+  {
+    id: 'rate-sel-004', name: 'Rate Card Out of Window', category: 'Rate Card Selection',
+    tags: ['gtl', 'rating', 'rate-card'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Block when rate card effective window violates quote date.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('rateCard.windowViolatesEffectiveDate', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'rating.outcome', 'FAIL:RATE_CARD_OUT_OF_WINDOW'),
+      ]))],
+  },
+  {
+    id: 'rate-sel-005', name: 'Insurer Profile Mismatch', category: 'Rate Card Selection',
+    tags: ['gtl', 'rating', 'rate-card'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Reject when rate card insurer does not match product profile.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('rateCard.insurerMatchesProfile', 'EQUALS', 'false')] }, [
+        _a('ASSIGN', 'rating.outcome', 'FAIL:INSURER_PROFILE_MISMATCH'),
+      ]))],
+  },
+  {
+    id: 'rate-sel-006', name: 'MSME Segment Band Hint', category: 'Rate Card Selection',
+    tags: ['gtl', 'rating', 'segment'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Emit MSME band discount hint for MSME or Startup segments.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('scheme.segment', 'IN', 'MSME,STARTUP')] }, [
+        _a('ASSIGN', 'rating.discountHint', 'DISCOUNT_HINT:MSME_BAND'),
+      ]))],
+  },
+  {
+    id: 'rate-sel-007', name: 'Mid-Market Volume Discount Hint', category: 'Rate Card Selection',
+    tags: ['gtl', 'rating', 'segment'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Emit volume standard 2026 discount hint for mid-market segment.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('scheme.segment', 'EQUALS', 'MID_MARKET')] }, [
+        _a('ASSIGN', 'rating.discountHint', 'DISCOUNT_HINT:VOL_STANDARD_2026'),
+      ]))],
+  },
+  {
+    id: 'rate-sel-008', name: 'Large Corporate Band Hint', category: 'Rate Card Selection',
+    tags: ['gtl', 'rating', 'segment'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Emit large corporate discount hint for large corporate segment.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('scheme.segment', 'EQUALS', 'LARGE_CORPORATE')] }, [
+        _a('ASSIGN', 'rating.discountHint', 'DISCOUNT_HINT:LARGE_CORP'),
+      ]))],
+  },
+  {
+    id: 'rate-sel-009', name: 'Takeover A/E Renewal Discount', category: 'Rate Card Selection',
+    tags: ['gtl', 'rating', 'takeover'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Emit A/E renewal discount hint for takeover quotes.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('quote.type', 'EQUALS', 'TAKEOVER')] }, [
+        _a('ASSIGN', 'rating.discountHint', 'DISCOUNT_HINT:AE_RENEWAL_2026'),
+      ]))],
+  },
+  {
+    id: 'rate-sel-010', name: 'High/Extreme Hazard Mix Load', category: 'Rate Card Selection',
+    tags: ['gtl', 'rating', 'hazard'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Apply hazard mix load when scheme has HIGH or EXTREME hazard class.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('scheme.hazardBand', 'IN', 'HIGH,EXTREME')] }, [
+        _a('ASSIGN', 'rating.load', 'LOAD:HAZARD_MIX_LOAD_2026'),
+      ]))],
+  },
+  // ── RATE_Discounts_Special ──
+  {
+    id: 'disc-brk-001', name: 'Broker Negotiation Discount 3%', category: 'Discounts',
+    tags: ['gtl', 'rating', 'discount', 'broker'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Apply 3% broker negotiation discount when broker tier is STANDARD.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('broker.tier', 'EQUALS', 'STANDARD')] }, [
+        _a('ASSIGN', 'rating.brokerDiscount', 'DISCOUNT:BROKER_NEG_3PCT'),
+      ]))],
+  },
+  {
+    id: 'disc-brk-002', name: 'Broker Negotiation Discount 5%', category: 'Discounts',
+    tags: ['gtl', 'rating', 'discount', 'broker'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Apply 5% broker negotiation discount when broker tier is PREFERRED.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('broker.tier', 'EQUALS', 'PREFERRED')] }, [
+        _a('ASSIGN', 'rating.brokerDiscount', 'DISCOUNT:BROKER_NEG_5PCT'),
+      ]))],
+  },
+  {
+    id: 'disc-brk-003', name: 'Broker Volume Package Discount', category: 'Discounts',
+    tags: ['gtl', 'rating', 'discount', 'broker'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Apply volume package discount when broker submits multi-scheme package.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('broker.packageSubmission', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'rating.brokerDiscount', 'DISCOUNT:BROKER_VOL_PACKAGE'),
+      ]))],
+  },
+  {
+    id: 'disc-strat-001', name: 'Strategic Rebate Flat INR', category: 'Discounts',
+    tags: ['gtl', 'rating', 'discount', 'strategic'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Apply strategic flat INR rebate for designated strategic accounts.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('scheme.strategicAccount', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'rating.strategicRebate', 'DISCOUNT:STRATEGIC_FLAT_INR'),
+      ]))],
+  },
+  {
+    id: 'disc-modal-001', name: 'Q4 Modal Promo Monthly Load Waived', category: 'Discounts',
+    tags: ['gtl', 'rating', 'discount', 'modal'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Waive monthly modal load during Q4 promotional period.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('billing.frequency', 'EQUALS', 'MONTHLY'), _c('promo.q4Active', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'rating.modalLoad', 'DISCOUNT:MODAL_LOAD_ZERO'),
+      ]))],
+  },
+  {
+    id: 'disc-ci-001', name: 'CI Rider LIC Variant Discount', category: 'Discounts',
+    tags: ['gtl', 'rating', 'discount', 'ci-rider'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Apply CI rider discount for LIC variant product codes.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('rider.type', 'EQUALS', 'RDR_CRITICAL_ILLNESS'), _c('product.variant', 'EQUALS', 'LIC')] }, [
+        _a('ASSIGN', 'rating.riderDiscount', 'DISCOUNT:CI_LIC_VARIANT'),
+      ]))],
+  },
+  {
+    id: 'disc-ci-002', name: 'CI Rider HDFC Variant Discount', category: 'Discounts',
+    tags: ['gtl', 'rating', 'discount', 'ci-rider'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Apply CI rider discount for HDFC variant product codes.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('rider.type', 'EQUALS', 'RDR_CRITICAL_ILLNESS'), _c('product.variant', 'EQUALS', 'HDFC')] }, [
+        _a('ASSIGN', 'rating.riderDiscount', 'DISCOUNT:CI_HDFC_VARIANT'),
+      ]))],
+  },
+  {
+    id: 'disc-ci-003', name: 'CI Rider ICICI Variant Discount', category: 'Discounts',
+    tags: ['gtl', 'rating', 'discount', 'ci-rider'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Apply CI rider discount for ICICI variant product codes.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('rider.type', 'EQUALS', 'RDR_CRITICAL_ILLNESS'), _c('product.variant', 'EQUALS', 'ICICI')] }, [
+        _a('ASSIGN', 'rating.riderDiscount', 'DISCOUNT:CI_ICICI_VARIANT'),
+      ]))],
+  },
+  {
+    id: 'disc-senior-001', name: 'Senior Cohort Load Age 56–60', category: 'Discounts',
+    tags: ['gtl', 'rating', 'load', 'senior'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Apply age-band load for senior cohort aged 56–60.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.ageBand', 'EQUALS', 'AB_56_60')] }, [
+        _a('ASSIGN', 'rating.seniorLoad', 'LOAD:SENIOR_AB_56_60'),
+      ]))],
+  },
+  {
+    id: 'disc-senior-002', name: 'Senior Cohort Load Age 61–65', category: 'Discounts',
+    tags: ['gtl', 'rating', 'load', 'senior'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Apply age-band load for senior cohort aged 61–65.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.ageBand', 'EQUALS', 'AB_61_65')] }, [
+        _a('ASSIGN', 'rating.seniorLoad', 'LOAD:SENIOR_AB_61_65'),
+      ]))],
+  },
+  {
+    id: 'disc-senior-003', name: 'Senior Cohort Load Age 66–70', category: 'Discounts',
+    tags: ['gtl', 'rating', 'load', 'senior'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Apply age-band load for senior cohort aged 66–70.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.ageBand', 'EQUALS', 'AB_66_70')] }, [
+        _a('ASSIGN', 'rating.seniorLoad', 'LOAD:SENIOR_AB_66_70'),
+      ]))],
+  },
+  {
+    id: 'disc-well-001', name: 'Wellness Programme Discount', category: 'Discounts',
+    tags: ['gtl', 'rating', 'discount', 'wellness'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Apply wellness discount when scheme has certified wellness programme.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('scheme.wellnessCertified', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'rating.wellnessDiscount', 'DISCOUNT:WELLNESS_PROG'),
+      ]))],
+  },
+  {
+    id: 'disc-plan-match-001', name: 'Plan Match Discount AB 41–45', category: 'Discounts',
+    tags: ['gtl', 'rating', 'discount', 'plan-match'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Apply plan-match discount for age band 41–45.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.ageBand', 'EQUALS', 'AB_41_45')] }, [
+        _a('ASSIGN', 'rating.planMatchDiscount', 'DISCOUNT:PLAN_MATCH_AB_41_45'),
+      ]))],
+  },
+  {
+    id: 'disc-plan-match-002', name: 'Plan Match Discount AB 46–50', category: 'Discounts',
+    tags: ['gtl', 'rating', 'discount', 'plan-match'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Apply plan-match discount for age band 46–50.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.ageBand', 'EQUALS', 'AB_46_50')] }, [
+        _a('ASSIGN', 'rating.planMatchDiscount', 'DISCOUNT:PLAN_MATCH_AB_46_50'),
+      ]))],
+  },
+  {
+    id: 'disc-plan-match-003', name: 'Plan Match Female Class I AB 41–45', category: 'Discounts',
+    tags: ['gtl', 'rating', 'discount', 'plan-match'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Apply female class-I plan-match discount for age band 41–45.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.gender', 'EQUALS', 'FEMALE'), _c('member.hazardClass', 'EQUALS', 'CLASS_I'), _c('member.ageBand', 'EQUALS', 'AB_41_45')] }, [
+        _a('ASSIGN', 'rating.planMatchDiscount', 'DISCOUNT:PLAN_MATCH_F_CI_AB_41_45'),
+      ]))],
+  },
+  {
+    id: 'disc-plan-match-004', name: 'Plan Match Female Class I AB 46–50', category: 'Discounts',
+    tags: ['gtl', 'rating', 'discount', 'plan-match'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Apply female class-I plan-match discount for age band 46–50.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.gender', 'EQUALS', 'FEMALE'), _c('member.hazardClass', 'EQUALS', 'CLASS_I'), _c('member.ageBand', 'EQUALS', 'AB_46_50')] }, [
+        _a('ASSIGN', 'rating.planMatchDiscount', 'DISCOUNT:PLAN_MATCH_F_CI_AB_46_50'),
+      ]))],
+  },
+  // ── RATE_Formula ──
+  {
+    id: 'rate-form-001', name: 'Effective Per Mille Formula', category: 'Rating Formula',
+    tags: ['gtl', 'rating', 'formula'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Compute effective per mille = base rate × age factor × hazard factor.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('rating.baseRate', 'IS_NOT_NULL', '')] }, [
+        _a('ASSIGN', 'rating.effectivePerMille', 'COMPUTE:EPM_FORMULA'),
+      ]))],
+  },
+  {
+    id: 'rate-form-002', name: 'Pure Premium Formula', category: 'Rating Formula',
+    tags: ['gtl', 'rating', 'formula'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Compute pure premium = (SA × EPM) / 1000.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('rating.effectivePerMille', 'IS_NOT_NULL', '')] }, [
+        _a('ASSIGN', 'rating.purePremium', 'COMPUTE:PURE_PREMIUM_FORMULA'),
+      ]))],
+  },
+  {
+    id: 'rate-form-003', name: 'Commercial Gross-Up Formula', category: 'Rating Formula',
+    tags: ['gtl', 'rating', 'formula'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Compute commercial premium = pure premium × (1 + expense loading + profit margin).', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('rating.purePremium', 'IS_NOT_NULL', '')] }, [
+        _a('ASSIGN', 'rating.commercialPremium', 'COMPUTE:COMMERCIAL_GROSS_UP'),
+      ]))],
+  },
+  {
+    id: 'rate-form-008', name: 'Concentration Load', category: 'Rating Formula',
+    tags: ['gtl', 'rating', 'formula', 'load'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Apply concentration load when single age band > 30% of scheme.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('scheme.maxAgeBandConcentration', 'GREATER_THAN', '0.30')] }, [
+        _a('ASSIGN', 'rating.concentrationLoad', 'LOAD:CONCENTRATION'),
+      ]))],
+  },
+  {
+    id: 'rate-form-009', name: 'High Hazard Mix Load', category: 'Rating Formula',
+    tags: ['gtl', 'rating', 'formula', 'load'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Apply high hazard mix load when >20% of lives in CLASS_III+.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('scheme.highHazardMixPct', 'GREATER_THAN', '0.20')] }, [
+        _a('ASSIGN', 'rating.hazardMixLoad', 'LOAD:HIGH_HAZARD_MIX'),
+      ]))],
+  },
+  {
+    id: 'rate-form-010', name: 'Data Quality Loading', category: 'Rating Formula',
+    tags: ['gtl', 'rating', 'formula', 'load'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Apply DQ loading when census data quality band is BRONZE.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('census.dqBand', 'EQUALS', 'BRONZE')] }, [
+        _a('ASSIGN', 'rating.dqLoad', 'LOAD:DATA_QUALITY'),
+      ]))],
+  },
+  {
+    id: 'rate-form-011', name: 'Minimum Premium Floor', category: 'Rating Formula',
+    tags: ['gtl', 'rating', 'formula'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Enforce minimum annual premium floor per product schedule.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('rating.annualPremium', 'LESS_THAN', 'product.minPremiumFloor')] }, [
+        _a('ASSIGN', 'rating.annualPremium', 'OVERRIDE:MIN_PREMIUM_FLOOR'),
+      ]))],
+  },
+  {
+    id: 'rate-form-012', name: 'GST 18%', category: 'Rating Formula',
+    tags: ['gtl', 'rating', 'tax', 'gst'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Apply 18% GST on commercial premium.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('rating.commercialPremium', 'IS_NOT_NULL', '')] }, [
+        _a('ASSIGN', 'rating.gst', 'COMPUTE:GST_18PCT'),
+      ]))],
+  },
+  {
+    id: 'rate-form-013', name: 'IRDAI Rate Floor Check', category: 'Rating Formula',
+    tags: ['gtl', 'rating', 'formula', 'compliance'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'DRAFT', 'Block when commercial premium is below IRDAI mandated rate floor.', 'Draft', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('rating.commercialPremium', 'LESS_THAN', 'irdai.rateFloor')] }, [
+        _a('ASSIGN', 'rating.outcome', 'FAIL:IRDAI_RATE_FLOOR'),
+      ]))],
+  },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A3 · GTL Quote Decisioning — Non-DMN Rules (16 rules)
+// ─────────────────────────────────────────────────────────────────────────────
+export const SEED_A3_RULES: Rule[] = [
+  // ── Premium_Formulas ──
+  {
+    id: 'pmt-005', name: 'Rate Slab Lookup', category: 'Premium Formula',
+    tags: ['gtl', 'premium', 'formula'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Look up rate slab from rate table based on age band, hazard class, and scheme type.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('rating.slabKey', 'IS_NOT_NULL', '')] }, [
+        _a('ASSIGN', 'rating.rateSlab', 'COMPUTE:RATE_SLAB_LOOKUP'),
+      ]))],
+  },
+  {
+    id: 'pmt-006', name: 'Salary-Multiple SA Derivation', category: 'Premium Formula',
+    tags: ['gtl', 'premium', 'sa', 'formula'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Derive sum assured = salary × plan multiple for salary-linked plans.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('plan.saType', 'EQUALS', 'SALARY_MULTIPLE')] }, [
+        _a('ASSIGN', 'member.sumAssured', 'COMPUTE:SALARY_MULTIPLE_SA'),
+      ]))],
+  },
+  {
+    id: 'pmt-007', name: 'Loan-Outstanding SA Derivation', category: 'Premium Formula',
+    tags: ['gtl', 'premium', 'sa', 'formula', 'credit-life'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Derive sum assured from loan outstanding for credit-life plans.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('plan.saType', 'EQUALS', 'LOAN_OUTSTANDING')] }, [
+        _a('ASSIGN', 'member.sumAssured', 'COMPUTE:LOAN_OUTSTANDING_SA'),
+      ]))],
+  },
+  {
+    id: 'pmt-008', name: 'Free-Look Refund Formula', category: 'Premium Formula',
+    tags: ['gtl', 'premium', 'formula', 'refund'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Compute free-look refund = total_premium - stamp_duty_retained - medical_cost_retained; refund >= 0.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('policy.freeLookCancellation', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'refund.amount', 'COMPUTE:FREE_LOOK_REFUND_FORMULA'),
+      ]))],
+  },
+  {
+    id: 'pmt-009', name: 'Pro-Rata Add/Delete Formula', category: 'Premium Formula',
+    tags: ['gtl', 'premium', 'formula', 'pro-rata'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Compute pro-rata premium adjustment for mid-term member add or delete.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('endorsement.type', 'IN', 'ADD_MEMBER,DELETE_MEMBER')] }, [
+        _a('ASSIGN', 'endorsement.premiumAdjustment', 'COMPUTE:PRO_RATA_ADD_DELETE'),
+      ]))],
+  },
+  // ── Tax_HSN_StampDuty ──
+  {
+    id: 'tax-jur-005', name: 'HSN 9971 Life Insurance', category: 'Tax & Stamp Duty',
+    tags: ['gtl', 'tax', 'hsn', 'gst'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Apply HSN code 9971 for life insurance products.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('product.lineOfBusiness', 'EQUALS', 'LIFE')] }, [
+        _a('ASSIGN', 'tax.hsnCode', 'ASSIGN:HSN_9971'),
+      ]))],
+  },
+  {
+    id: 'tax-jur-006', name: 'Per-Product GST Treatment Override', category: 'Tax & Stamp Duty',
+    tags: ['gtl', 'tax', 'gst'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Override GST treatment when product has a registered GST exception.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('product.gstException', 'IS_NOT_NULL', '')] }, [
+        _a('ASSIGN', 'tax.gstTreatment', 'OVERRIDE:PRODUCT_GST_EXCEPTION'),
+      ]))],
+  },
+  {
+    id: 'tax-jur-007', name: 'Stamp Duty Formula', category: 'Tax & Stamp Duty',
+    tags: ['gtl', 'tax', 'stamp-duty'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Compute stamp duty = premium × state stamp duty rate.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('policy.jurisdiction', 'IS_NOT_NULL', '')] }, [
+        _a('ASSIGN', 'tax.stampDuty', 'COMPUTE:STAMP_DUTY_FORMULA'),
+      ]))],
+  },
+  {
+    id: 'tax-jur-009', name: 'Micro GTL Stamp Duty 0.02%', category: 'Tax & Stamp Duty',
+    tags: ['gtl', 'tax', 'stamp-duty', 'micro'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Apply flat 0.02% stamp duty rate for micro GTL products.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('product.micro', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'tax.stampDutyRate', 'ASSIGN:MICRO_STAMP_DUTY_0_02PCT'),
+      ]))],
+  },
+  // ── Override_Authority ──
+  {
+    id: 'ovr-auth-001', name: 'Rate Override Approval Required', category: 'Override Authority',
+    tags: ['gtl', 'override', 'authority'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Require approval when rate override exceeds authorised band.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('override.rateDeviationPct', 'GREATER_THAN', 'authority.maxRateDeviationPct')] }, [
+        _a('ASSIGN', 'override.status', 'REQUIRE:RATE_OVERRIDE_APPROVAL'),
+      ]))],
+  },
+  {
+    id: 'ovr-auth-002', name: 'UW Manager Two-Officer Approval', category: 'Override Authority',
+    tags: ['gtl', 'override', 'uw', 'sod'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Require two-officer approval for UW Manager or RI Referral band decisions.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('uw.band', 'IN', 'UW_MANAGER,RI_REFERRAL'), _c('approval.twoOfficerId', 'IS_NULL', '')] }, [
+        _a('ASSIGN', 'approval.status', 'REQUIRE:TWO_OFFICER'),
+      ]))],
+  },
+  {
+    id: 'ovr-auth-003', name: 'Override Approve Valid Reason', category: 'Override Authority',
+    tags: ['gtl', 'override', 'authority', 'reason-code'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Reject override approve when reason code is not in allowed set.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('override.action', 'EQUALS', 'APPROVE'), _c('override.reasonCode', 'NOT_IN', 'STRATEGIC_RELATIONSHIP,REGULATORY_EXCEPTION')] }, [
+        _a('ASSIGN', 'override.status', 'BLOCK:INVALID_OVERRIDE_REASON'),
+      ]))],
+  },
+  {
+    id: 'ovr-auth-004', name: 'Override Reject Valid Reason', category: 'Override Authority',
+    tags: ['gtl', 'override', 'authority', 'reason-code'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Reject override reject when reason code is not OUTSIDE_APPETITE.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('override.action', 'EQUALS', 'REJECT'), _c('override.reasonCode', 'NOT_EQUALS', 'OUTSIDE_APPETITE')] }, [
+        _a('ASSIGN', 'override.status', 'BLOCK:INVALID_REJECT_REASON'),
+      ]))],
+  },
+  {
+    id: 'ovr-auth-005', name: 'UW Decline Valid Reasons', category: 'Override Authority',
+    tags: ['gtl', 'override', 'uw', 'reason-code'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Reject UW decline when reason code is not in allowed decline set.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('uw.action', 'EQUALS', 'DECLINE'), _c('uw.reasonCode', 'NOT_IN', 'MEDICAL_HIGH_RISK,OCCUPATION_HAZARDOUS,SANCTIONS_OR_UAPA_MATCH,NRI_DECLINE_COUNTRY')] }, [
+        _a('ASSIGN', 'uw.status', 'BLOCK:INVALID_DECLINE_REASON'),
+      ]))],
+  },
+  {
+    id: 'ovr-auth-006', name: 'UW Postpone Valid Reason', category: 'Override Authority',
+    tags: ['gtl', 'override', 'uw', 'reason-code'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Reject UW postpone when reason code is not in allowed postpone set.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('uw.action', 'EQUALS', 'POSTPONE'), _c('uw.reasonCode', 'NOT_IN', 'PED_TREATMENT_ONGOING,AWAITING_RI_RESPONSE')] }, [
+        _a('ASSIGN', 'uw.status', 'BLOCK:INVALID_POSTPONE_REASON'),
+      ]))],
+  },
+  {
+    id: 'ovr-auth-007', name: 'EMR 50–75% Reason Required', category: 'Override Authority',
+    tags: ['gtl', 'override', 'emr', 'reason-code'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Require reason code when applying EMR load between 50% and 75%.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('rating.emrPct', 'GREATER_THAN_OR_EQUAL', '50'), _c('rating.emrPct', 'LESS_THAN_OR_EQUAL', '75'), _c('rating.emrReasonCode', 'IS_NULL', '')] }, [
+        _a('ASSIGN', 'rating.status', 'REQUIRE:EMR_REASON_CODE'),
+      ]))],
+  },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A4 · GTL Product — Non-DMN Rules (42 rules)
+// ─────────────────────────────────────────────────────────────────────────────
+export const SEED_A4_RULES: Rule[] = [
+  // ── PROD_Gender_Suicide_Revival ──
+  {
+    id: 'prod-val-030', name: 'Female Age Set-Back 3 Years', category: 'Product Validation',
+    tags: ['gtl', 'product', 'gender', 'rating'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Apply 3-year age set-back for female lives in mortality rating.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.gender', 'EQUALS', 'FEMALE')] }, [
+        _a('ASSIGN', 'rating.ageSetBack', 'ASSIGN:FEMALE_AGE_SETBACK_3YR'),
+      ]))],
+  },
+  {
+    id: 'prod-val-031', name: 'Female Age Floor Credit Life', category: 'Product Validation',
+    tags: ['gtl', 'product', 'gender', 'credit-life'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Enforce minimum rated age floor for female credit-life members after set-back.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.gender', 'EQUALS', 'FEMALE'), _c('product.schemeType', 'EQUALS', 'LENDER_BORROWER')] }, [
+        _a('ASSIGN', 'rating.minRatedAge', 'ASSIGN:FEMALE_CREDIT_LIFE_AGE_FLOOR'),
+      ]))],
+  },
+  {
+    id: 'prod-val-032', name: 'Transgender Use Male Rates', category: 'Product Validation',
+    tags: ['gtl', 'product', 'gender'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Use male mortality rates for transgender members per product rule.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.gender', 'IN', 'TRANSGENDER,OTHER')] }, [
+        _a('ASSIGN', 'rating.genderForRating', 'ASSIGN:USE_MALE_RATES'),
+      ]))],
+  },
+  {
+    id: 'prod-val-033', name: 'Uni-Smoker Premium', category: 'Product Validation',
+    tags: ['gtl', 'product', 'smoker'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Apply unified smoker/non-smoker rate (no differentiation) for group business.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('product.smokerDifferentiation', 'EQUALS', 'false')] }, [
+        _a('ASSIGN', 'rating.smokerLoad', 'ASSIGN:UNI_SMOKER_RATE'),
+      ]))],
+  },
+  {
+    id: 'prod-val-034', name: 'Joint Life 3.5% Discount Credit Life', category: 'Product Validation',
+    tags: ['gtl', 'product', 'joint-life', 'discount'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Apply 3.5% discount for joint life covers on credit life products.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('product.jointLife', 'EQUALS', 'true'), _c('product.schemeType', 'EQUALS', 'LENDER_BORROWER')] }, [
+        _a('ASSIGN', 'rating.jointLifeDiscount', 'DISCOUNT:JOINT_LIFE_3_5PCT_CREDIT'),
+      ]))],
+  },
+  {
+    id: 'prod-val-035', name: 'Joint Life 2.5% Discount Loan Secure', category: 'Product Validation',
+    tags: ['gtl', 'product', 'joint-life', 'discount'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Apply 2.5% discount for joint life covers on loan secure products.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('product.jointLife', 'EQUALS', 'true'), _c('productCode', 'EQUALS', 'GTL_LOAN_SECURE')] }, [
+        _a('ASSIGN', 'rating.jointLifeDiscount', 'DISCOUNT:JOINT_LIFE_2_5PCT_LOAN_SECURE'),
+      ]))],
+  },
+  {
+    id: 'prod-val-040', name: 'Suicide 80% Rule', category: 'Product Validation',
+    tags: ['gtl', 'product', 'suicide', 'claims'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Pay 80% of premiums or surrender value (whichever is higher) on suicide within 12 months.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('claim.causeOfDeath', 'EQUALS', 'SUICIDE'), _c('claim.monthsSinceCoverStart', 'LESS_THAN_OR_EQUAL', '12')] }, [
+        _a('ASSIGN', 'claim.outcome', 'REQUIRE:SUICIDE_RULE'),
+      ]))],
+  },
+  {
+    id: 'prod-val-041', name: 'Suicide Waiver Employer Standard', category: 'Product Validation',
+    tags: ['gtl', 'product', 'suicide', 'waiver'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Waive suicide exclusion for GTL Employer Standard product variant.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('productCode', 'IN', 'GTL_EMPLOYER_STANDARD,GTL_EMPLOYER_FLEX'), _c('claim.causeOfDeath', 'EQUALS', 'SUICIDE')] }, [
+        _a('ASSIGN', 'claim.suicideExclusionWaived', 'WAIVE:SUICIDE_EXCLUSION_EMPLOYER_STANDARD'),
+      ]))],
+  },
+  {
+    id: 'prod-val-045', name: 'Revival Rate G-Sec + 50bps', category: 'Product Validation',
+    tags: ['gtl', 'product', 'revival', 'rate'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Apply revival interest rate = current G-Sec rate + 50 basis points.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('policy.revivalRequested', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'revival.interestRate', 'COMPUTE:GSEC_PLUS_50BPS'),
+      ]))],
+  },
+  {
+    id: 'prod-val-046', name: 'Tax 80C and 10(10D) Eligibility', category: 'Product Validation',
+    tags: ['gtl', 'product', 'tax', 'compliance'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Confirm product eligibility for tax benefits under Sections 80C and 10(10D).', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('product.lineOfBusiness', 'EQUALS', 'LIFE')] }, [
+        _a('ASSIGN', 'product.taxBenefit', 'ASSIGN:SEC_80C_10_10D_ELIGIBLE'),
+      ]))],
+  },
+  {
+    id: 'prod-val-049', name: 'No Policy Loan', category: 'Product Validation',
+    tags: ['gtl', 'product', 'policy-loan'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Block policy loan facility — not applicable for group term life.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('request.policyLoan', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'request.outcome', 'BLOCK:POLICY_LOAN_NOT_APPLICABLE'),
+      ]))],
+  },
+  {
+    id: 'prod-val-050', name: 'S38/S39 Compliance', category: 'Product Validation',
+    tags: ['gtl', 'product', 'compliance', 'assignment'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Enforce Section 38/39 compliance for nomination and assignment.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('policy.nominationOrAssignment', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'compliance.sec38_39', 'REQUIRE:SEC38_39_COMPLIANCE'),
+      ]))],
+  },
+  {
+    id: 'prod-val-051', name: 'ULIP Switch Minimum', category: 'Product Validation',
+    tags: ['gtl', 'product', 'ulip'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Block ULIP fund switch when switch amount is below minimum threshold.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('ulip.switchAmount', 'LESS_THAN', 'product.minSwitchAmount')] }, [
+        _a('ASSIGN', 'ulip.switchOutcome', 'BLOCK:ULIP_SWITCH_BELOW_MINIMUM'),
+      ]))],
+  },
+  {
+    id: 'prod-val-052', name: 'ULIP Switch Maximum', category: 'Product Validation',
+    tags: ['gtl', 'product', 'ulip'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Block ULIP fund switch when annual switch count exceeds product maximum.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('ulip.annualSwitchCount', 'GREATER_THAN', 'product.maxSwitchesPerYear')] }, [
+        _a('ASSIGN', 'ulip.switchOutcome', 'BLOCK:ULIP_SWITCH_ABOVE_MAXIMUM'),
+      ]))],
+  },
+  {
+    id: 'prod-val-057', name: 'Termination Notice 30 Days', category: 'Product Validation',
+    tags: ['gtl', 'product', 'termination'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Require 30-day notice period for policy termination by employer.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('termination.initiatedBy', 'EQUALS', 'EMPLOYER'), _c('termination.noticeDays', 'LESS_THAN', '30')] }, [
+        _a('ASSIGN', 'termination.outcome', 'REQUIRE:NOTICE_30D'),
+      ]))],
+  },
+  {
+    id: 'prod-val-058', name: 'Termination Notice 90 Days', category: 'Product Validation',
+    tags: ['gtl', 'product', 'termination'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Require 90-day notice period for policy termination by insurer.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('termination.initiatedBy', 'EQUALS', 'INSURER'), _c('termination.noticeDays', 'LESS_THAN', '90')] }, [
+        _a('ASSIGN', 'termination.outcome', 'REQUIRE:NOTICE_90D'),
+      ]))],
+  },
+  // ── PROD_Riders_Decline_Waiting ──
+  {
+    id: 'rdr-010', name: 'ADB Non-SP Credit Life Reject', category: 'Riders',
+    tags: ['gtl', 'product', 'rider', 'adb'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Reject ADB rider attachment for non-single-premium credit life products.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('rider.type', 'EQUALS', 'RDR_ACCIDENTAL_DEATH'), _c('product.premiumType', 'NOT_EQUALS', 'SINGLE_PREMIUM'), _c('product.schemeType', 'EQUALS', 'LENDER_BORROWER')] }, [
+        _a('ASSIGN', 'rider.outcome', 'BLOCK:ADB_NON_SP_CREDIT_LIFE'),
+      ]))],
+  },
+  {
+    id: 'rdr-011', name: 'Rider Term Exceeds Base Term', category: 'Riders',
+    tags: ['gtl', 'product', 'rider'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Reject rider when rider term exceeds base policy term.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('rider.termYears', 'GREATER_THAN', 'base.termYears')] }, [
+        _a('ASSIGN', 'rider.outcome', 'BLOCK:RIDER_TERM_EXCEEDS_BASE'),
+      ]))],
+  },
+  {
+    id: 'rdr-012', name: 'ADB Decline Hazard Class IV/V', category: 'Riders',
+    tags: ['gtl', 'product', 'rider', 'adb', 'hazard'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Decline ADB rider when member hazard class is CLASS_IV or CLASS_V.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('rider.type', 'EQUALS', 'RDR_ACCIDENTAL_DEATH'), _c('member.hazardClass', 'IN', 'CLASS_IV,CLASS_V')] }, [
+        _a('ASSIGN', 'rider.outcome', 'DECLINE:HAZARD_IV_V'),
+      ]))],
+  },
+  {
+    id: 'rdr-013', name: 'CI Decline High Risk', category: 'Riders',
+    tags: ['gtl', 'product', 'rider', 'ci'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Decline CI rider when member has active cancer, recent stroke, or severe CV condition.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('rider.type', 'EQUALS', 'RDR_CRITICAL_ILLNESS'), _c('member.highRiskCondition', 'IN', 'ACTIVE_CANCER,RECENT_STROKE,SEVERE_CV')] }, [
+        _a('ASSIGN', 'rider.outcome', 'DECLINE:CI_HIGH_RISK'),
+      ]))],
+  },
+  {
+    id: 'rdr-014', name: 'TPD Decline Triggers', category: 'Riders',
+    tags: ['gtl', 'product', 'rider', 'tpd'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Decline TPD rider when member has active disability or is CLASS_V hazard.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('rider.type', 'EQUALS', 'RDR_PERMANENT_DISABILITY'), _c('member.tpdTrigger', 'IN', 'ACTIVE_DISABILITY,HAZARD_V')] }, [
+        _a('ASSIGN', 'rider.outcome', 'DECLINE:TPD_TRIGGERS'),
+      ]))],
+  },
+  {
+    id: 'rdr-015', name: 'WOP Decline Pre-Existing CI/Disability', category: 'Riders',
+    tags: ['gtl', 'product', 'rider', 'wop', 'ped'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Decline WOP rider when member has pre-existing CI or disability.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('rider.type', 'EQUALS', 'RDR_WAIVER_OF_PREMIUM'), _c('member.ped', 'IN', 'PRE_EXISTING_CI,PRE_EXISTING_DISABILITY')] }, [
+        _a('ASSIGN', 'rider.outcome', 'DECLINE:WOP_PED'),
+      ]))],
+  },
+  {
+    id: 'rdr-016', name: 'CI Rider 30-Day Waiting Period', category: 'Riders',
+    tags: ['gtl', 'product', 'rider', 'ci', 'waiting'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Require 30-day waiting period before CI rider claim is admissible.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('rider.type', 'EQUALS', 'RDR_CRITICAL_ILLNESS'), _c('claim.daysSinceCoverStart', 'LESS_THAN', '30')] }, [
+        _a('ASSIGN', 'claim.outcome', 'REQUIRE:WAIT_30D'),
+      ]))],
+  },
+  {
+    id: 'rdr-017', name: 'CI 30-Day Survival Required', category: 'Riders',
+    tags: ['gtl', 'product', 'rider', 'ci', 'survival'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Decline CI claim when member survival days after diagnosis is less than 30.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('rider.type', 'EQUALS', 'RDR_CRITICAL_ILLNESS'), _c('claim.survivalDays', 'LESS_THAN', '30')] }, [
+        _a('ASSIGN', 'claim.outcome', 'DECLINE:CI_SURVIVAL_PERIOD'),
+      ]))],
+  },
+  {
+    id: 'rdr-018', name: 'ATPD 180-Day Waiting Period', category: 'Riders',
+    tags: ['gtl', 'product', 'rider', 'atpd', 'waiting'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Require 180-day waiting period after disability onset before ATPD claim is admissible.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('rider.type', 'EQUALS', 'RDR_PERMANENT_DISABILITY'), _c('claim.daysSinceDisability', 'LESS_THAN', '180')] }, [
+        _a('ASSIGN', 'claim.outcome', 'REQUIRE:ATPD_WAIT_180D'),
+      ]))],
+  },
+  {
+    id: 'rdr-019', name: 'MCS Inbuilt ADB 5-Year Cap 20L', category: 'Riders',
+    tags: ['gtl', 'product', 'rider', 'adb', 'mortgage'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'For Mortgage Credit Shield, apply inbuilt ADB for first 5 years capped at min(baseDB, ₹20L).', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('productCode', 'EQUALS', 'GTL_MORTGAGE_CREDIT_SHIELD')] }, [
+        _a('ASSIGN', 'rider.adbCap', 'REQUIRE:INBUILT_ADB_5Y_CAP_20L'),
+      ]))],
+  },
+  {
+    id: 'rdr-020', name: 'Hospi Cash Grid Setup', category: 'Riders',
+    tags: ['gtl', 'product', 'rider', 'hospi-cash'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Configure Hospi Cash Benefit: DHCB ₹1000/2000/3000; ICU 100%; minor surg 5×; major surg 20×; cap 90×.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('rider.type', 'EQUALS', 'RDR_HOSPI_CASH')] }, [
+        _a('ASSIGN', 'rider.hospiCashConfig', 'REQUIRE:HOSPI_CASH_GRID'),
+      ]))],
+  },
+  {
+    id: 'rdr-021', name: 'EMI Protect 7-Day Waiting Period', category: 'Riders',
+    tags: ['gtl', 'product', 'rider', 'emi', 'waiting'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Decline EMI Protect claim when continuous hospitalisation is less than 7 days.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('rider.type', 'EQUALS', 'RDR_EMI_PROTECT'), _c('claim.hospitalisationDays', 'LESS_THAN', '7')] }, [
+        _a('ASSIGN', 'claim.outcome', 'DECLINE:EMI_WAIT_7D'),
+      ]))],
+  },
+  // ── PROD_Clauses_Exclusions ──
+  {
+    id: 'clause-001', name: 'Term Life Clause Pack Default', category: 'Clauses & Exclusions',
+    tags: ['gtl', 'product', 'clause'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Apply CLAUSE_PACK_TERM_LIFE_STANDARD for employer/voluntary GTL products when no clause pack set.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('productCode', 'IN', 'GTL_EMPLOYER_STANDARD,GTL_VOLUNTARY_STANDARD'), _c('policy.clausePack', 'IS_NULL', '')] }, [
+        _a('ASSIGN', 'policy.clausePack', 'REQUIRE:TERM_LIFE_CLAUSE_PACK'),
+      ]))],
+  },
+  {
+    id: 'clause-002', name: 'Credit Life Clause Pack Default', category: 'Clauses & Exclusions',
+    tags: ['gtl', 'product', 'clause', 'credit-life'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Apply CLAUSE_PACK_CREDIT_LIFE_STANDARD for lender-borrower reducing products when no clause pack set.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('productCode', 'EQUALS', 'GTL_LENDER_BORROWER_REDUCING'), _c('policy.clausePack', 'IS_NULL', '')] }, [
+        _a('ASSIGN', 'policy.clausePack', 'REQUIRE:CREDIT_LIFE_CLAUSE_PACK'),
+      ]))],
+  },
+  {
+    id: 'clause-003', name: 'Reducing Cover Loan Outstanding Required', category: 'Clauses & Exclusions',
+    tags: ['gtl', 'product', 'clause', 'credit-life'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Block when reducing cover clause is active but loan outstanding is missing.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('policy.clause', 'EQUALS', 'CLAUSE_REDUCING_COVER'), _c('member.loanOutstanding', 'IS_NULL', '')] }, [
+        _a('ASSIGN', 'policy.outcome', 'BLOCK:LOAN_OUTSTANDING_REQUIRED'),
+      ]))],
+  },
+  {
+    id: 'clause-004', name: 'Lender as Payee Entity Required', category: 'Clauses & Exclusions',
+    tags: ['gtl', 'product', 'clause', 'credit-life'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Block at issuance when lender-as-payee clause is active but lender entity is not set.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('policy.clause', 'EQUALS', 'CLAUSE_LENDER_AS_PAYEE'), _c('policy.lenderEntity', 'IS_NULL', '')] }, [
+        _a('ASSIGN', 'policy.outcome', 'BLOCK:LENDER_ENTITY_REQUIRED'),
+      ]))],
+  },
+  {
+    id: 'clause-005', name: 'Payee Priority Lender First', category: 'Clauses & Exclusions',
+    tags: ['gtl', 'product', 'clause', 'claims'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Set payee priority to lender first when MPH is an RBI-regulated entity; residual goes to nominee.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('mph.rbiRegulated', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'claim.payeePriority', 'REQUIRE:PAYEE_LENDER_FIRST'),
+      ]))],
+  },
+  {
+    id: 'clause-006', name: 'Loan Closure Option on Foreclosure', category: 'Clauses & Exclusions',
+    tags: ['gtl', 'product', 'clause', 'credit-life'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'On loan foreclosure offer surrender option or continue cover till end of term.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('policy.clause', 'EQUALS', 'CLAUSE_COVER_END_ON_LOAN_CLOSURE'), _c('loan.foreclosed', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'policy.loanClosureOption', 'REQUIRE:LOAN_CLOSURE_OPTION'),
+      ]))],
+  },
+  {
+    id: 'clause-007', name: 'Worker Class Disallows ADB', category: 'Clauses & Exclusions',
+    tags: ['gtl', 'product', 'clause', 'rider'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Reject ADB rider attachment for MCLASS_WORKER members.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.memberClass', 'EQUALS', 'MCLASS_WORKER'), _c('rider.type', 'EQUALS', 'RDR_ACCIDENTAL_DEATH')] }, [
+        _a('ASSIGN', 'rider.outcome', 'BLOCK:WORKER_DISALLOWS_ADB'),
+      ]))],
+  },
+  {
+    id: 'clause-008', name: 'CI Rider Manager Class Only', category: 'Clauses & Exclusions',
+    tags: ['gtl', 'product', 'clause', 'rider', 'ci'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Reject CI rider when member class is not MCLASS_MANAGER.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('rider.type', 'EQUALS', 'RDR_CRITICAL_ILLNESS'), _c('member.memberClass', 'NOT_EQUALS', 'MCLASS_MANAGER')] }, [
+        _a('ASSIGN', 'rider.outcome', 'BLOCK:CI_MANAGER_ONLY'),
+      ]))],
+  },
+  {
+    id: 'clause-009', name: 'Joint Life Not Supported', category: 'Clauses & Exclusions',
+    tags: ['gtl', 'product', 'joint-life'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Reject joint life rider when base product does not support joint life.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('rider.jointLife', 'EQUALS', 'true'), _c('base.jointLifeCapable', 'NOT_EQUALS', 'true')] }, [
+        _a('ASSIGN', 'rider.outcome', 'BLOCK:JOINT_LIFE_NOT_SUPPORTED'),
+      ]))],
+  },
+  {
+    id: 'clause-010', name: 'Scheme Type Mix Block', category: 'Clauses & Exclusions',
+    tags: ['gtl', 'product', 'composition'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Reject composition when multiple base products have different scheme_type_derived.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('composition.schemeTypeMix', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'composition.outcome', 'BLOCK:SCHEME_TYPE_MIX'),
+      ]))],
+  },
+  {
+    id: 'excl-001', name: 'Suicide Exclusion 80% Rule', category: 'Exclusions',
+    tags: ['gtl', 'product', 'exclusion', 'suicide', 'claims'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'On suicide within 12 months pay 80% of premiums paid or surrender value, whichever is higher.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('claim.causeOfDeath', 'EQUALS', 'SUICIDE'), _c('claim.monthsSinceCoverStart', 'LESS_THAN_OR_EQUAL', '12')] }, [
+        _a('ASSIGN', 'claim.outcome', 'REQUIRE:SUICIDE_RULE'),
+      ]))],
+  },
+  {
+    id: 'excl-002', name: 'Mortgage Credit Shield Exclusions', category: 'Exclusions',
+    tags: ['gtl', 'product', 'exclusion', 'mortgage', 'claims'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Decline MCS claim when cause of death is in the product exclusion list (war, terrorism, criminal act, etc.).', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('productCode', 'EQUALS', 'GTL_MORTGAGE_CREDIT_SHIELD'), _c('claim.causeOfDeath', 'IN', 'WAR,TERRORISM,CIVIL_WAR,ARMED_FORCES_DUTY,CRIMINAL_ACT,INTOXICATION,AVIATION_NON_FARE_PAYING,HAZARDOUS_HOBBY,HAZARDOUS_OCCUPATION,BODILY_OR_MENTAL_INFIRMITY')] }, [
+        _a('ASSIGN', 'claim.outcome', 'DECLINE:EXCLUSION_HIT'),
+      ]))],
+  },
+  {
+    id: 'excl-003', name: 'ADB 45-Day Grace MCS', category: 'Exclusions',
+    tags: ['gtl', 'product', 'exclusion', 'adb', 'mortgage'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Accidental death exclusion does NOT apply for first 45 days on MCS products.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('productCode', 'EQUALS', 'GTL_MORTGAGE_CREDIT_SHIELD'), _c('claim.daysSinceCoverStart', 'LESS_THAN_OR_EQUAL', '45')] }, [
+        _a('ASSIGN', 'claim.adbExclusionWaived', 'WAIVE:ADB_45D_GRACE'),
+      ]))],
+  },
+  {
+    id: 'excl-004', name: 'Hazardous Occupation EMR', category: 'Exclusions',
+    tags: ['gtl', 'product', 'exclusion', 'hazard', 'uw'], createdAt: '2026-06-01T00:00:00', createdBy: 'actuary@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Apply EMR loading and refer to UW for hazardous occupations (mining, deep-sea fishing, forestry, scuba diving).', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.occupation', 'IN', 'MINING,DEEP_SEA_FISHING,FORESTRY,SCUBA_DIVING')] }, [
+        _a('ASSIGN', 'rating.load', 'LOAD:HAZARDOUS_OCCUPATION_EMR'),
+        _a('ASSIGN', 'uw.action', 'REFER_UW:HAZARDOUS_OCCUPATION'),
+      ]))],
+  },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A5 · GTL Eligibility & Documents — Non-DMN Rules (73 rules)
+// ─────────────────────────────────────────────────────────────────────────────
+export const SEED_A5_RULES: Rule[] = [
+  // ── ELIG_Census ──
+  {
+    id: 'elig-census-001', name: 'Min Group Size Never Met', category: 'Census Eligibility',
+    tags: ['gtl', 'eligibility', 'census'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Block census when headcount is below the product minimum group size.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('census.headcount', 'LESS_THAN', 'product.minGroupSize')] }, [
+        _a('ASSIGN', 'census.outcome', 'BLOCK:MIN_GROUP_SIZE_NEVER_MET'),
+      ]))],
+  },
+  {
+    id: 'elig-census-003', name: 'Census Incomplete Block', category: 'Census Eligibility',
+    tags: ['gtl', 'eligibility', 'census'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Block Quote SoR bind when plans count or members count is zero.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'or', conditions: [_c('census.plansCount', 'EQUALS', '0'), _c('census.membersCount', 'EQUALS', '0')] }, [
+        _a('ASSIGN', 'census.outcome', 'BLOCK:CENSUS_INCOMPLETE'),
+      ]))],
+  },
+  {
+    id: 'elig-census-004', name: 'Census Template Headers Required', category: 'Census Eligibility',
+    tags: ['gtl', 'eligibility', 'census', 'template'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Require employee template headers (employee_id, full_name, gender, dob, salary) or borrower headers (borrower_id, full_name, gender, dob, loan_outstanding).', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('census.requiredHeadersMissing', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'census.outcome', 'REQUIRE:CENSUS_TEMPLATE_HEADERS'),
+      ]))],
+  },
+  {
+    id: 'elig-census-008', name: 'Census DQ Below Silver', category: 'Census Eligibility',
+    tags: ['gtl', 'eligibility', 'census', 'dq'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Drop out of AUTO_STP_MSME band when census data quality band is BRONZE or RED.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('census.dqBand', 'IN', 'BRONZE,RED')] }, [
+        _a('ASSIGN', 'census.stpBand', 'BLOCK:CENSUS_DQ_BELOW_SILVER'),
+      ]))],
+  },
+  {
+    id: 'elig-census-009', name: 'Duplicate Member in Census', category: 'Census Eligibility',
+    tags: ['gtl', 'eligibility', 'census', 'duplicate'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Block when duplicate member detected on (DOB + name + employee_id).', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('census.duplicateOnKey', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'census.outcome', 'BLOCK:E-MEMBER-DUPLICATE'),
+      ]))],
+  },
+  {
+    id: 'elig-census-010', name: 'Employer and Employee Mix Required', category: 'Census Eligibility',
+    tags: ['gtl', 'eligibility', 'census', 'employer-paid'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Block employer-paid scheme when employer count < 1 or employee count < 1.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('scheme.schemeType', 'EQUALS', 'EMPLOYER_PAID'), _c('census.employerEmployeeMixValid', 'EQUALS', 'false')] }, [
+        _a('ASSIGN', 'census.outcome', 'REQUIRE:EMPLOYER_EE_MIX'),
+      ]))],
+  },
+  {
+    id: 'elig-census-011', name: 'Member Age Outside Product Range', category: 'Census Eligibility',
+    tags: ['gtl', 'eligibility', 'census', 'age'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Reject member when age is outside [productMinEntryAge, productMaxEntryAge].', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.ageInRange', 'EQUALS', 'false')] }, [
+        _a('ASSIGN', 'member.outcome', 'REQUIRE:AGE_RANGE'),
+      ]))],
+  },
+  // ── ELIG_Member ──
+  {
+    id: 'elig-mem-001', name: 'Member Required Fields Missing', category: 'Member Eligibility',
+    tags: ['gtl', 'eligibility', 'member', 'validation'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Block row when any of member_id, name, gender, or dob is missing.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.requiredFieldsMissing', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'member.outcome', 'BLOCK:MEMBER_REQUIRED_FIELDS_MISSING'),
+      ]))],
+  },
+  {
+    id: 'elig-mem-002', name: 'Employee Missing Salary', category: 'Member Eligibility',
+    tags: ['gtl', 'eligibility', 'member', 'salary'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Block row when member type is EMPLOYEE and salary is missing.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.memberType', 'EQUALS', 'EMPLOYEE'), _c('member.salary', 'IS_NULL', '')] }, [
+        _a('ASSIGN', 'member.outcome', 'BLOCK:EMPLOYEE_MISSING_SALARY'),
+      ]))],
+  },
+  {
+    id: 'elig-mem-003', name: 'DOB Invalid', category: 'Member Eligibility',
+    tags: ['gtl', 'eligibility', 'member', 'dob'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Block row when DOB is not parseable, is a future date, or results in age outside product range.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.dobValid', 'EQUALS', 'false')] }, [
+        _a('ASSIGN', 'member.outcome', 'BLOCK:DOB_INVALID'),
+      ]))],
+  },
+  {
+    id: 'elig-mem-004', name: 'Gender Value Invalid', category: 'Member Eligibility',
+    tags: ['gtl', 'eligibility', 'member', 'gender'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Block row when gender value is not in {MALE, FEMALE, M, F, OTHER, TRANSGENDER}.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.gender', 'NOT_IN', 'MALE,FEMALE,M,F,OTHER,TRANSGENDER')] }, [
+        _a('ASSIGN', 'member.outcome', 'BLOCK:GENDER_INVALID'),
+      ]))],
+  },
+  {
+    id: 'elig-mem-006', name: 'Borrower Loan Fields Missing', category: 'Member Eligibility',
+    tags: ['gtl', 'eligibility', 'member', 'credit-life'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Block borrower row when loan_outstanding, loan_sanction_amount, or loan_term_months is missing.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.borrowerLoanFieldsMissing', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'member.outcome', 'BLOCK:BORROWER_LOAN_FIELDS_MISSING'),
+      ]))],
+  },
+  {
+    id: 'elig-mem-008', name: 'Joiner Date After Effective Date', category: 'Member Eligibility',
+    tags: ['gtl', 'eligibility', 'member', 'joiner'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Block joiner member when date of joining scheme is after the scheme effective date.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.dateOfJoiningScheme', 'GREATER_THAN', 'scheme.effectiveDate')] }, [
+        _a('ASSIGN', 'member.outcome', 'BLOCK:MEMBER_INELIGIBLE_DOJ'),
+      ]))],
+  },
+  {
+    id: 'elig-mem-011', name: 'Duplicate Member ID in Draft', category: 'Member Eligibility',
+    tags: ['gtl', 'eligibility', 'member', 'duplicate'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Block when member ID is not unique within the draft envelope.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.idUniqueInDraft', 'EQUALS', 'false')] }, [
+        _a('ASSIGN', 'member.outcome', 'BLOCK:E-MEMBER-DUPLICATE'),
+      ]))],
+  },
+  {
+    id: 'elig-mem-013', name: 'Eligibility Status Not Eligible', category: 'Member Eligibility',
+    tags: ['gtl', 'eligibility', 'member'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Block progression when member eligibility status is not ELIGIBLE.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.eligibilityStatus', 'NOT_EQUALS', 'ELIGIBLE')] }, [
+        _a('ASSIGN', 'member.outcome', 'BLOCK:NOT_ELIGIBLE'),
+      ]))],
+  },
+  {
+    id: 'elig-mem-014', name: 'PAS Age Range Error GTL-002', category: 'Member Eligibility',
+    tags: ['gtl', 'eligibility', 'member', 'pas'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Block at PAS issuance when member age is outside product range (GTL-002 error).', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.ageInRange', 'EQUALS', 'false')] }, [
+        _a('ASSIGN', 'member.outcome', 'BLOCK:GTL_002_AGE_RANGE'),
+      ]))],
+  },
+  {
+    id: 'elig-mem-015', name: 'Claim Manual Age at Death > 65', category: 'Member Eligibility',
+    tags: ['gtl', 'eligibility', 'member', 'claims'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Route to manual claim investigation when age at death exceeds 65.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.ageAtDeath', 'GREATER_THAN', '65')] }, [
+        _a('ASSIGN', 'claim.outcome', 'REQUIRE:CLAIM_MANUAL'),
+      ]))],
+  },
+  {
+    id: 'elig-mem-016', name: 'SI Formula Violation', category: 'Member Eligibility',
+    tags: ['gtl', 'eligibility', 'member', 'si'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Block when sum insured violates the product SA formula or cap.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.siFormulaViolation', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'member.outcome', 'BLOCK:E-SI-FORMULA-VIOLATION'),
+      ]))],
+  },
+  {
+    id: 'elig-mem-017', name: 'Hazardous Occupation UW Referral', category: 'Member Eligibility',
+    tags: ['gtl', 'eligibility', 'member', 'hazard', 'uw'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Trigger hazardous occupation UW referral when member occupation flag is set.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.hazardousOccupation', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'uw.action', 'REFER_UW:HAZARDOUS_OCCUPATION'),
+      ]))],
+  },
+  {
+    id: 'elig-mem-018', name: 'NRI UW Referral and Declaration', category: 'Member Eligibility',
+    tags: ['gtl', 'eligibility', 'member', 'nri', 'uw'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Route NRI or foreign national member to UW and require NRI declaration with wet signature.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.nriOrForeignNational', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'uw.action', 'REFER_UW:NRI'),
+        _a('ASSIGN', 'docs.required', 'REQUIRE:NRI_DECL'),
+      ]))],
+  },
+  {
+    id: 'elig-mem-019', name: 'PEP DD Form Required', category: 'Member Eligibility',
+    tags: ['gtl', 'eligibility', 'member', 'pep', 'kyc'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Require PEP due diligence form when member matches PEP list.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.pepMatch', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'docs.required', 'REQUIRE:PEP_DD_FORM'),
+      ]))],
+  },
+  {
+    id: 'elig-mem-020', name: 'Medical Questionnaire and PED Declaration', category: 'Member Eligibility',
+    tags: ['gtl', 'eligibility', 'member', 'ped', 'medical'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Trigger medical questionnaire and PED declaration when member has disclosed PED or age exceeds non-medical cap.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'or', conditions: [_c('member.hasDisclosedPed', 'EQUALS', 'true'), _c('member.age', 'GREATER_THAN', 'product.nonMedicalAgeCap')] }, [
+        _a('ASSIGN', 'uw.action', 'REQUIRE:MEDICAL_QUESTIONNAIRE'),
+        _a('ASSIGN', 'docs.required', 'REQUIRE:PED_DECL'),
+      ]))],
+  },
+  {
+    id: 'elig-mem-021', name: 'FCL Breach UW Referral', category: 'Member Eligibility',
+    tags: ['gtl', 'eligibility', 'member', 'fcl', 'uw'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Trigger FCL breach referral to UW when member sum assured exceeds member FCL.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.sumAssured', 'GREATER_THAN', 'member.fcl')] }, [
+        _a('ASSIGN', 'uw.action', 'REFER_UW:FCL_BREACH'),
+      ]))],
+  },
+  {
+    id: 'elig-mem-024', name: 'Salary Consistency Warning', category: 'Member Eligibility',
+    tags: ['gtl', 'eligibility', 'member', 'salary'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Issue warning when monthly and annual salary are both present but mismatch beyond tolerance.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.salaryConsistencyMismatch', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'member.warning', 'REQUIRE:SALARY_CONSISTENCY_WARN'),
+      ]))],
+  },
+  {
+    id: 'elig-mem-025', name: 'GCL Loan Outstanding Out of Bounds', category: 'Member Eligibility',
+    tags: ['gtl', 'eligibility', 'member', 'gcl', 'credit-life'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Warn when loan outstanding is outside product bounds (GCL-002).', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.loanOutstandingInBounds', 'EQUALS', 'false')] }, [
+        _a('ASSIGN', 'member.warning', 'REQUIRE:GCL_002_LOAN_BOUNDS'),
+      ]))],
+  },
+  {
+    id: 'elig-mem-026', name: 'GCL Loan Tenure Out of Bounds', category: 'Member Eligibility',
+    tags: ['gtl', 'eligibility', 'member', 'gcl', 'credit-life'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Block and stop when loan term months is outside product bounds (GCL-001 error).', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('member.loanTermInBounds', 'EQUALS', 'false')] }, [
+        _a('ASSIGN', 'member.outcome', 'BLOCK:GCL_001_TENURE'),
+      ]))],
+  },
+  // ── DOC_Gate_Precedence_Ingest ──
+  {
+    id: 'doc-gate-001', name: 'Hard Pre-Issue Gate Fail', category: 'Document Gate',
+    tags: ['gtl', 'documents', 'gate', 'compliance'], createdAt: '2026-06-01T00:00:00', createdBy: 'compliance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Set hard_pre_issue_pass = false and block MPS release when not all MANDATORY_FOR_ISSUANCE evidence is VERIFIED or WAIVED.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('docs.allMandatoryVerifiedOrWaived', 'EQUALS', 'false')] }, [
+        _a('ASSIGN', 'policy.hardPreIssuePass', 'FAIL:HARD_PRE_ISSUE_PASS'),
+      ]))],
+  },
+  {
+    id: 'doc-prec-001', name: 'Document Source Precedence Default', category: 'Document Precedence',
+    tags: ['gtl', 'documents', 'precedence'], createdAt: '2026-06-01T00:00:00', createdBy: 'compliance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'When multiple evidence sources exist for same document apply default precedence: MPH > BROKER > SALES_RM > INTERNAL_OPS.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('docs.multipleSourcesForDoc', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'docs.precedence', 'REQUIRE:PRECEDENCE_DEFAULT'),
+      ]))],
+  },
+  {
+    id: 'doc-prec-002', name: 'Quote Slip Source Precedence', category: 'Document Precedence',
+    tags: ['gtl', 'documents', 'precedence'], createdAt: '2026-06-01T00:00:00', createdBy: 'compliance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'For Quote Slip evidence use BROKER > MPH precedence order.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('docs.documentType', 'EQUALS', 'QUOTE_SLIP')] }, [
+        _a('ASSIGN', 'docs.precedence', 'REQUIRE:PRECEDENCE_QUOTE_SLIP'),
+      ]))],
+  },
+  {
+    id: 'doc-ingest-001', name: 'Invalid Upload Source', category: 'Document Ingest',
+    tags: ['gtl', 'documents', 'ingest'], createdAt: '2026-06-01T00:00:00', createdBy: 'compliance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Reject document when upload source is not in {PORTAL_UPLOAD, API, INBOUND_MAILBOX, OFFLINE_PHYSICAL}.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('docs.uploadSource', 'NOT_IN', 'PORTAL_UPLOAD,API,INBOUND_MAILBOX,OFFLINE_PHYSICAL')] }, [
+        _a('ASSIGN', 'docs.outcome', 'BLOCK:UPLOAD_SOURCE_INVALID'),
+      ]))],
+  },
+  {
+    id: 'doc-ingest-002', name: 'OCR Low Confidence Manual Review', category: 'Document Ingest',
+    tags: ['gtl', 'documents', 'ingest', 'ocr'], createdAt: '2026-06-01T00:00:00', createdBy: 'compliance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Route to manual review queue when OCR confidence is below 0.60.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('docs.ocrConfidence', 'LESS_THAN', '0.60')] }, [
+        _a('ASSIGN', 'docs.outcome', 'REQUIRE:MANUAL_REVIEW'),
+      ]))],
+  },
+  {
+    id: 'doc-ingest-003', name: 'OCR Medium Confidence Reviewer Queue', category: 'Document Ingest',
+    tags: ['gtl', 'documents', 'ingest', 'ocr'], createdAt: '2026-06-01T00:00:00', createdBy: 'compliance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Route to reviewer queue when OCR confidence is between 0.60 and 0.85.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('docs.ocrConfidence', 'GREATER_THAN_OR_EQUAL', '0.60'), _c('docs.ocrConfidence', 'LESS_THAN', '0.85')] }, [
+        _a('ASSIGN', 'docs.outcome', 'REQUIRE:REVIEWER_QUEUE'),
+      ]))],
+  },
+  {
+    id: 'doc-ingest-004', name: 'OCR High Confidence Auto-Promote', category: 'Document Ingest',
+    tags: ['gtl', 'documents', 'ingest', 'ocr'], createdAt: '2026-06-01T00:00:00', createdBy: 'compliance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Auto-promote document to evidence when OCR confidence is >= 0.85.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('docs.ocrConfidence', 'GREATER_THAN_OR_EQUAL', '0.85')] }, [
+        _a('ASSIGN', 'docs.outcome', 'PASS:OCR_AUTO_PROMOTE'),
+      ]))],
+  },
+  // ── SIG_Requirements ──
+  {
+    id: 'sig-001', name: 'Signatory Invalid', category: 'Signature',
+    tags: ['gtl', 'signature', 'compliance'], createdAt: '2026-06-01T00:00:00', createdBy: 'compliance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Reject wet signature evidence when signatory snapshot ID is missing or authority is not VALID.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('sig.signatureMode', 'EQUALS', 'WET'), _c('sig.signatoryValid', 'EQUALS', 'false')] }, [
+        _a('ASSIGN', 'sig.outcome', 'BLOCK:SIGNATORY_INVALID'),
+      ]))],
+  },
+  {
+    id: 'sig-002', name: 'Sign Date After RCD', category: 'Signature',
+    tags: ['gtl', 'signature', 'compliance'], createdAt: '2026-06-01T00:00:00', createdBy: 'compliance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Reject wet-signed document when signed_on date is after policy RCD.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('sig.signedOn', 'GREATER_THAN', 'policy.rcd')] }, [
+        _a('ASSIGN', 'sig.outcome', 'BLOCK:SIGN_AFTER_RCD'),
+      ]))],
+  },
+  {
+    id: 'sig-003', name: 'Signatory Authority Expired', category: 'Signature',
+    tags: ['gtl', 'signature', 'compliance'], createdAt: '2026-06-01T00:00:00', createdBy: 'compliance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Return E-SIGNATORY-EXPIRED 403 when signatory authority has expired.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('sig.signatoryAuthorityExpired', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'sig.outcome', 'BLOCK:E-SIGNATORY-EXPIRED'),
+      ]))],
+  },
+  {
+    id: 'sig-004', name: 'Wet Signature Evidence Required', category: 'Signature',
+    tags: ['gtl', 'signature', 'compliance'], createdAt: '2026-06-01T00:00:00', createdBy: 'compliance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Require wet-signature evidence for QUOTATION_ACCEPTANCE, PROPOSAL_FORM, BOARD_RESOLUTION, PED_DECL, NRI_DECL, and PEP_DD_FORM documents.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('docs.documentType', 'IN', 'QUOTATION_ACCEPTANCE,PROPOSAL_FORM,BOARD_RESOLUTION,PED_DECL,NRI_DECL,PEP_DD_FORM'), _c('sig.wetSigPresent', 'EQUALS', 'false')] }, [
+        _a('ASSIGN', 'sig.outcome', 'REQUIRE:WET_SIG_EVIDENCE'),
+      ]))],
+  },
+  {
+    id: 'sig-005', name: 'Self-Approval Block SoD-006', category: 'Signature',
+    tags: ['gtl', 'signature', 'sod', 'compliance'], createdAt: '2026-06-01T00:00:00', createdBy: 'compliance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Block approval when originator ID equals approver ID (SoD-006 segregation of duties).', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('approval.originatorId', 'EQUALS', 'approval.approverId')] }, [
+        _a('ASSIGN', 'approval.outcome', 'BLOCK:E-UNAUTHORIZED_SELF_APPROVE'),
+      ]))],
+  },
+  {
+    id: 'sig-006', name: 'UW Manager Two-Officer SoD-007', category: 'Signature',
+    tags: ['gtl', 'signature', 'sod', 'uw'], createdAt: '2026-06-01T00:00:00', createdBy: 'compliance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Require two-officer ID for UW_MANAGER or RI_REFERRAL band decisions (SoD-007).', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('uw.band', 'IN', 'UW_MANAGER,RI_REFERRAL'), _c('approval.twoOfficerId', 'IS_NULL', '')] }, [
+        _a('ASSIGN', 'approval.outcome', 'REQUIRE:TWO_OFFICER'),
+      ]))],
+  },
+  {
+    id: 'sig-007', name: 'Plan Change Two-Officer Required', category: 'Signature',
+    tags: ['gtl', 'signature', 'sod', 'plan-change'], createdAt: '2026-06-01T00:00:00', createdBy: 'compliance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Require two-officer ID for PLAN_CHANGE action type.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('action.type', 'EQUALS', 'PLAN_CHANGE'), _c('approval.twoOfficerId', 'IS_NULL', '')] }, [
+        _a('ASSIGN', 'approval.outcome', 'REQUIRE:TWO_OFFICER'),
+      ]))],
+  },
+  {
+    id: 'sig-008', name: 'Plan Fork Self-Approval Block', category: 'Signature',
+    tags: ['gtl', 'signature', 'sod', 'plan-fork'], createdAt: '2026-06-01T00:00:00', createdBy: 'compliance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Block self-approval on plan fork actions.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('action.type', 'EQUALS', 'PLAN_FORK'), _c('approval.originatorId', 'EQUALS', 'approval.approverId')] }, [
+        _a('ASSIGN', 'approval.outcome', 'BLOCK:PLAN_FORK_SELF_APPROVAL'),
+      ]))],
+  },
+  {
+    id: 'sig-009', name: 'Override Self-Approval Block', category: 'Signature',
+    tags: ['gtl', 'signature', 'sod', 'override'], createdAt: '2026-06-01T00:00:00', createdBy: 'compliance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Block self-approval on override approve actions.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('action.type', 'EQUALS', 'OVERRIDE_APPROVE'), _c('approval.originatorId', 'EQUALS', 'approval.approverId')] }, [
+        _a('ASSIGN', 'approval.outcome', 'BLOCK:OVERRIDE_SELF_APPROVAL'),
+      ]))],
+  },
+  {
+    id: 'sig-011', name: 'RHL Wet Signature Waiver', category: 'Signature',
+    tags: ['gtl', 'signature', 'waiver', 'rhl'], createdAt: '2026-06-01T00:00:00', createdBy: 'compliance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Waive MPH wet signature requirement for Risk Holding Letter — insurer-produced document.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('docs.documentType', 'EQUALS', 'RISK_HOLDING_LETTER')] }, [
+        _a('ASSIGN', 'sig.outcome', 'WAIVE:RHL_WET_SIG'),
+      ]))],
+  },
+  // ── KYC_Requirements ──
+  {
+    id: 'kyc-001', name: 'PAN Format Invalid', category: 'KYC',
+    tags: ['gtl', 'kyc', 'pan', 'compliance'], createdAt: '2026-06-01T00:00:00', createdBy: 'compliance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Reject when PAN number is present but does not match the pattern ^[A-Z]{5}[0-9]{4}[A-Z]$.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('kyc.panPresent', 'EQUALS', 'true'), _c('kyc.panFormatValid', 'EQUALS', 'false')] }, [
+        _a('ASSIGN', 'kyc.outcome', 'BLOCK:PAN_FORMAT_INVALID'),
+      ]))],
+  },
+  {
+    id: 'kyc-002', name: 'BO Certificate Required', category: 'KYC',
+    tags: ['gtl', 'kyc', 'compliance'], createdAt: '2026-06-01T00:00:00', createdBy: 'compliance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Require beneficial owner certificate as mandatory pre-issue document on MPH onboarding.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('kyc.boCertificatePresent', 'EQUALS', 'false')] }, [
+        _a('ASSIGN', 'kyc.outcome', 'REQUIRE:BO_CERTIFICATE'),
+      ]))],
+  },
+  {
+    id: 'kyc-003', name: 'Signatory KYC Required', category: 'KYC',
+    tags: ['gtl', 'kyc', 'signatory', 'compliance'], createdAt: '2026-06-01T00:00:00', createdBy: 'compliance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Require KYC of new signatory as mandatory pre-issue on signatory change.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('kyc.newSignatoryKycMissing', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'kyc.outcome', 'REQUIRE:SIGNATORY_KYC'),
+      ]))],
+  },
+  {
+    id: 'kyc-006', name: 'Sanction Screening Required', category: 'KYC',
+    tags: ['gtl', 'kyc', 'sanctions', 'compliance'], createdAt: '2026-06-01T00:00:00', createdBy: 'compliance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Run sanction screening service on MPH, member, beneficiary, and claimant onboarding; block on potential match.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('kyc.entityType', 'IN', 'MPH,MEMBER,BENEFICIARY,CLAIMANT')] }, [
+        _a('ASSIGN', 'kyc.outcome', 'REQUIRE:SANCTION_SCREENING'),
+      ]))],
+  },
+  {
+    id: 'kyc-007', name: 'PEP Due Diligence Form', category: 'KYC',
+    tags: ['gtl', 'kyc', 'pep', 'compliance'], createdAt: '2026-06-01T00:00:00', createdBy: 'compliance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Require PEP DD form with wet signature and compliance director waiver on PEP match.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('kyc.pepMatch', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'kyc.outcome', 'REQUIRE:PEP_DD_FORM'),
+      ]))],
+  },
+  {
+    id: 'kyc-008', name: 'PII Tokenisation Required', category: 'KYC',
+    tags: ['gtl', 'kyc', 'pii', 'compliance'], createdAt: '2026-06-01T00:00:00', createdBy: 'compliance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Require tokenised storage for any PII field stored in the system.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('data.piiField', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'data.storageOutcome', 'REQUIRE:PII_TOKENISATION'),
+      ]))],
+  },
+  {
+    id: 'kyc-009', name: 'CIN Validate for Corporate MPH', category: 'KYC',
+    tags: ['gtl', 'kyc', 'cin', 'compliance'], createdAt: '2026-06-01T00:00:00', createdBy: 'compliance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Validate CIN via MOA/AOA when MPH is a corporate entity and CIN is not yet validated.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('mph.corporate', 'EQUALS', 'true'), _c('kyc.cinValidated', 'EQUALS', 'false')] }, [
+        _a('ASSIGN', 'kyc.outcome', 'REQUIRE:CIN_VALIDATE'),
+      ]))],
+  },
+  {
+    id: 'kyc-010', name: 'Claim KYC Pending Block', category: 'KYC',
+    tags: ['gtl', 'kyc', 'claims', 'compliance'], createdAt: '2026-06-01T00:00:00', createdBy: 'compliance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Block claim STP when beneficiary KYC is pending (E-CLAIM-KYC-PENDING 409).', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('claim.beneficiaryKycPending', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'claim.outcome', 'BLOCK:E-CLAIM-KYC-PENDING'),
+      ]))],
+  },
+  {
+    id: 'kyc-011', name: 'Nominee KYC Required', category: 'KYC',
+    tags: ['gtl', 'kyc', 'claims', 'nominee'], createdAt: '2026-06-01T00:00:00', createdBy: 'compliance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Require nominee KYC as Phase-2 claim document when nominee KYC is pending.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('claim.nomineeKycPending', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'claim.outcome', 'REQUIRE:NOMINEE_KYC'),
+      ]))],
+  },
+  // ── BANK_Verification ──
+  {
+    id: 'bank-001', name: 'Penny Drop Name Mismatch', category: 'Bank Verification',
+    tags: ['gtl', 'bank', 'penny-drop', 'compliance'], createdAt: '2026-06-01T00:00:00', createdBy: 'finance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Block and route to reviewer queue when penny drop fuzzy match score is below 0.94 (E-PENNY-DROP-NAME-MISMATCH 400).', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('bank.pennyDropFuzzyScore', 'LESS_THAN', '0.94')] }, [
+        _a('ASSIGN', 'bank.outcome', 'BLOCK:E-PENNY-DROP-NAME-MISMATCH'),
+      ]))],
+  },
+  {
+    id: 'bank-002', name: 'Claim STP Bank Verification Manual', category: 'Bank Verification',
+    tags: ['gtl', 'bank', 'claims'], createdAt: '2026-06-01T00:00:00', createdBy: 'finance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Route claim to manual investigation when bank verification outcome is not ACCEPT_AUTO.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('bank.verifyOutcome', 'NOT_EQUALS', 'ACCEPT_AUTO')] }, [
+        _a('ASSIGN', 'claim.outcome', 'REQUIRE:CLAIM_MANUAL_BANK'),
+      ]))],
+  },
+  {
+    id: 'bank-003', name: 'UTR Missing Block', category: 'Bank Verification',
+    tags: ['gtl', 'bank', 'float', 'finance'], createdAt: '2026-06-01T00:00:00', createdBy: 'finance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Block float transfer when UTR is missing (FT-RECON-001).', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('floatTransfer.utr', 'IS_NULL', '')] }, [
+        _a('ASSIGN', 'floatTransfer.outcome', 'BLOCK:UTR_MISSING'),
+      ]))],
+  },
+  {
+    id: 'bank-004', name: 'Legal Entity Mismatch Block', category: 'Bank Verification',
+    tags: ['gtl', 'bank', 'float', 'compliance'], createdAt: '2026-06-01T00:00:00', createdBy: 'finance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Block float reconciliation when cross-legal entity target does not match payer legal entity ID (FT-INT-002).', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('floatTransfer.crossLegalEntityValid', 'EQUALS', 'false')] }, [
+        _a('ASSIGN', 'floatTransfer.outcome', 'BLOCK:LEGAL_ENTITY_MISMATCH'),
+      ]))],
+  },
+  {
+    id: 'bank-007', name: 'Float Tolerance Breach', category: 'Bank Verification',
+    tags: ['gtl', 'bank', 'float', 'finance'], createdAt: '2026-06-01T00:00:00', createdBy: 'finance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Block float receipt when variance exceeds tolerance band (E-FLOAT-TOLERANCE-BREACH 409).', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('floatReceipt.varianceExceedsTolerance', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'floatReceipt.outcome', 'BLOCK:E-FLOAT-TOLERANCE-BREACH'),
+      ]))],
+  },
+  {
+    id: 'bank-009', name: 'Bank Settlement Rejection', category: 'Bank Verification',
+    tags: ['gtl', 'bank', 'settlement', 'finance'], createdAt: '2026-06-01T00:00:00', createdBy: 'finance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Capture bank rejection with reason in {BANK_REJECT_INVALID_BENEFICIARY, BANK_REJECT_INVALID_ACCOUNT, INSUFFICIENT_FUNDS, DUPLICATE_UTR, MPH_RECALL, TIMEOUT}.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('settlement.bankRejected', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'settlement.outcome', 'BLOCK:BANK_REJECTION'),
+      ]))],
+  },
+  // ── ELIG_Min_Lives ──
+  {
+    id: 'elig-min-001', name: 'Min Group Size Not Met at Issuance', category: 'Min Lives',
+    tags: ['gtl', 'eligibility', 'min-lives'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Block before issuance when headcount is below product minimum group size.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('census.headcount', 'LESS_THAN', 'product.minGroupSize')] }, [
+        _a('ASSIGN', 'policy.outcome', 'BLOCK:MIN_GROUP_SIZE_NEVER_MET'),
+      ]))],
+  },
+  {
+    id: 'elig-min-002', name: 'Mandatory Participation All Employees', category: 'Min Lives',
+    tags: ['gtl', 'eligibility', 'min-lives', 'participation'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Block when participation rule is MANDATORY and not all eligible employees are included.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('scheme.participationRule', 'EQUALS', 'MANDATORY'), _c('census.allEmployeesIncluded', 'EQUALS', 'false')] }, [
+        _a('ASSIGN', 'policy.outcome', 'REQUIRE:ALL_EMPLOYEES_INCLUDED'),
+      ]))],
+  },
+  {
+    id: 'elig-min-003', name: 'Opt-In Participation Tracking', category: 'Min Lives',
+    tags: ['gtl', 'eligibility', 'min-lives', 'participation'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Track opt-in count vs eligible base when participation rule is OPT_IN.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('scheme.participationRule', 'EQUALS', 'OPT_IN')] }, [
+        _a('ASSIGN', 'census.tracking', 'REQUIRE:OPT_IN_TRACKING'),
+      ]))],
+  },
+  {
+    id: 'elig-min-004', name: 'Cohort-Based Participation Tracking', category: 'Min Lives',
+    tags: ['gtl', 'eligibility', 'min-lives', 'participation'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Track participation by cohort or loan tranche when participation rule is COHORT_BASED.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('scheme.participationRule', 'EQUALS', 'COHORT_BASED')] }, [
+        _a('ASSIGN', 'census.tracking', 'REQUIRE:COHORT_TRACKING'),
+      ]))],
+  },
+  // ── BFREQ_Compatibility ──
+  {
+    id: 'bfreq-001', name: 'Employer Standard Billing Frequency', category: 'Billing Frequency',
+    tags: ['gtl', 'billing', 'frequency', 'compatibility'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Reject billing frequency not in {MONTHLY, QUARTERLY, YEARLY} for SCHEME_TEMPLATE_EMPLOYER_STANDARD.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('scheme.template', 'EQUALS', 'SCHEME_TEMPLATE_EMPLOYER_STANDARD'), _c('billing.frequency', 'NOT_IN', 'MONTHLY,QUARTERLY,YEARLY')] }, [
+        _a('ASSIGN', 'billing.outcome', 'BLOCK:BFREQ_NOT_ALLOWED'),
+      ]))],
+  },
+  {
+    id: 'bfreq-002', name: 'Employer Flex Billing Frequency', category: 'Billing Frequency',
+    tags: ['gtl', 'billing', 'frequency', 'compatibility'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Reject billing frequency not in {MONTHLY, YEARLY} for SCHEME_TEMPLATE_EMPLOYER_FLEX.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('scheme.template', 'EQUALS', 'SCHEME_TEMPLATE_EMPLOYER_FLEX'), _c('billing.frequency', 'NOT_IN', 'MONTHLY,YEARLY')] }, [
+        _a('ASSIGN', 'billing.outcome', 'BLOCK:BFREQ_NOT_ALLOWED'),
+      ]))],
+  },
+  {
+    id: 'bfreq-003', name: 'Lender Standard Billing Frequency', category: 'Billing Frequency',
+    tags: ['gtl', 'billing', 'frequency', 'compatibility'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Reject billing frequency not in {MONTHLY, YEARLY} for SCHEME_TEMPLATE_LENDER_STANDARD.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('scheme.template', 'EQUALS', 'SCHEME_TEMPLATE_LENDER_STANDARD'), _c('billing.frequency', 'NOT_IN', 'MONTHLY,YEARLY')] }, [
+        _a('ASSIGN', 'billing.outcome', 'BLOCK:BFREQ_NOT_ALLOWED'),
+      ]))],
+  },
+  {
+    id: 'bfreq-010', name: 'Free-Look Window 30 Days', category: 'Billing Frequency',
+    tags: ['gtl', 'billing', 'free-look', 'compliance'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Allow cancellation within 30 days of in-force date under the free-look window.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('policy.cancellationRequested', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'policy.freeLookOutcome', 'REQUIRE:FREE_LOOK_30D'),
+      ]))],
+  },
+  {
+    id: 'bfreq-011', name: 'Free-Look Refund Formula', category: 'Billing Frequency',
+    tags: ['gtl', 'billing', 'free-look', 'refund'], createdAt: '2026-06-01T00:00:00', createdBy: 'ops@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Compute free-look refund = total_premium - stamp_duty_retained - medical_cost_retained; refund >= 0.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('policy.freeLookCancellation', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'refund.amount', 'REQUIRE:FREE_LOOK_REFUND_FORMULA'),
+      ]))],
+  },
+  // ── Approval_Reason_Codes ──
+  {
+    id: 'appr-001', name: 'Duplicate Approval Scope Block', category: 'Approval Governance',
+    tags: ['gtl', 'approval', 'governance'], createdAt: '2026-06-01T00:00:00', createdBy: 'compliance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Block when an approval case already exists for the same scope and version.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('approval.duplicateScopeExists', 'EQUALS', 'true')] }, [
+        _a('ASSIGN', 'approval.outcome', 'BLOCK:DUPLICATE_APPROVAL_SCOPE'),
+      ]))],
+  },
+  {
+    id: 'appr-002', name: 'Approval Not Pending Reject', category: 'Approval Governance',
+    tags: ['gtl', 'approval', 'governance'], createdAt: '2026-06-01T00:00:00', createdBy: 'compliance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Reject approval action when approval state is not PENDING.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('approval.state', 'NOT_EQUALS', 'PENDING')] }, [
+        _a('ASSIGN', 'approval.outcome', 'BLOCK:APPROVAL_NOT_PENDING'),
+      ]))],
+  },
+  {
+    id: 'appr-006', name: 'Override Approve Valid Reason Code', category: 'Approval Governance',
+    tags: ['gtl', 'approval', 'override', 'reason-code'], createdAt: '2026-06-01T00:00:00', createdBy: 'compliance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Reject override approve when reason code is not in {STRATEGIC_RELATIONSHIP, REGULATORY_EXCEPTION}.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('approval.action', 'EQUALS', 'OVERRIDE_APPROVE'), _c('approval.reasonCode', 'NOT_IN', 'STRATEGIC_RELATIONSHIP,REGULATORY_EXCEPTION')] }, [
+        _a('ASSIGN', 'approval.outcome', 'BLOCK:INVALID_OVERRIDE_REASON'),
+      ]))],
+  },
+  {
+    id: 'appr-007', name: 'Override Reject Valid Reason Code', category: 'Approval Governance',
+    tags: ['gtl', 'approval', 'override', 'reason-code'], createdAt: '2026-06-01T00:00:00', createdBy: 'compliance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Reject override reject when reason code is not OUTSIDE_APPETITE.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('approval.action', 'EQUALS', 'OVERRIDE_REJECT'), _c('approval.reasonCode', 'NOT_EQUALS', 'OUTSIDE_APPETITE')] }, [
+        _a('ASSIGN', 'approval.outcome', 'BLOCK:INVALID_REJECT_REASON'),
+      ]))],
+  },
+  {
+    id: 'appr-008', name: 'UW Decline Valid Reason Code', category: 'Approval Governance',
+    tags: ['gtl', 'approval', 'uw', 'reason-code'], createdAt: '2026-06-01T00:00:00', createdBy: 'compliance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Reject UW decline when reason code is not in {MEDICAL_HIGH_RISK, OCCUPATION_HAZARDOUS, SANCTIONS_OR_UAPA_MATCH, NRI_DECLINE_COUNTRY}.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('uw.action', 'EQUALS', 'DECLINE'), _c('uw.reasonCode', 'NOT_IN', 'MEDICAL_HIGH_RISK,OCCUPATION_HAZARDOUS,SANCTIONS_OR_UAPA_MATCH,NRI_DECLINE_COUNTRY')] }, [
+        _a('ASSIGN', 'uw.outcome', 'BLOCK:INVALID_DECLINE_REASON'),
+      ]))],
+  },
+  {
+    id: 'appr-009', name: 'UW Postpone Valid Reason Code', category: 'Approval Governance',
+    tags: ['gtl', 'approval', 'uw', 'reason-code'], createdAt: '2026-06-01T00:00:00', createdBy: 'compliance@insure.com',
+    versions: [mkVer(1, 'ACTIVE', 'Reject UW postpone when reason code is not in {PED_TREATMENT_ONGOING, AWAITING_RI_RESPONSE}.', 'Initial Release', '2026-04-01T00:00:00',
+      mkBlockRule({ match: 'and', conditions: [_c('uw.action', 'EQUALS', 'POSTPONE'), _c('uw.reasonCode', 'NOT_IN', 'PED_TREATMENT_ONGOING,AWAITING_RI_RESPONSE')] }, [
+        _a('ASSIGN', 'uw.outcome', 'BLOCK:INVALID_POSTPONE_REASON'),
+      ]))],
+  },
+];
+
 export const SEED_TABLES: Table[] = [
   /* ── UC-A · Motor Pricing ── */
   {
@@ -1905,6 +3929,34 @@ export const Sel: React.FC<SelProps> = ({ value, onChange, options, disabled, cl
   </select>
 );
 
+interface DSelProps {
+  value: string;
+  onChange: (v: string) => void;
+  options: Array<{ value: string; label: string } | string>;
+  disabled?: boolean;
+  className?: string;
+  size?: 'sm' | 'default';
+}
+export const DSel: React.FC<DSelProps> = ({ value, onChange, options, disabled, className = '', size = 'default' }) => {
+  const opts = (options as Array<{ value: string; label: string } | string>).map(o =>
+    typeof o === 'string' ? { value: o, label: o } : o
+  );
+  const placeholder = opts.find(o => o.value === '')?.label;
+  const realOpts = opts.filter(o => o.value !== '');
+  return (
+    <Select value={value || undefined} onValueChange={onChange} disabled={disabled}>
+      <SelectTrigger size={size} className={cn('text-sm', className)}>
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent>
+        {realOpts.map(o => (
+          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+};
+
 interface ModalProps {
   open: boolean;
   onClose: () => void;
@@ -1970,6 +4022,7 @@ export const IC = {
   ChevR: (p: { size?: number; className?: string }) => <Ic d="M9 18l6-6-6-6" {...p} />,
   ChevD: (p: { size?: number; className?: string }) => <Ic d="M6 9l6 6 6-6" {...p} />,
   MoreVert: (p: { size?: number; className?: string }) => <Ic d="M12 5v.01M12 12v.01M12 19v.01" {...p} />,
+  Play: (p: { size?: number; className?: string }) => <Ic d="M5 3l14 9-14 9V3z" {...p} />,
   ChevU: (p: { size?: number; className?: string }) => <Ic d="M18 15l-6-6-6 6" {...p} />,
   Flow: (p: { size?: number; className?: string }) => <Ic d={['M5 12h14', 'M12 5l7 7-7 7']} {...p} />,
   Table2: (p: { size?: number; className?: string }) => <Ic d={['M3 3h18v18H3z', 'M3 9h18', 'M3 15h18', 'M9 3v18']} {...p} />,
@@ -1985,6 +4038,7 @@ export const IC = {
   Copy: (p: { size?: number; className?: string }) => <Ic d={['M8 17.929H6c-1.105 0-2-.912-2-2.036V5.036C4 3.91 4.895 3 6 3h8c1.105 0 2 .911 2 2.036v1.866m-6 .17h8c1.105 0 2 .91 2 2.036v10.857C20 21.09 19.105 22 18 22h-8c-1.105 0-2-.911-2-2.036V9.107c0-1.124.895-2.036 2-2.036z']} {...p} />,
   Info: (p: { size?: number; className?: string }) => <Ic d={['M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z', 'M12 8v4', 'M12 16h.01']} {...p} />,
   X: (p: { size?: number; className?: string }) => <Ic d="M18 6 6 18M6 6l12 12" {...p} />,
+  Upload: (p: { size?: number; className?: string }) => <Ic d={['M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4', 'M17 8l-5-5-5 5', 'M12 3v12']} {...p} />,
 };
 
 /* ── FACT ICON ───────────────────────────────────── */
@@ -2054,25 +4108,29 @@ export const PrimarySidebar: React.FC<{ active: string; onSelect: (k: string) =>
 
 /* ── SECONDARY SIDEBAR ───────────────────────────── */
 const RULES_NAV = [
-  { section: 'HOME', items: [{ key: 'dashboard', Icon: IC.Dashboard, label: 'Dashboard' }] },
+  { section: 'HOME', items: [{ key: 'dashboard', Icon: LayoutDashboard, label: 'Dashboard' }] },
   {
-    section: 'RULES', items: [
-      { key: 'decisions', Icon: IC.Rules, label: 'Decisions' },
-      { key: 'lookup', Icon: IC.Lookup, label: 'Lookup' },
-      { key: 'approvals', Icon: IC.Check, label: 'Approvals' },
-      { key: 'analytics', Icon: IC.Grid, label: 'Analytics' },
-      { key: 'health', Icon: IC.Bolt, label: 'Health' },
+    section: 'AUTHOR', items: [
+      { key: 'decisions', Icon: Binary, label: 'Decisions' },
+      { key: 'lookup', Icon: TextSearch, label: 'Lookup' },
+      { key: 'approvals', Icon: Stamp, label: 'Approvals' },
     ],
   },
   {
-    section: 'MONITOR', items: [
-      { key: 'sandbox', Icon: IC.Eye, label: 'Sandbox' },
-      { key: 'environments', Icon: IC.Flow, label: 'Environments' },
+    section: 'INSIGHTS', items: [
+      { key: 'analytics', Icon: ChartNoAxesCombined, label: 'Analytics' },
+      { key: 'health', Icon: SquareActivity, label: 'Health' },
     ],
   },
   {
-    section: 'CONFIG', items: [
-      { key: 'fields', Icon: IC.Table2, label: 'Fields & Facts' },
+    section: 'TEST', items: [
+      { key: 'sandbox', Icon: Box, label: 'Sandbox' },
+      { key: 'environment', Icon: CloudCog, label: 'Environment' },
+    ],
+  },
+  {
+    section: 'CONFIGURE', items: [
+      { key: 'fields', Icon: Rows3, label: 'Fields & Facts' },
     ],
   },
 ];
@@ -2083,29 +4141,39 @@ interface SecondarySidebarProps {
 }
 
 export const SecondarySidebar: React.FC<SecondarySidebarProps> = ({ active, onSelect }) => (
-  <aside className="w-[200px] bg-background border-r border-border flex flex-col shrink-0">
-    {/* Wordmark — aligned to primary sidebar logo */}
-    <div className="px-4 flex items-center shrink-0" style={{ height: '64px' }}>
-      <div>
-        <p className="text-base font-bold tracking-tight text-foreground leading-none">AXA</p>
-        <p className="text-[9px] font-semibold tracking-[0.18em] uppercase text-muted-foreground mt-0.5">Motor Insurance</p>
-      </div>
-    </div>
-    <div className="flex flex-col gap-0 overflow-y-auto flex-1 py-2 border-t border-border" style={{ scrollbarWidth: 'thin' }}>
-      {RULES_NAV.map(({ section, items }) => (
-        <div key={section} className="mb-1">
-          <p className="px-4 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{section}</p>
-          {items.map(({ key, Icon, label }) => (
-            <button key={key} onClick={() => onSelect(key)}
-              className={cn('flex items-center gap-2.5 w-full px-4 py-1.5 text-sm transition-colors text-left',
-                active === key ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground')}>
-              {active === key
-                ? <span className="flex items-center gap-2.5 bg-primary/10 text-primary rounded-lg px-2 py-1 w-full -mx-2"><Icon size={15} />{label}</span>
-                : <><Icon size={15} />{label}</>}
-            </button>
-          ))}
+  <SidebarProvider
+    style={{ '--sidebar-width': '200px', width: 'auto', height: '100%', minHeight: 0 } as React.CSSProperties}
+  >
+    <Sidebar collapsible="none" className="border-r border-sidebar-border">
+      <SidebarHeader className="h-16 border-b border-sidebar-border px-4 flex justify-start items-center shrink-0">
+        <div>
+          <p className="text-base font-bold tracking-tight text-foreground leading-none">AXA</p>
+          <p className="text-[9px] font-semibold tracking-[0.18em] uppercase text-muted-foreground mt-0.5">Motor Insurance</p>
         </div>
-      ))}
-    </div>
-  </aside>
+      </SidebarHeader>
+      <SidebarContent>
+        {RULES_NAV.map(({ section, items }) => (
+          <SidebarGroup key={section}>
+            <SidebarGroupLabel>{section}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {items.map(({ key, Icon, label }) => (
+                  <SidebarMenuItem key={key}>
+                    <SidebarMenuButton
+                      isActive={active === key}
+                      onClick={() => onSelect(key)}
+                      size="sm"
+                    >
+                      <Icon size={15} />
+                      <span>{label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
+      </SidebarContent>
+    </Sidebar>
+  </SidebarProvider>
 );

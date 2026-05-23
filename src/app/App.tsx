@@ -1,18 +1,19 @@
 import React, { useState, useCallback } from 'react';
 import {
   uid, IC, PrimarySidebar, SecondarySidebar, Toast,
-  SEED_SPACES, SEED_RULES, SEED_TABLES, SEED_FLOWS, SEED_FACTS, SEED_FACT_FIELDS, SEED_LOOKUP_TABLES,
+  SEED_SPACES, SEED_RULES, SEED_GTL_RULES, SEED_A2_RULES, SEED_A3_RULES, SEED_A4_RULES, SEED_A5_RULES,
+  SEED_TABLES, SEED_FLOWS, SEED_FACTS, SEED_FACT_FIELDS, SEED_LOOKUP_TABLES,
   Space, Rule, Table, Flow, Fact, FactField, LookupTable,
 } from './components/shared';
 import { SpacesPage, SpacePickerModal } from './components/spaces';
 import { DecisionsPage } from './components/decisions-list';
 import { RuleDetailPage, EditMetaModal, DeleteRuleModal } from './components/rule-detail';
 import { RuleCreatePage, RuleForm } from './components/rule-create';
-import { TableDetailPage } from './components/table-detail';
+import { TableDetailPage, TableCreatePage, EditTableModal } from './components/table-detail';
 import { FlowDetailPage } from './components/flow-detail';
 import { FieldsPage } from './components/fields';
 import { SandboxPage } from './components/sandbox';
-import { LookupListPage, LookupTableDetail, LookupTableCreate } from './components/lookup';
+import { LookupListPage, LookupTableDetail, LookupTableCreate, EditLookupTableModal } from './components/lookup';
 
 type Page =
   | 'decisions'
@@ -20,6 +21,8 @@ type Page =
   | 'rule-create'
   | 'rule-new-version'
   | 'table-detail'
+  | 'table-create'
+  | 'table-new-version'
   | 'flow-detail'
   | 'spaces'
   | 'fields'
@@ -35,11 +38,18 @@ export default function App() {
   const [secondaryNav, setSecondaryNav] = useState('decisions');
   const [spaces, setSpaces] = useState<Space[]>(SEED_SPACES);
   const [currentSpaceId, setCurrentSpaceId] = useState(SEED_SPACES[0].id);
-  const [rules, setRules] = useState<Rule[]>(SEED_RULES);
-  const [tables, setTables] = useState<Table[]>(SEED_TABLES);
-  const [lookupTables, setLookupTables] = useState<LookupTable[]>(SEED_LOOKUP_TABLES);
+  const [rules, setRules] = useState<Rule[]>([
+    ...SEED_RULES.map(r => ({ ...r, spaceId: 'motor-uw' })),
+    ...SEED_GTL_RULES.map(r => ({ ...r, spaceId: 'default-space' })),
+    ...SEED_A2_RULES.map(r => ({ ...r, spaceId: 'default-space' })),
+    ...SEED_A3_RULES.map(r => ({ ...r, spaceId: 'default-space' })),
+    ...SEED_A4_RULES.map(r => ({ ...r, spaceId: 'default-space' })),
+    ...SEED_A5_RULES.map(r => ({ ...r, spaceId: 'default-space' })),
+  ]);
+  const [tables, setTables] = useState<Table[]>(SEED_TABLES.map(t => ({ ...t, spaceId: 'motor-uw' })));
+  const [lookupTables, setLookupTables] = useState<LookupTable[]>(SEED_LOOKUP_TABLES.map(l => ({ ...l, spaceId: 'motor-uw' })));
   const [selectedLookupTable, setSelectedLookupTable] = useState<LookupTable | null>(null);
-  const [flows] = useState<Flow[]>(SEED_FLOWS);
+  const [flows] = useState<Flow[]>(SEED_FLOWS.map(f => ({ ...f, spaceId: 'motor-uw' })));
   const [facts, setFacts] = useState<Fact[]>(SEED_FACTS);
   const [factFields, setFactFields] = useState<FactField[]>(SEED_FACT_FIELDS);
   const [page, setPage] = useState<Page>('decisions');
@@ -48,6 +58,8 @@ export default function App() {
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
   const [selectedFlow, setSelectedFlow] = useState<Flow | null>(null);
   const [editMetaOpen, setEditMetaOpen] = useState(false);
+  const [editTableOpen, setEditTableOpen] = useState(false);
+  const [editLookupOpen, setEditLookupOpen] = useState(false);
   const [deleteRule, setDeleteRule] = useState<Rule | null>(null);
   const [spacePickerOpen, setSpacePickerOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -87,10 +99,20 @@ export default function App() {
   const handleViewLookup = (tbl: LookupTable) => { setSelectedLookupTable(tbl); setPage('lookup-detail'); };
   const handleSaveLookupTable = (tbl: LookupTable) => {
     const isNew = !lookupTables.find(t => t.id === tbl.id);
-    setLookupTables(ts => isNew ? [...ts, tbl] : ts.map(t => t.id === tbl.id ? tbl : t));
-    setSelectedLookupTable(tbl);
+    const tableToSave = isNew ? { ...tbl, spaceId: currentSpaceId } : tbl;
+    setLookupTables(ts => isNew ? [...ts, tableToSave] : ts.map(t => t.id === tableToSave.id ? tableToSave : t));
+    setSelectedLookupTable(tableToSave);
     setPage('lookup-detail');
     showToast(isNew ? `"${tbl.name}" created` : `New version added to "${tbl.name}"`);
+  };
+
+  const handleEditLookupMeta = (data: { name: string; category: string; tags: string[] }) => {
+    if (!selectedLookupTable) return;
+    const updated = { ...selectedLookupTable, ...data };
+    setLookupTables(ts => ts.map(t => t.id === selectedLookupTable.id ? updated : t));
+    setSelectedLookupTable(updated);
+    setEditLookupOpen(false);
+    showToast('Table updated');
   };
 
   /* ── RULE HANDLERS ─────────────────────────────── */
@@ -99,11 +121,29 @@ export default function App() {
   const handleEditRule = (rule: Rule) => { setSelectedRule(rule); setSelectedVersion(undefined); setPage('rule-detail'); };
   const handleDeleteRuleRequest = (rule: Rule) => setDeleteRule(rule);
   const handleViewTable = (tbl: Table) => { setSelectedTable(tbl); setPage('table-detail'); };
+  const handleCreateTable = () => setPage('table-create');
+  const handleEditTableMeta = (data: { name: string; category: string; tags: string[] }) => {
+    if (!selectedTable) return;
+    const updated = { ...selectedTable, ...data };
+    setTables(ts => ts.map(t => t.id === selectedTable.id ? updated : t));
+    setSelectedTable(updated);
+    setEditTableOpen(false);
+    showToast('Table updated');
+  };
+  const handleSaveTable = (tbl: Table) => {
+    const isNew = !tables.find(t => t.id === tbl.id);
+    const tableToSave = isNew ? { ...tbl, spaceId: currentSpaceId } : tbl;
+    setTables(ts => isNew ? [...ts, tableToSave] : ts.map(t => t.id === tableToSave.id ? tableToSave : t));
+    setSelectedTable(tableToSave);
+    setPage('table-detail');
+    showToast(isNew ? `"${tbl.name}" created` : `New version added to "${tbl.name}"`);
+  };
   const handleViewFlow = (flow: Flow) => { setSelectedFlow(flow); setPage('flow-detail'); };
 
   const handleSaveRule = (form: RuleForm) => {
     const newRule: Rule = {
       id: 'r' + uid(),
+      spaceId: currentSpaceId,
       name: form.name,
       category: form.category,
       tags: form.tags,
@@ -187,6 +227,13 @@ export default function App() {
 
   /* space-scoped fact fields for the current space */
   const spaceFactFields = factFields.filter(f => currentSpace.enabledFactIds.includes(f.factId));
+  const spaceFacts = facts.filter(f => spaceFactFields.some(ff => ff.factId === f.id));
+
+  /* space-scoped decisions & lookups */
+  const spaceRules = rules.filter(r => r.spaceId === currentSpaceId);
+  const spaceTables = tables.filter(t => t.spaceId === currentSpaceId);
+  const spaceFlows = flows.filter(f => f.spaceId === currentSpaceId);
+  const spaceLookupTables = lookupTables.filter(l => l.spaceId === currentSpaceId);
 
   /* ── SPACE HANDLERS ────────────────────────────── */
   const handleSelectSpace = (space: Space) => {
@@ -278,14 +325,16 @@ export default function App() {
         {/* Decisions List */}
         {page === 'decisions' && (
           <DecisionsPage
-            rules={rules} tables={tables} flows={flows}
+            rules={spaceRules} tables={spaceTables} flows={spaceFlows}
             onViewRule={handleViewRule}
             onCreateRule={handleCreateRule}
             onEditRule={handleEditRule}
             onDeleteRule={handleDeleteRuleRequest}
             onViewTable={handleViewTable}
+            onCreateTable={handleCreateTable}
             onViewFlow={handleViewFlow}
             onHome={handleGoToDashboard}
+            onTestRule={rule => { setSelectedRule(rule); setSecondaryNav('sandbox'); setPage('sandbox'); }}
           />
         )}
 
@@ -298,6 +347,7 @@ export default function App() {
             onNewVersion={r => { setSelectedRule(r); setPage('rule-new-version'); }}
             onEditMeta={() => setEditMetaOpen(true)}
             initialVersion={selectedVersion}
+            onTestRule={(rule, version) => { setSelectedRule(rule); setSelectedVersion(version); setSecondaryNav('sandbox'); setPage('sandbox'); }}
           />
         )}
 
@@ -318,7 +368,39 @@ export default function App() {
 
         {/* Table Detail */}
         {page === 'table-detail' && selectedTable && (
-          <TableDetailPage tbl={selectedTable} onBack={handleBack} />
+          <TableDetailPage
+            tbl={selectedTable}
+            onBack={handleBack}
+            onHome={handleGoToDashboard}
+            onNewVersion={tbl => { setSelectedTable(tbl); setPage('table-new-version'); }}
+            onUpdate={tbl => { setTables(ts => ts.map(t => t.id === tbl.id ? tbl : t)); setSelectedTable(tbl); }}
+            onEditMeta={() => setEditTableOpen(true)}
+          />
+        )}
+
+        {/* Table Create */}
+        {page === 'table-create' && (
+          <TableCreatePage
+            onSave={handleSaveTable}
+            onCancel={handleBack}
+            onHome={handleGoToDashboard}
+            facts={spaceFacts}
+            factFields={spaceFactFields}
+            lookupTables={spaceLookupTables}
+          />
+        )}
+
+        {/* Table New Version */}
+        {page === 'table-new-version' && selectedTable && (
+          <TableCreatePage
+            existingTable={selectedTable}
+            onSave={handleSaveTable}
+            onCancel={() => setPage('table-detail')}
+            onHome={handleGoToDashboard}
+            facts={spaceFacts}
+            factFields={spaceFactFields}
+            lookupTables={spaceLookupTables}
+          />
         )}
 
         {/* Flow Detail */}
@@ -328,13 +410,13 @@ export default function App() {
 
         {/* Sandbox */}
         {page === 'sandbox' && (
-          <SandboxPage rules={rules} onHome={handleGoToDashboard} />
+          <SandboxPage rules={spaceRules} tables={spaceTables} lookupTables={spaceLookupTables} onHome={handleGoToDashboard} initialRuleId={selectedRule?.id} initialVersion={selectedVersion} />
         )}
 
         {/* Lookup List */}
         {page === 'lookup' && (
           <LookupListPage
-            tables={lookupTables}
+            tables={spaceLookupTables}
             onView={handleViewLookup}
             onCreateNew={() => setPage('lookup-create')}
             onHome={handleGoToDashboard}
@@ -348,6 +430,8 @@ export default function App() {
             onBack={() => { setPage('lookup'); setSecondaryNav('lookup'); }}
             onHome={handleGoToDashboard}
             onNewVersion={tbl => { setSelectedLookupTable(tbl); setPage('lookup-new-version'); }}
+            onUpdate={tbl => { setLookupTables(ts => ts.map(t => t.id === tbl.id ? tbl : t)); setSelectedLookupTable(tbl); }}
+            onEditMeta={() => setEditLookupOpen(true)}
           />
         )}
 
@@ -357,6 +441,7 @@ export default function App() {
             onSave={handleSaveLookupTable}
             onCancel={() => setPage('lookup')}
             onHome={handleGoToDashboard}
+            factFields={spaceFactFields}
           />
         )}
 
@@ -367,6 +452,7 @@ export default function App() {
             onSave={handleSaveLookupTable}
             onCancel={() => setPage('lookup-detail')}
             onHome={handleGoToDashboard}
+            factFields={spaceFactFields}
           />
         )}
       </main>
@@ -388,6 +474,24 @@ export default function App() {
           open={editMetaOpen}
           onClose={() => setEditMetaOpen(false)}
           onSave={handleEditMeta}
+        />
+      )}
+
+      {selectedTable && (
+        <EditTableModal
+          tbl={selectedTable}
+          open={editTableOpen}
+          onClose={() => setEditTableOpen(false)}
+          onSave={handleEditTableMeta}
+        />
+      )}
+
+      {selectedLookupTable && (
+        <EditLookupTableModal
+          tbl={selectedLookupTable}
+          open={editLookupOpen}
+          onClose={() => setEditLookupOpen(false)}
+          onSave={handleEditLookupMeta}
         />
       )}
 

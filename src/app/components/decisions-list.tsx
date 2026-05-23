@@ -6,6 +6,9 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from './ui/select';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from './ui/dropdown-menu';
 
 /* ── NEW DECISION MODAL ──────────────────────────── */
 type DecisionType = 'rule' | 'table' | 'flow';
@@ -26,7 +29,7 @@ const DECISION_OPTIONS: { type: DecisionType; label: string; desc: string; avail
     type: 'table',
     label: 'Decision Table',
     desc: 'Map input combinations to outputs using a structured lookup table.',
-    available: false,
+    available: true,
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
         <rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18M3 15h18M9 3v18" />
@@ -47,12 +50,8 @@ const DECISION_OPTIONS: { type: DecisionType; label: string; desc: string; avail
   },
 ];
 
-const NewDecisionModal: React.FC<{ open: boolean; onClose: () => void; onCreateRule: () => void }> = ({ open, onClose, onCreateRule }) => {
+const NewDecisionModal: React.FC<{ open: boolean; onClose: () => void; onCreateRule: () => void; onCreateTable?: () => void; onImportTable?: () => void }> = ({ open, onClose, onCreateRule, onCreateTable, onImportTable }) => {
   const [selected, setSelected] = useState<DecisionType>('rule');
-
-  const handleCreate = () => {
-    if (selected === 'rule') { onClose(); onCreateRule(); }
-  };
 
   return (
     <Modal open={open} onClose={onClose} title="New Decision" subtitle="Choose the type of decision to create." width="max-w-md">
@@ -93,11 +92,22 @@ const NewDecisionModal: React.FC<{ open: boolean; onClose: () => void; onCreateR
           </label>
         ))}
       </div>
-      <div className="px-5 pb-5 flex justify-end gap-2">
-        <Btn variant="secondary" onClick={onClose}>Cancel</Btn>
-        <Btn onClick={handleCreate} disabled={!DECISION_OPTIONS.find(o => o.type === selected)?.available}>
-          Create {DECISION_OPTIONS.find(o => o.type === selected)?.label}
-        </Btn>
+      <div className="px-5 pb-5">
+        {selected === 'rule' && (
+          <Btn className="w-full justify-center" onClick={() => { onClose(); onCreateRule(); }}>Create Rule</Btn>
+        )}
+        {selected === 'table' && (
+          <div className="flex gap-2">
+            <Btn className="flex-1 justify-center" onClick={() => { onClose(); onCreateTable?.(); }}>Create Table</Btn>
+            <Btn variant="outline" className="flex-1 justify-center" onClick={() => { onClose(); onImportTable?.(); }}>Import Table</Btn>
+          </div>
+        )}
+        {selected === 'flow' && (
+          <div className="flex justify-end gap-2">
+            <Btn variant="secondary" onClick={onClose}>Cancel</Btn>
+            <Btn disabled>Create Flow</Btn>
+          </div>
+        )}
       </div>
     </Modal>
   );
@@ -333,11 +343,12 @@ interface UnifiedTableProps {
   onDeleteRule: (rule: Rule) => void;
   onViewTable: (tbl: Table) => void;
   onViewFlow: (flow: Flow) => void;
+  onTestRule?: (rule: Rule) => void;
 }
 
 const UnifiedTable: React.FC<UnifiedTableProps> = ({
   items, page, onPageChange, sort, onSort, expanded, onToggle,
-  onViewRule, onEditRule, onDeleteRule, onViewTable, onViewFlow,
+  onViewRule, onEditRule, onDeleteRule, onViewTable, onViewFlow, onTestRule,
 }) => {
   const pageItems = items.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
@@ -377,6 +388,16 @@ const UnifiedTable: React.FC<UnifiedTableProps> = ({
                         className="text-sm font-medium text-primary hover:text-primary/80 hover:underline text-left leading-snug">
                         {item.name}
                       </button>
+                    ) : item.kind === 'table' ? (
+                      <button onClick={e => { e.stopPropagation(); onViewTable(item.raw as Table); }}
+                        className="text-sm font-medium text-primary hover:text-primary/80 hover:underline text-left leading-snug">
+                        {item.name}
+                      </button>
+                    ) : item.kind === 'flow' ? (
+                      <button onClick={e => { e.stopPropagation(); onViewFlow(item.raw as Flow); }}
+                        className="text-sm font-medium text-primary hover:text-primary/80 hover:underline text-left leading-snug">
+                        {item.name}
+                      </button>
                     ) : (
                       <span className="text-sm font-medium text-foreground leading-snug">{item.name}</span>
                     )}
@@ -401,19 +422,47 @@ const UnifiedTable: React.FC<UnifiedTableProps> = ({
                   {/* Actions */}
                   <td className="px-4 py-2" onClick={e => e.stopPropagation()}>
                     <div className="flex items-center gap-0.5">
-                      <Btn size="icon" variant="ghost" onClick={() => handleView(item)} title="View">
+                      <Btn size="icon" variant="ghost" onClick={() => handleView(item)} title="Preview">
                         <IC.Eye size={13} className="text-muted-foreground" />
                       </Btn>
-                      {isRule && (
-                        <>
-                          <Btn size="icon" variant="ghost" onClick={() => onEditRule(item.raw as Rule)} title="Edit">
-                            <IC.Edit size={13} className="text-muted-foreground" />
-                          </Btn>
-                          <Btn size="icon" variant="ghost" onClick={() => onDeleteRule(item.raw as Rule)} className="hover:bg-destructive/10" title="Delete">
-                            <IC.Trash size={13} className="text-destructive/70" />
-                          </Btn>
-                        </>
-                      )}
+                      <Btn size="icon" variant="ghost"
+                        onClick={() => isRule && onTestRule ? onTestRule(item.raw as Rule) : handleView(item)}
+                        title="Test">
+                        <IC.Play size={13} className="text-muted-foreground" />
+                      </Btn>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            title="More options"
+                            className="inline-flex items-center justify-center h-8 w-8 rounded-md text-foreground hover:bg-accent hover:text-accent-foreground transition-all focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1"
+                          >
+                            <IC.MoreVert size={13} className="text-muted-foreground" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleView(item)}>
+                            <IC.Eye size={13} />
+                            Preview
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => isRule && onTestRule ? onTestRule(item.raw as Rule) : handleView(item)}>
+                            <IC.Play size={13} />
+                            Test Rule
+                          </DropdownMenuItem>
+                          {isRule && (
+                            <DropdownMenuItem onClick={() => onEditRule(item.raw as Rule)}>
+                              <IC.Edit size={13} />
+                              Edit
+                            </DropdownMenuItem>
+                          )}
+                          {isRule && (
+                            <DropdownMenuItem onClick={() => onDeleteRule(item.raw as Rule)} className="text-destructive focus:text-destructive">
+                              <IC.Trash size={13} />
+                              Delete
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                       <span className={cn('ml-0.5 text-muted-foreground transition-transform duration-150', isExpanded && 'rotate-180')}>
                         <IC.ChevD size={12} />
                       </span>
@@ -450,12 +499,14 @@ interface DecisionsPageProps {
   onEditRule: (rule: Rule) => void;
   onDeleteRule: (rule: Rule) => void;
   onViewTable: (tbl: Table) => void;
+  onCreateTable?: () => void;
   onViewFlow: (flow: Flow) => void;
   onHome?: () => void;
+  onTestRule?: (rule: Rule) => void;
 }
 
 export const DecisionsPage: React.FC<DecisionsPageProps> = ({
-  rules, tables, flows, onViewRule, onCreateRule, onEditRule, onDeleteRule, onViewTable, onViewFlow, onHome,
+  rules, tables, flows, onViewRule, onCreateRule, onEditRule, onDeleteRule, onViewTable, onCreateTable, onViewFlow, onHome, onTestRule,
 }) => {
   const [newDecisionOpen, setNewDecisionOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('all');
@@ -511,7 +562,7 @@ export const DecisionsPage: React.FC<DecisionsPageProps> = ({
 
   return (
     <div className="flex flex-col h-full">
-      <NewDecisionModal open={newDecisionOpen} onClose={() => setNewDecisionOpen(false)} onCreateRule={onCreateRule} />
+      <NewDecisionModal open={newDecisionOpen} onClose={() => setNewDecisionOpen(false)} onCreateRule={onCreateRule} onCreateTable={onCreateTable} />
       {/* header */}
       <div className="bg-background border-b border-border px-6 py-4">
         <div className="flex items-center gap-1.5 text-sm font-medium mb-3">
@@ -582,6 +633,7 @@ export const DecisionsPage: React.FC<DecisionsPageProps> = ({
             onDeleteRule={onDeleteRule}
             onViewTable={onViewTable}
             onViewFlow={onViewFlow}
+            onTestRule={onTestRule}
           />
         </div>
       </div>

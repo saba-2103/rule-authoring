@@ -551,9 +551,10 @@ interface RuleDetailPageProps {
   onNewVersion: (rule: Rule) => void;
   onEditMeta: () => void;
   initialVersion?: number;
+  onTestRule?: (rule: Rule, version: number) => void;
 }
 
-export const RuleDetailPage: React.FC<RuleDetailPageProps> = ({ rule, onBack, onUpdate, onNewVersion, onEditMeta, initialVersion }) => {
+export const RuleDetailPage: React.FC<RuleDetailPageProps> = ({ rule, onBack, onUpdate, onNewVersion, onEditMeta, initialVersion, onTestRule }) => {
   const [selVer, setSelVer] = useState<RuleVersion | null>(() => {
     if (initialVersion != null) return rule.versions.find(v => v.version === initialVersion) ?? null;
     // Default to the highest version number (latest created)
@@ -743,14 +744,21 @@ export const RuleDetailPage: React.FC<RuleDetailPageProps> = ({ rule, onBack, on
               <div className="bg-card rounded-xl border border-border p-5">
                 <div className="flex items-center justify-between mb-4">
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Rule Logic</p>
-                  <div className="flex items-center bg-muted rounded-lg p-0.5">
-                    {(['preview', 'code'] as const).map(v => (
-                      <button key={v} type="button" onClick={() => setLogicView(v)}
-                        className={cn('px-2.5 py-1 text-xs font-medium rounded-md transition-colors capitalize',
-                          logicView === v ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
-                        {v}
-                      </button>
-                    ))}
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center bg-muted rounded-lg p-0.5">
+                      {(['preview', 'code'] as const).map(v => (
+                        <button key={v} type="button" onClick={() => setLogicView(v)}
+                          className={cn('px-2.5 py-1 text-xs font-medium rounded-md transition-colors capitalize',
+                            logicView === v ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
+                          {v}
+                        </button>
+                      ))}
+                    </div>
+                    {onTestRule && selVer && (
+                      <Btn variant="outline" size="sm" onClick={() => onTestRule(rule, selVer.version)}>
+                        <IC.Play size={12} />Test Rule
+                      </Btn>
+                    )}
                   </div>
                 </div>
                 {logicView === 'preview'
