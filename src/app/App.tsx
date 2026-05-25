@@ -1,6 +1,6 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
-  uid, IC, PrimarySidebar, SecondarySidebar, Toast,
+  uid, IC, Modal, PrimarySidebar, SecondarySidebar, Toast,
   SEED_SPACES, SEED_RULES, SEED_GTL_RULES, SEED_A2_RULES, SEED_A3_RULES, SEED_A4_RULES, SEED_A5_RULES,
   SEED_TABLES, SEED_FLOWS, SEED_FACTS, SEED_FACT_FIELDS, SEED_LOOKUP_TABLES,
   Space, Rule, Table, Flow, Fact, FactField, LookupTable,
@@ -32,6 +32,344 @@ type Page =
   | 'lookup-create'
   | 'lookup-new-version';
 
+/* ── HELP MODAL ──────────────────────────────────── */
+type ApiEntry   = { method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'; path: string; desc: string };
+type PathFilter = { normalized: string; methods?: string[] };
+type PageHelpExtra = { pageTitle: string; extraData: { label: string; detail: string }[] };
+
+const OPENAPI_URL = 'https://rule-engine-dev.anairacloud.com/openapi';
+const HTTP_METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const;
+function normPath(p: string) { return p.replace(/\{[^}]+\}/g, '{?}'); }
+
+const METHOD_PILL: Record<string, string> = {
+  GET:    'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',
+  POST:   'bg-blue-50 text-blue-700 ring-1 ring-blue-200',
+  PUT:    'bg-amber-50 text-amber-700 ring-1 ring-amber-200',
+  PATCH:  'bg-violet-50 text-violet-700 ring-1 ring-violet-200',
+  DELETE: 'bg-rose-50 text-rose-700 ring-1 ring-rose-200',
+};
+
+// Path filters: normalized paths (with {?} placeholders) to include per page
+const PAGE_PATH_FILTERS: Partial<Record<Page, PathFilter[]>> = {
+  decisions: [
+    { normalized: '/api/v1/spaces/{?}/rules',         methods: ['get'] },
+    { normalized: '/api/v1/spaces/{?}/tables',        methods: ['get'] },
+    { normalized: '/api/v1/spaces/{?}/flows',         methods: ['get'] },
+    { normalized: '/api/v1/spaces/{?}/lookup-tables', methods: ['get'] },
+    { normalized: '/api/v1/spaces/{?}/documents' },
+    { normalized: '/api/v1/spaces/{?}/rules/{?}',     methods: ['delete'] },
+  ],
+  'rule-detail': [
+    { normalized: '/api/v1/spaces/{?}/rules/{?}',                         methods: ['get', 'put'] },
+    { normalized: '/api/v1/spaces/{?}/rules/{?}/versions',                methods: ['get'] },
+    { normalized: '/api/v1/spaces/{?}/rules/{?}/versions/{?}',            methods: ['get', 'patch', 'delete'] },
+    { normalized: '/api/v1/spaces/{?}/rules/{?}/versions/{?}/activate' },
+    { normalized: '/api/v1/spaces/{?}/rules/{?}/versions/{?}/deactivate' },
+    { normalized: '/api/v1/spaces/{?}/rules/{?}/versions/{?}/restore' },
+  ],
+  'rule-create': [
+    { normalized: '/api/v1/spaces/{?}/rules',              methods: ['post'] },
+    { normalized: '/api/v1/spaces/{?}/rules/{?}/versions', methods: ['post'] },
+    { normalized: '/api/v1/fact-types',                    methods: ['get'] },
+    { normalized: '/api/v1/fact-types/{?}/fields',         methods: ['get'] },
+    { normalized: '/api/v1/metadata/operators',            methods: ['get'] },
+    { normalized: '/api/v1/metadata/actions',              methods: ['get'] },
+  ],
+  'rule-new-version': [
+    { normalized: '/api/v1/spaces/{?}/rules/{?}',          methods: ['get'] },
+    { normalized: '/api/v1/spaces/{?}/rules/{?}/versions', methods: ['post'] },
+    { normalized: '/api/v1/fact-types',                    methods: ['get'] },
+    { normalized: '/api/v1/fact-types/{?}/fields',         methods: ['get'] },
+    { normalized: '/api/v1/metadata/operators',            methods: ['get'] },
+    { normalized: '/api/v1/metadata/actions',              methods: ['get'] },
+  ],
+  'table-detail': [
+    { normalized: '/api/v1/spaces/{?}/tables/{?}',                         methods: ['get', 'put'] },
+    { normalized: '/api/v1/spaces/{?}/tables/{?}/versions',                methods: ['get'] },
+    { normalized: '/api/v1/spaces/{?}/tables/{?}/versions/{?}',            methods: ['get', 'patch', 'delete'] },
+    { normalized: '/api/v1/spaces/{?}/tables/{?}/versions/{?}/activate' },
+    { normalized: '/api/v1/spaces/{?}/tables/{?}/versions/{?}/deactivate' },
+    { normalized: '/api/v1/spaces/{?}/tables/{?}/versions/{?}/restore' },
+    { normalized: '/api/v1/spaces/{?}/tables/{?}/rows/{?}/enable' },
+    { normalized: '/api/v1/spaces/{?}/tables/{?}/rows/{?}/disable' },
+  ],
+  'table-create': [
+    { normalized: '/api/v1/spaces/{?}/tables',              methods: ['post'] },
+    { normalized: '/api/v1/spaces/{?}/tables/{?}/versions', methods: ['post'] },
+    { normalized: '/api/v1/spaces/{?}/tables/import/preview' },
+    { normalized: '/api/v1/spaces/{?}/tables/import/upload' },
+    { normalized: '/api/v1/fact-types',                     methods: ['get'] },
+    { normalized: '/api/v1/fact-types/{?}/fields',          methods: ['get'] },
+    { normalized: '/api/v1/metadata/operators',             methods: ['get'] },
+    { normalized: '/api/v1/metadata/data-types',            methods: ['get'] },
+  ],
+  'table-new-version': [
+    { normalized: '/api/v1/spaces/{?}/tables/{?}',          methods: ['get'] },
+    { normalized: '/api/v1/spaces/{?}/tables/{?}/versions', methods: ['post'] },
+    { normalized: '/api/v1/fact-types',                     methods: ['get'] },
+    { normalized: '/api/v1/fact-types/{?}/fields',          methods: ['get'] },
+    { normalized: '/api/v1/metadata/operators',             methods: ['get'] },
+  ],
+  'flow-detail': [
+    { normalized: '/api/v1/spaces/{?}/flows/{?}',                         methods: ['get', 'put'] },
+    { normalized: '/api/v1/spaces/{?}/flows/{?}/versions',                methods: ['get'] },
+    { normalized: '/api/v1/spaces/{?}/flows/{?}/versions/{?}',            methods: ['get', 'patch', 'delete'] },
+    { normalized: '/api/v1/spaces/{?}/flows/{?}/versions/{?}/activate' },
+    { normalized: '/api/v1/spaces/{?}/flows/{?}/versions/{?}/deactivate' },
+    { normalized: '/api/v1/spaces/{?}/flows/{?}/versions/{?}/restore' },
+  ],
+  spaces: [
+    { normalized: '/api/v1/spaces' },
+    { normalized: '/api/v1/spaces/{?}' },
+    { normalized: '/api/v1/spaces/{?}/members' },
+    { normalized: '/api/v1/spaces/{?}/members/{?}' },
+    { normalized: '/api/v1/spaces/{?}/analytics' },
+    { normalized: '/api/v1/spaces/{?}/audit-trail' },
+  ],
+  fields: [
+    { normalized: '/api/v1/fact-types' },
+    { normalized: '/api/v1/fact-types/{?}' },
+    { normalized: '/api/v1/fact-types/{?}/fields' },
+    { normalized: '/api/v1/fact-types/{?}/fields/{?}' },
+    { normalized: '/api/v1/metadata/data-types', methods: ['get'] },
+  ],
+  sandbox: [
+    { normalized: '/api/v1/spaces/{?}/rules/{?}/execute' },
+    { normalized: '/api/v1/spaces/{?}/tables/{?}/execute' },
+    { normalized: '/api/v1/spaces/{?}/execute/{?}' },
+  ],
+  lookup: [
+    { normalized: '/api/v1/spaces/{?}/lookup-tables',      methods: ['get', 'post'] },
+    { normalized: '/api/v1/spaces/{?}/lookup-tables/{?}',  methods: ['get', 'put', 'delete'] },
+  ],
+  'lookup-detail': [
+    { normalized: '/api/v1/spaces/{?}/lookup-tables/{?}',                         methods: ['get', 'put'] },
+    { normalized: '/api/v1/spaces/{?}/lookup-tables/{?}/versions',                methods: ['get'] },
+    { normalized: '/api/v1/spaces/{?}/lookup-tables/{?}/versions/{?}',            methods: ['get'] },
+    { normalized: '/api/v1/spaces/{?}/lookup-tables/{?}/versions/{?}/activate' },
+    { normalized: '/api/v1/spaces/{?}/lookup-tables/{?}/versions/{?}/deactivate' },
+    { normalized: '/api/v1/spaces/{?}/lookup-tables/{?}/versions/{?}/restore' },
+  ],
+  'lookup-create': [
+    { normalized: '/api/v1/spaces/{?}/lookup-tables',              methods: ['post'] },
+    { normalized: '/api/v1/spaces/{?}/lookup-tables/{?}/versions', methods: ['post'] },
+    { normalized: '/api/v1/metadata/data-types',                   methods: ['get'] },
+  ],
+  'lookup-new-version': [
+    { normalized: '/api/v1/spaces/{?}/lookup-tables/{?}',          methods: ['get'] },
+    { normalized: '/api/v1/spaces/{?}/lookup-tables/{?}/versions', methods: ['post'] },
+    { normalized: '/api/v1/metadata/data-types',                   methods: ['get'] },
+  ],
+};
+
+// Static extra data (client-side context not covered by the API)
+const PAGE_HELP_EXTRA: Partial<Record<Page, PageHelpExtra>> = {
+  decisions: {
+    pageTitle: 'Decisions List',
+    extraData: [
+      { label: 'Categories & Tags',   detail: 'Static list defined client-side; not a dedicated API resource' },
+      { label: 'Status badge config', detail: 'Colour and label mapping for version lifecycle states is local config' },
+      { label: 'Document counts',     detail: '"All" tab counts are computed by aggregating list responses client-side' },
+    ],
+  },
+  'rule-detail': {
+    pageTitle: 'Rule Detail',
+    extraData: [
+      { label: 'Fact type field labels',  detail: 'Field display names are resolved from GET /api/v1/fact-types/{factType}/fields and cached locally' },
+      { label: 'Operator display labels', detail: 'Human-readable operator names (e.g. "equals") are a local mapping over the operator enum' },
+      { label: 'Block type labels',       detail: 'Block type names (IF, ELSE IF, ELSE, OVERRIDE, DEFAULT) are local constants' },
+    ],
+  },
+  'rule-create': {
+    pageTitle: 'Rule Create',
+    extraData: [
+      { label: 'Categories',        detail: 'Static list of categories (Motor, Life, Health, etc.) defined client-side' },
+      { label: 'Block type options', detail: 'Block types are local constants; not returned by any API' },
+      { label: 'Tags',              detail: 'Free-form strings entered by the user; no tag registry API exists' },
+    ],
+  },
+  'rule-new-version': {
+    pageTitle: 'Rule — New Version',
+    extraData: [
+      { label: 'Prefilled logic',    detail: "The previous version's rule tree is copied client-side as a starting point" },
+      { label: 'Block type options', detail: 'IF / ELSE IF / ELSE / OVERRIDE / DEFAULT are local constants' },
+    ],
+  },
+  'table-detail': {
+    pageTitle: 'Decision Table Detail',
+    extraData: [
+      { label: 'Hit policy labels',       detail: 'Hit policy options (First Match, Collect All, etc.) are a local enum; the API stores the raw value string' },
+      { label: 'Operator display labels', detail: 'Operator names for input columns are mapped client-side from the operator enum' },
+    ],
+  },
+  'table-create': {
+    pageTitle: 'Decision Table Create',
+    extraData: [
+      { label: 'Hit policy options', detail: 'First Match / Collect All / Unique Match / Priority Order are local constants' },
+      { label: 'Categories',        detail: 'Static list of categories defined client-side' },
+    ],
+  },
+  'table-new-version': {
+    pageTitle: 'Decision Table — New Version',
+    extraData: [
+      { label: 'Schema prefill', detail: "Previous version's column schema and rows are copied client-side as a starting point" },
+    ],
+  },
+  'flow-detail': {
+    pageTitle: 'Flow Detail',
+    extraData: [
+      { label: 'Flow node types', detail: 'Node type definitions and connection schema are defined locally; flow authoring is not yet backed by the API' },
+      { label: 'Visual canvas',   detail: 'Flow graph layout and node positions are client-side state only' },
+    ],
+  },
+  spaces: {
+    pageTitle: 'Spaces',
+    extraData: [
+      { label: 'Member roles',         detail: 'Available roles (ADMIN, RULE_AUTHOR, RULE_APPROVER, RULE_EXECUTOR, VIEWER) are local constants' },
+      { label: 'Space switcher state', detail: 'The currently active space is client-side state; no API call persists this selection' },
+    ],
+  },
+  fields: {
+    pageTitle: 'Fields & Fact Types',
+    extraData: [
+      { label: 'Data type display labels', detail: 'Human-readable labels for data types (e.g. "Text" for string) are a local mapping' },
+    ],
+  },
+  sandbox: {
+    pageTitle: 'Sandbox',
+    extraData: [
+      { label: 'Client-side evaluation', detail: 'In this prototype, rule/table/lookup evaluation runs in-browser using local data. The live API will replace this.' },
+      { label: 'Input schema',           detail: 'Input field names and types are derived from fact type definitions stored locally' },
+      { label: 'Lookup execution',       detail: 'No dedicated lookup table execute endpoint exists; lookup key resolution is computed client-side' },
+    ],
+  },
+  lookup: {
+    pageTitle: 'Lookup Tables',
+    extraData: [
+      { label: 'Categories', detail: 'Static category list defined client-side' },
+      { label: 'Data types', detail: 'Key and value column data types use GET /api/v1/metadata/data-types; display labels are mapped client-side' },
+    ],
+  },
+  'lookup-detail': {
+    pageTitle: 'Lookup Table Detail',
+    extraData: [
+      { label: 'Data type labels', detail: 'Display names for column data types are mapped client-side from the API enum values' },
+    ],
+  },
+  'lookup-create': {
+    pageTitle: 'Lookup Table Create',
+    extraData: [
+      { label: 'Categories', detail: 'Static category list defined client-side' },
+    ],
+  },
+  'lookup-new-version': {
+    pageTitle: 'Lookup Table — New Version',
+    extraData: [
+      { label: 'Schema prefill', detail: "Previous version's key/value column schema is copied client-side as a starting point" },
+    ],
+  },
+};
+
+const HelpModal: React.FC<{ open: boolean; onClose: () => void; page: Page }> = ({ open, onClose, page }) => {
+  const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [endpoints, setEndpoints] = useState<ApiEntry[] | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const filters = PAGE_PATH_FILTERS[page];
+    if (!filters) { setEndpoints([]); return; }
+    setLoading(true); setFetchError(null); setEndpoints(null);
+    fetch(OPENAPI_URL, { headers: { Accept: 'application/json' } })
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then((spec: any) => {
+        const paths: Record<string, any> = spec.paths || {};
+        const found: ApiEntry[] = [];
+        for (const filter of filters) {
+          for (const [specPath, pathItem] of Object.entries(paths)) {
+            if (normPath(specPath) === filter.normalized) {
+              for (const method of HTTP_METHODS) {
+                if (method in pathItem) {
+                  if (!filter.methods || filter.methods.includes(method)) {
+                    found.push({ method: method.toUpperCase() as ApiEntry['method'], path: specPath, desc: (pathItem as any)[method].summary || '' });
+                  }
+                }
+              }
+            }
+          }
+        }
+        setEndpoints(found);
+      })
+      .catch(e => setFetchError(e.message || 'Failed to load API specification'))
+      .finally(() => setLoading(false));
+  }, [open, page]);
+
+  const extra = PAGE_HELP_EXTRA[page];
+  const pageTitle = extra?.pageTitle ?? page;
+  const specHost = OPENAPI_URL.replace('https://', '').replace('/openapi', '');
+
+  return (
+    <Modal open={open} onClose={onClose} title={`API Reference — ${pageTitle}`} subtitle="Endpoints consumed by this page · fetched live from the OpenAPI spec" width="max-w-2xl">
+      <div className="p-5 flex flex-col gap-6">
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">APIs Used</p>
+            {!loading && !fetchError && endpoints != null && (
+              <span className="text-[10px] text-muted-foreground flex items-center gap-1.5">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                Live · {specHost}
+              </span>
+            )}
+          </div>
+          {loading && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground py-6 justify-center">
+              <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
+              Fetching live API spec…
+            </div>
+          )}
+          {fetchError && (
+            <div className="flex items-start gap-2 rounded-lg bg-destructive/5 border border-destructive/20 px-3 py-2.5 text-xs text-destructive">
+              <IC.X size={12} className="shrink-0 mt-0.5" />
+              <span>Could not reach the API spec: {fetchError}. Check network connectivity or CORS settings on the server.</span>
+            </div>
+          )}
+          {!loading && !fetchError && endpoints != null && (
+            endpoints.length === 0
+              ? <p className="text-xs text-muted-foreground py-2">No matching endpoints found for this page.</p>
+              : <div className="flex flex-col gap-1.5">
+                  {endpoints.map((api, i) => (
+                    <div key={i} className="flex items-start gap-3 rounded-lg border border-border bg-muted/20 px-3 py-2.5">
+                      <span className={`shrink-0 mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold font-mono ${METHOD_PILL[api.method]}`}>{api.method}</span>
+                      <div className="min-w-0">
+                        <code className="text-xs font-mono text-foreground break-all">{api.path}</code>
+                        {api.desc && <p className="text-xs text-muted-foreground mt-0.5">{api.desc}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+          )}
+        </div>
+        {extra && extra.extraData.length > 0 && (
+          <div>
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">Additional Data (Not in API Contract)</p>
+            <div className="flex flex-col gap-2">
+              {extra.extraData.map((item, i) => (
+                <div key={i} className="flex items-start gap-3 rounded-lg bg-amber-50/60 border border-amber-100 px-3 py-2.5">
+                  <span className="shrink-0 mt-1.5 w-1.5 h-1.5 rounded-full bg-amber-400" />
+                  <div>
+                    <p className="text-xs font-semibold text-foreground">{item.label}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{item.detail}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+};
+
 export default function App() {
   /* ── STATE ─────────────────────────────────────── */
   const [primaryNav, setPrimaryNav] = useState('rules');
@@ -62,6 +400,7 @@ export default function App() {
   const [editLookupOpen, setEditLookupOpen] = useState(false);
   const [deleteRule, setDeleteRule] = useState<Rule | null>(null);
   const [spacePickerOpen, setSpacePickerOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const currentSpace = spaces.find(s => s.id === currentSpaceId) || spaces[0];
@@ -280,15 +619,24 @@ export default function App() {
       />
 
       <main className="flex-1 overflow-hidden flex flex-col relative">
-        {/* Space selector — top-right corner */}
-        <button
-          onClick={() => setSpacePickerOpen(true)}
-          className="absolute top-3 right-4 z-10 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg hover:bg-accent transition-colors"
-        >
-          <span className="text-muted-foreground font-normal">Space</span>
-          <span className="truncate max-w-[160px] text-foreground font-semibold">{currentSpace.name}</span>
-          <IC.ChevD size={12} className="text-muted-foreground shrink-0" />
-        </button>
+        {/* Top-right controls */}
+        <div className="absolute top-3 right-4 z-10 flex items-center gap-1">
+          <button
+            onClick={() => setHelpOpen(true)}
+            title="API Reference"
+            className="p-1.5 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+          >
+            <IC.HelpCircle size={16} />
+          </button>
+          <button
+            onClick={() => setSpacePickerOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg hover:bg-accent transition-colors"
+          >
+            <span className="text-muted-foreground font-normal">Space</span>
+            <span className="truncate max-w-[160px] text-foreground font-semibold">{currentSpace.name}</span>
+            <IC.ChevD size={12} className="text-muted-foreground shrink-0" />
+          </button>
+        </div>
         {/* Spaces Page */}
         {page === 'spaces' && (
           <SpacesPage
@@ -501,6 +849,8 @@ export default function App() {
         onClose={() => setDeleteRule(null)}
         onConfirm={handleConfirmDelete}
       />
+
+      <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} page={page} />
 
       {toast && <Toast msg={toast} onDone={() => setToast(null)} />}
     </div>

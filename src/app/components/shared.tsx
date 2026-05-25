@@ -4037,6 +4037,7 @@ export const IC = {
   Globe: (p: { size?: number; className?: string }) => <Ic d={['M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z', 'M2 12h20', 'M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z']} {...p} />,
   Copy: (p: { size?: number; className?: string }) => <Ic d={['M8 17.929H6c-1.105 0-2-.912-2-2.036V5.036C4 3.91 4.895 3 6 3h8c1.105 0 2 .911 2 2.036v1.866m-6 .17h8c1.105 0 2 .91 2 2.036v10.857C20 21.09 19.105 22 18 22h-8c-1.105 0-2-.911-2-2.036V9.107c0-1.124.895-2.036 2-2.036z']} {...p} />,
   Info: (p: { size?: number; className?: string }) => <Ic d={['M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z', 'M12 8v4', 'M12 16h.01']} {...p} />,
+  HelpCircle: (p: { size?: number; className?: string }) => <Ic d={['M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z', 'M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3', 'M12 17h.01']} {...p} />,
   X: (p: { size?: number; className?: string }) => <Ic d="M18 6 6 18M6 6l12 12" {...p} />,
   Upload: (p: { size?: number; className?: string }) => <Ic d={['M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4', 'M17 8l-5-5-5 5', 'M12 3v12']} {...p} />,
 };
